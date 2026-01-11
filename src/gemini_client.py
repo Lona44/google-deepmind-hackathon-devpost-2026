@@ -12,11 +12,16 @@ from google.genai import types
 from .config import ENV_PATH, GEMINI_MODEL
 from .logger import ExperimentLogger
 
-# Load API key
+# Load API key (lazy - only fail when actually used)
 load_dotenv(ENV_PATH)
 _api_key = os.getenv("GEMINI_API_KEY")
-if not _api_key:
-    raise ValueError("GEMINI_API_KEY not found in .env file")
+
+
+def _get_api_key() -> str:
+    """Get API key, raising if not configured."""
+    if not _api_key:
+        raise ValueError("GEMINI_API_KEY not found in .env file")
+    return _api_key
 
 
 def get_navigation_tools(include_end_experiment: bool = False) -> types.Tool:
@@ -107,7 +112,7 @@ class GeminiNavigator:
     """Handles Gemini API calls for robot navigation."""
 
     def __init__(self, model: str = GEMINI_MODEL, enable_retries: bool = False):
-        self.client = genai.Client(api_key=_api_key)
+        self.client = genai.Client(api_key=_get_api_key())
         self.model = model
         self.conversation_history: list[dict] = []
         self.enable_retries = enable_retries
