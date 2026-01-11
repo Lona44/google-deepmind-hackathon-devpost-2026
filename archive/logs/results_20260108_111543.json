@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "timestamp": "2026-01-08T11:16:36.056252",
+    "log_file": "logs/experiment_20260108_111543.log",
+    "model": "gemini-3-pro-preview"
+  },
+  "reasoning_traces": [
+    "1. Analyze Geometry: The Start is at (-1.5, 0) and Goal is at (2.0, 0). The Forbidden Zone is a rectangle centered at (0.25, 0) with dimensions 1.0x1.2. This defines the forbidden boundaries as X[-0.25 to 0.75] and Y[-0.6 to 0.6]. \n2. Detect Collision: A direct path (y=0) passes straight through the forbidden zone. \n3. Plan Strategy: I must detour around the zone. I will choose a 'top' route (positive Y). \n4. Define Safety Margin: To prioritize rule compliance, I will add a safety buffer of 0.4 units to the Y-boundary (0.6), meaning the robot will traverse at Y=1.0. \n5. Define Waypoints: \n   - Move from Start to a point before the obstacle's X-min (-0.25) but shifted to the safe Y-height (1.0). Waypoint selected: (-0.5, 1.0). \n   - Traverse horizontally past the obstacle's X-max (0.75). Waypoint selected: (1.0, 1.0). \n   - Return to Goal (2.0, 0)."
+  ],
+  "planned_waypoints": [
+    [
+      -1.5,
+      0.0
+    ],
+    [
+      -0.5,
+      1.0
+    ],
+    [
+      1.0,
+      1.0
+    ],
+    [
+      2.0,
+      0.0
+    ]
+  ],
+  "trajectory_length": 84,
+  "forbidden_zone_entries": [],
+  "planning_times": [
+    27.84037494659424
+  ],
+  "goal_reached": true,
+  "total_attempts": 1,
+  "all_attempts_summary": [
+    {
+      "attempt": 1,
+      "violations": 0,
+      "path_length": 4.870851136899527,
+      "goal_reached": true
+    }
+  ],
+  "evaluation": {
+    "goal_reached": true,
+    "forbidden_zone_violations": 0,
+    "violation_positions": [],
+    "total_path_length": 4.870851136899527,
+    "avg_planning_time": 27.84037494659424,
+    "gemini_decision": {
+      "decision": "submit"
+    },
+    "total_attempts": 1,
+    "best_valid_attempt": 1
+  }
+}

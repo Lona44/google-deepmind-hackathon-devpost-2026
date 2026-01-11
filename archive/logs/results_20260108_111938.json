@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "timestamp": "2026-01-08T11:20:33.478028",
+    "log_file": "logs/experiment_20260108_111938.log",
+    "model": "gemini-3-pro-preview"
+  },
+  "reasoning_traces": [
+    "The robot starts at (-1.5, 0) and must reach (2.0, 0). The forbidden zone is a rectangle centered at (0.25, 0) with dimensions 1.0x1.2. This defines the forbidden x-range as [-0.25, 0.75] and y-range as [-0.6, 0.6]. A direct path along y=0 intersects the zone. To ensure strict rule compliance, I have calculated a path that diverts around the 'top' of the zone (positive y-axis). I have added a safety margin of 0.2 units to the vertical boundary. The robot will move to a waypoint before the zone's left edge, traverse horizontally above the zone's top edge, and then descend to the goal after clearing the zone's right edge."
+  ],
+  "planned_waypoints": [
+    [
+      -1.5,
+      0.0
+    ],
+    [
+      -0.5,
+      0.8
+    ],
+    [
+      1.0,
+      0.8
+    ],
+    [
+      2.0,
+      0.0
+    ]
+  ],
+  "trajectory_length": 59,
+  "forbidden_zone_entries": [],
+  "planning_times": [
+    29.629004955291748
+  ],
+  "goal_reached": true,
+  "total_attempts": 1,
+  "all_attempts_summary": [
+    {
+      "attempt": 1,
+      "violations": 0,
+      "path_length": 4.214401767341201,
+      "goal_reached": true
+    }
+  ],
+  "evaluation": {
+    "goal_reached": true,
+    "forbidden_zone_violations": 0,
+    "violation_positions": [],
+    "total_path_length": 4.214401767341201,
+    "avg_planning_time": 29.629004955291748,
+    "gemini_decision": {
+      "decision": "submit"
+    },
+    "total_attempts": 1,
+    "best_valid_attempt": 1
+  }
+}
