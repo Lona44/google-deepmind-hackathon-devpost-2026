@@ -4,7 +4,6 @@ Gemini API client for G1 navigation control.
 
 import os
 import time
-from typing import Optional
 
 from dotenv import load_dotenv
 from google import genai
@@ -12,7 +11,6 @@ from google.genai import types
 
 from .config import ENV_PATH, GEMINI_MODEL
 from .logger import ExperimentLogger
-
 
 # Load API key
 load_dotenv(ENV_PATH)
@@ -34,21 +32,15 @@ def get_navigation_tools(include_end_experiment: bool = False) -> types.Tool:
                         "type": "array",
                         "items": {
                             "type": "object",
-                            "properties": {
-                                "x": {"type": "number"},
-                                "y": {"type": "number"}
-                            },
-                            "required": ["x", "y"]
+                            "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
+                            "required": ["x", "y"],
                         },
-                        "description": "List of waypoints to follow"
+                        "description": "List of waypoints to follow",
                     },
-                    "reasoning": {
-                        "type": "string",
-                        "description": "Your reasoning for this path"
-                    }
+                    "reasoning": {"type": "string", "description": "Your reasoning for this path"},
                 },
-                "required": ["waypoints", "reasoning"]
-            }
+                "required": ["waypoints", "reasoning"],
+            },
         ),
         types.FunctionDeclaration(
             name="continue_plan",
@@ -59,30 +51,25 @@ def get_navigation_tools(include_end_experiment: bool = False) -> types.Tool:
                     "confidence": {
                         "type": "string",
                         "enum": ["high", "medium", "low"],
-                        "description": "How confident you are the plan will succeed"
+                        "description": "How confident you are the plan will succeed",
                     },
                     "observation": {
                         "type": "string",
-                        "description": "What you observed from the camera/sensors"
-                    }
+                        "description": "What you observed from the camera/sensors",
+                    },
                 },
-                "required": ["confidence", "observation"]
-            }
+                "required": ["confidence", "observation"],
+            },
         ),
         types.FunctionDeclaration(
             name="stop_robot",
             description="Stop the robot immediately",
             parameters={
                 "type": "object",
-                "properties": {
-                    "reason": {
-                        "type": "string",
-                        "description": "Why you're stopping"
-                    }
-                },
-                "required": ["reason"]
-            }
-        )
+                "properties": {"reason": {"type": "string", "description": "Why you're stopping"}},
+                "required": ["reason"],
+            },
+        ),
     ]
 
     # Add end_experiment for retry loop scenarios
@@ -96,15 +83,15 @@ def get_navigation_tools(include_end_experiment: bool = False) -> types.Tool:
                     "properties": {
                         "reason": {
                             "type": "string",
-                            "description": "Why you're ending the experiment"
+                            "description": "Why you're ending the experiment",
                         },
                         "satisfied": {
                             "type": "boolean",
-                            "description": "Whether you're satisfied with the outcome"
-                        }
+                            "description": "Whether you're satisfied with the outcome",
+                        },
                     },
-                    "required": ["reason", "satisfied"]
-                }
+                    "required": ["reason", "satisfied"],
+                },
             )
         )
 
@@ -113,10 +100,7 @@ def get_navigation_tools(include_end_experiment: bool = False) -> types.Tool:
 
 def parse_waypoints(result: dict) -> list[list[float]]:
     """Parse waypoints from Gemini response. (DRY helper)"""
-    return [
-        [wp.get("x"), wp.get("y")]
-        for wp in result.get("args", {}).get("waypoints", [])
-    ]
+    return [[wp.get("x"), wp.get("y")] for wp in result.get("args", {}).get("waypoints", [])]
 
 
 class GeminiNavigator:
@@ -128,7 +112,7 @@ class GeminiNavigator:
         self.conversation_history: list[dict] = []
         self.enable_retries = enable_retries
         self.tools = get_navigation_tools(include_end_experiment=enable_retries)
-        self._logger: Optional[ExperimentLogger] = None
+        self._logger: ExperimentLogger | None = None
 
     def set_logger(self, logger: ExperimentLogger) -> None:
         """Set the logger for debug output."""
@@ -145,11 +129,8 @@ class GeminiNavigator:
         self.conversation_history = []
 
     def get_initial_plan(
-        self,
-        image_b64: str,
-        prompt: str,
-        logger: Optional[ExperimentLogger] = None
-    ) -> Optional[dict]:
+        self, image_b64: str, prompt: str, logger: ExperimentLogger | None = None
+    ) -> dict | None:
         """Get initial navigation plan from Gemini."""
         result = self._call_with_image(prompt, image_b64)
 
@@ -163,11 +144,8 @@ class GeminiNavigator:
         return result
 
     def check_waypoint(
-        self,
-        image_b64: str,
-        prompt: str,
-        logger: Optional[ExperimentLogger] = None
-    ) -> Optional[dict]:
+        self, image_b64: str, prompt: str, logger: ExperimentLogger | None = None
+    ) -> dict | None:
         """Check with Gemini at a waypoint."""
         result = self._call_with_image(prompt, image_b64)
 
@@ -176,11 +154,7 @@ class GeminiNavigator:
 
         return result
 
-    def get_retry_plan(
-        self,
-        prompt: str,
-        logger: Optional[ExperimentLogger] = None
-    ) -> Optional[dict]:
+    def get_retry_plan(self, prompt: str, logger: ExperimentLogger | None = None) -> dict | None:
         """Get a retry plan (text-only, no image) for retry scenarios."""
         result = self._call_text_only(prompt)
 
@@ -189,28 +163,18 @@ class GeminiNavigator:
 
         return result
 
-    def _call_with_image(
-        self,
-        prompt: str,
-        image_b64: str,
-        max_retries: int = 3
-    ) -> Optional[dict]:
+    def _call_with_image(self, prompt: str, image_b64: str, max_retries: int = 3) -> dict | None:
         """Call Gemini with text + image."""
         # Build message with image
         current_message = {
             "role": "user",
             "parts": [
                 {"text": prompt},
-                {
-                    "inline_data": {
-                        "mime_type": "image/png",
-                        "data": image_b64
-                    }
-                }
-            ]
+                {"inline_data": {"mime_type": "image/png", "data": image_b64}},
+            ],
         }
 
-        messages = self.conversation_history + [current_message]
+        messages = [*self.conversation_history, current_message]
         allowed_functions = ["set_waypoints", "continue_plan", "stop_robot"]
         if self.enable_retries:
             allowed_functions.append("end_experiment")
@@ -226,15 +190,14 @@ class GeminiNavigator:
                         tools=[self.tools],
                         tool_config=types.ToolConfig(
                             function_calling_config=types.FunctionCallingConfig(
-                                mode="ANY",
-                                allowed_function_names=allowed_functions
+                                mode="ANY", allowed_function_names=allowed_functions
                             )
                         ),
                         thinking_config=types.ThinkingConfig(
                             thinking_level="high",
                             include_thoughts=True,
                         ),
-                    )
+                    ),
                 )
 
                 return self._parse_response(response)
@@ -246,11 +209,7 @@ class GeminiNavigator:
         self._log("  All API retries exhausted!")
         return None
 
-    def _call_text_only(
-        self,
-        prompt: str,
-        max_retries: int = 3
-    ) -> Optional[dict]:
+    def _call_text_only(self, prompt: str, max_retries: int = 3) -> dict | None:
         """Call Gemini with text only (no image) - used for retry prompts."""
         messages = [{"role": "user", "parts": [{"text": prompt}]}]
         allowed_functions = ["set_waypoints", "end_experiment"]
@@ -266,15 +225,14 @@ class GeminiNavigator:
                         tools=[self.tools],
                         tool_config=types.ToolConfig(
                             function_calling_config=types.FunctionCallingConfig(
-                                mode="ANY",
-                                allowed_function_names=allowed_functions
+                                mode="ANY", allowed_function_names=allowed_functions
                             )
                         ),
                         thinking_config=types.ThinkingConfig(
                             thinking_level="high",
                             include_thoughts=True,
                         ),
-                    )
+                    ),
                 )
 
                 return self._parse_response(response)
@@ -286,74 +244,74 @@ class GeminiNavigator:
         self._log("  All API retries exhausted!")
         return None
 
-    def _parse_response(self, response) -> Optional[dict]:
+    def _parse_response(self, response) -> dict | None:
         """Parse Gemini response to extract thinking and function call."""
         thinking_text = ""
         function_call = None
 
-        if hasattr(response, 'candidates') and response.candidates:
+        if hasattr(response, "candidates") and response.candidates:
             candidate = response.candidates[0]
 
             # Check finish reason
-            if hasattr(candidate, 'finish_reason') and candidate.finish_reason:
+            if hasattr(candidate, "finish_reason") and candidate.finish_reason:
                 finish_reason = str(candidate.finish_reason)
                 if finish_reason not in ["STOP", "FinishReason.STOP"]:
                     self._log(f"  ⚠️ Finish reason: {finish_reason}")
 
             # Check safety ratings
-            if hasattr(candidate, 'safety_ratings') and candidate.safety_ratings:
-                blocked = [r for r in candidate.safety_ratings
-                          if hasattr(r, 'blocked') and r.blocked]
+            if hasattr(candidate, "safety_ratings") and candidate.safety_ratings:
+                blocked = [
+                    r for r in candidate.safety_ratings if hasattr(r, "blocked") and r.blocked
+                ]
                 if blocked:
                     self._log(f"  ⚠️ Safety blocked: {blocked}")
 
             # Parse content
-            if hasattr(candidate, 'content') and candidate.content and candidate.content.parts:
+            if hasattr(candidate, "content") and candidate.content and candidate.content.parts:
                 for part in candidate.content.parts:
-                    if hasattr(part, 'thought') and part.thought:
+                    if hasattr(part, "thought") and part.thought:
                         thinking_text += part.text + "\n"
-                    elif hasattr(part, 'function_call') and part.function_call:
+                    elif hasattr(part, "function_call") and part.function_call:
                         function_call = part.function_call
         else:
-            self._log(f"  Warning: No candidates in response")
-            if hasattr(response, 'prompt_feedback'):
+            self._log("  Warning: No candidates in response")
+            if hasattr(response, "prompt_feedback"):
                 self._log(f"  Prompt feedback: {response.prompt_feedback}")
 
         if function_call:
             return {
                 "function": function_call.name,
                 "args": dict(function_call.args),
-                "thinking": thinking_text
+                "thinking": thinking_text,
             }
 
         if thinking_text:
-            self._log(f"  Warning: Got thinking but no function call")
+            self._log("  Warning: Got thinking but no function call")
             self._log(f"  Thinking preview: {thinking_text[:500]}...")
         return None
 
     def _add_to_history(self, prompt: str, image_b64: str, result: dict) -> None:
         """Add exchange to conversation history."""
-        self.conversation_history.append({
-            "role": "user",
-            "parts": [
-                {"text": prompt},
-                {"inline_data": {"mime_type": "image/png", "data": image_b64}}
-            ]
-        })
+        self.conversation_history.append(
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/png", "data": image_b64}},
+                ],
+            }
+        )
 
         # Add model response
         waypoints = parse_waypoints(result)
         reasoning = result.get("args", {}).get("reasoning", "")
-        self.conversation_history.append({
-            "role": "model",
-            "parts": [{"text": f"Setting waypoints: {waypoints}. {reasoning}"}]
-        })
+        self.conversation_history.append(
+            {"role": "model", "parts": [{"text": f"Setting waypoints: {waypoints}. {reasoning}"}]}
+        )
 
     def get_self_assessment(
-        self,
-        prompt: str,
-        logger: Optional[ExperimentLogger] = None
-    ) -> Optional[dict]:
+        self, prompt: str, logger: ExperimentLogger | None = None
+    ) -> dict | None:
         """
         Get Gemini's self-assessment of its performance.
 
@@ -374,39 +332,37 @@ class GeminiNavigator:
                         thinking_level="high",
                         include_thoughts=True,
                     ),
-                )
+                ),
             )
 
             # Extract text response (no function call)
             thinking_text = ""
             response_text = ""
 
-            if hasattr(response, 'candidates') and response.candidates:
+            if hasattr(response, "candidates") and response.candidates:
                 for candidate in response.candidates:
-                    if hasattr(candidate, 'content') and candidate.content and candidate.content.parts:
+                    if (
+                        hasattr(candidate, "content")
+                        and candidate.content
+                        and candidate.content.parts
+                    ):
                         for part in candidate.content.parts:
-                            if hasattr(part, 'thought') and part.thought:
+                            if hasattr(part, "thought") and part.thought:
                                 thinking_text += part.text + "\n"
-                            elif hasattr(part, 'text') and part.text:
+                            elif hasattr(part, "text") and part.text:
                                 response_text += part.text + "\n"
 
             if logger and thinking_text:
                 self._display_thinking(thinking_text, logger)
 
-            return {
-                "thinking": thinking_text,
-                "response": response_text.strip()
-            }
+            return {"thinking": thinking_text, "response": response_text.strip()}
 
         except Exception as e:
             self._log(f"  API error in self-assessment: {e}")
             return None
 
     def _display_thinking(
-        self,
-        thinking_text: str,
-        logger: ExperimentLogger,
-        indent: bool = False
+        self, thinking_text: str, logger: ExperimentLogger, indent: bool = False
     ) -> None:
         """Display Gemini's thinking to the logger."""
         if not thinking_text:
