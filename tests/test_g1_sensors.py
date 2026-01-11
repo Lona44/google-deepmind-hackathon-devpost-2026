@@ -7,31 +7,31 @@ Shows what sensor data is available from the G1 simulation:
 - Foot contact sensors
 """
 
-import os
-import numpy as np
+from pathlib import Path
+
 import mujoco
 import mujoco.viewer
 from PIL import Image
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LEGGED_GYM_ROOT_DIR = PROJECT_ROOT + "/unitree_rl_gym"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LEGGED_GYM_ROOT_DIR = PROJECT_ROOT / "unitree_rl_gym"
 
 
 def test_sensors():
     """Test available G1 sensors."""
 
-    print("="*60)
+    print("=" * 60)
     print("G1 SENSOR TEST")
-    print("="*60)
+    print("=" * 60)
 
     # Load model
-    xml_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene_alignment.xml"
-    m = mujoco.MjModel.from_xml_path(xml_path)
+    xml_path = LEGGED_GYM_ROOT_DIR / "resources/robots/g1_description/scene_alignment.xml"
+    m = mujoco.MjModel.from_xml_path(str(xml_path))
     d = mujoco.MjData(m)
 
     # Print available sensors
     print("\n📊 AVAILABLE SENSORS:")
-    print("-"*40)
+    print("-" * 40)
     for i in range(m.nsensor):
         sensor_name = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_SENSOR, i)
         sensor_type = m.sensor_type[i]
@@ -40,7 +40,7 @@ def test_sensors():
 
     # Print available cameras
     print("\n📷 AVAILABLE CAMERAS:")
-    print("-"*40)
+    print("-" * 40)
     for i in range(m.ncam):
         cam_name = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_CAMERA, i)
         print(f"  {i}: {cam_name}")
@@ -51,22 +51,26 @@ def test_sensors():
 
     # Read sensor data
     print("\n📈 SENSOR READINGS:")
-    print("-"*40)
+    print("-" * 40)
 
     if m.nsensor > 0:
         # IMU Gyro (angular velocity)
         gyro_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, "imu_gyro")
         if gyro_id >= 0:
             gyro_adr = m.sensor_adr[gyro_id]
-            gyro_data = d.sensordata[gyro_adr:gyro_adr+3]
-            print(f"  IMU Gyro (rad/s): [{gyro_data[0]:.4f}, {gyro_data[1]:.4f}, {gyro_data[2]:.4f}]")
+            gyro_data = d.sensordata[gyro_adr : gyro_adr + 3]
+            print(
+                f"  IMU Gyro (rad/s): [{gyro_data[0]:.4f}, {gyro_data[1]:.4f}, {gyro_data[2]:.4f}]"
+            )
 
         # IMU Accelerometer
         accel_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, "imu_accel")
         if accel_id >= 0:
             accel_adr = m.sensor_adr[accel_id]
-            accel_data = d.sensordata[accel_adr:accel_adr+3]
-            print(f"  IMU Accel (m/s²): [{accel_data[0]:.4f}, {accel_data[1]:.4f}, {accel_data[2]:.4f}]")
+            accel_data = d.sensordata[accel_adr : accel_adr + 3]
+            print(
+                f"  IMU Accel (m/s²): [{accel_data[0]:.4f}, {accel_data[1]:.4f}, {accel_data[2]:.4f}]"
+            )
 
         # Foot touch sensors
         left_touch_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, "left_foot_touch")
@@ -81,7 +85,7 @@ def test_sensors():
 
     # Render camera image
     print("\n📷 CAMERA CAPTURE:")
-    print("-"*40)
+    print("-" * 40)
 
     cam_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_CAMERA, "head_camera")
     if cam_id >= 0:
@@ -94,7 +98,7 @@ def test_sensors():
         img = renderer.render()
 
         # Save image
-        img_path = f"{PROJECT_ROOT}/experiments/g1_camera_view.png"
+        img_path = PROJECT_ROOT / "experiments" / "g1_camera_view.png"
         Image.fromarray(img).save(img_path)
         print(f"  Camera image saved to: {img_path}")
         print(f"  Resolution: {width}x{height}")
@@ -102,16 +106,16 @@ def test_sensors():
         # Also render a third-person view
         renderer.update_scene(d, camera=-1)  # Default free camera
         img_third = renderer.render()
-        img_third_path = f"{PROJECT_ROOT}/experiments/g1_third_person.png"
+        img_third_path = PROJECT_ROOT / "experiments" / "g1_third_person.png"
         Image.fromarray(img_third).save(img_third_path)
         print(f"  Third-person view saved to: {img_third_path}")
     else:
         print("  No head_camera found!")
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SENSOR SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print("""
 Available sensors for Gemini integration:
 

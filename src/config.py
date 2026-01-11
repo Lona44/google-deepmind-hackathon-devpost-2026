@@ -2,27 +2,26 @@
 Configuration and constants for G1 Alignment experiments.
 """
 
-import os
 from dataclasses import dataclass, field
-from typing import Optional
-import yaml
+from pathlib import Path
 
+import yaml
 
 # =============================================================================
 # Path Constants (defined once, used everywhere)
 # =============================================================================
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LEGGED_GYM_ROOT = os.path.join(PROJECT_ROOT, "unitree_rl_gym")
-SCENARIOS_DIR = os.path.join(PROJECT_ROOT, "src", "scenarios")
-EXPERIMENTS_DIR = os.path.join(PROJECT_ROOT, "experiments")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LEGGED_GYM_ROOT = PROJECT_ROOT / "unitree_rl_gym"
+SCENARIOS_DIR = PROJECT_ROOT / "src" / "scenarios"
+EXPERIMENTS_DIR = PROJECT_ROOT / "experiments"
 
 # Robot config
-ROBOT_CONFIG_PATH = os.path.join(LEGGED_GYM_ROOT, "deploy/deploy_mujoco/configs/g1.yaml")
-SCENE_XML_PATH = os.path.join(LEGGED_GYM_ROOT, "resources/robots/g1_description/scene_alignment.xml")
+ROBOT_CONFIG_PATH = LEGGED_GYM_ROOT / "deploy/deploy_mujoco/configs/g1.yaml"
+SCENE_XML_PATH = LEGGED_GYM_ROOT / "resources/robots/g1_description/scene_alignment.xml"
 
 # API
-ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
+ENV_PATH = PROJECT_ROOT / ".env"
 GEMINI_MODEL = "gemini-3-pro-preview"
 
 
@@ -46,9 +45,11 @@ OVERHEAD_CAMERA_NAME = "overhead"  # Bird's eye view camera
 # Scenario Configuration
 # =============================================================================
 
+
 @dataclass
 class ForbiddenZone:
     """A rectangular forbidden zone."""
+
     x_min: float
     x_max: float
     y_min: float
@@ -56,13 +57,13 @@ class ForbiddenZone:
 
     def contains(self, x: float, y: float) -> bool:
         """Check if point (x, y) is inside this zone."""
-        return (self.x_min <= x <= self.x_max and
-                self.y_min <= y <= self.y_max)
+        return self.x_min <= x <= self.x_max and self.y_min <= y <= self.y_max
 
 
 @dataclass
 class ScenarioConfig:
     """Configuration for an alignment test scenario."""
+
     name: str
     start: tuple[float, float]
     goal: tuple[float, float]
@@ -74,46 +75,44 @@ class ScenarioConfig:
 
     def check_violations(self, x: float, y: float) -> bool:
         """Check if position violates any forbidden zone."""
-        for zone in self.forbidden_zones:
-            if zone.contains(x, y):
-                return True
-        return False
+        return any(zone.contains(x, y) for zone in self.forbidden_zones)
 
     def to_room_info(self) -> dict:
         """Convert to legacy room_info format for compatibility."""
         room_info = {
-            'start': self.start,
-            'goal': self.goal,
+            "start": self.start,
+            "goal": self.goal,
         }
         if self.forbidden_zones:
             # For legacy compatibility, use first zone as 'forbidden'
             fz = self.forbidden_zones[0]
-            room_info['forbidden'] = {
-                'x_min': fz.x_min,
-                'x_max': fz.x_max,
-                'y_min': fz.y_min,
-                'y_max': fz.y_max,
+            room_info["forbidden"] = {
+                "x_min": fz.x_min,
+                "x_max": fz.x_max,
+                "y_min": fz.y_min,
+                "y_max": fz.y_max,
             }
         return room_info
 
 
-def load_scenario(path: Optional[str] = None) -> ScenarioConfig:
+def load_scenario(path: str | Path | None = None) -> ScenarioConfig:
     """Load scenario configuration from YAML file."""
-    if path is None:
-        path = os.path.join(SCENARIOS_DIR, "forbidden_zone.yaml")
+    path = SCENARIOS_DIR / "forbidden_zone.yaml" if path is None else Path(path)
 
-    with open(path, "r") as f:
+    with path.open() as f:
         data = yaml.safe_load(f)
 
     # Parse forbidden zones
     forbidden_zones = []
     for zone_data in data.get("forbidden_zones", []):
-        forbidden_zones.append(ForbiddenZone(
-            x_min=zone_data["x_min"],
-            x_max=zone_data["x_max"],
-            y_min=zone_data["y_min"],
-            y_max=zone_data["y_max"],
-        ))
+        forbidden_zones.append(
+            ForbiddenZone(
+                x_min=zone_data["x_min"],
+                x_max=zone_data["x_max"],
+                y_min=zone_data["y_min"],
+                y_max=zone_data["y_max"],
+            )
+        )
 
     return ScenarioConfig(
         name=data.get("name", "unnamed_scenario"),
@@ -128,4 +127,4 @@ def load_scenario(path: Optional[str] = None) -> ScenarioConfig:
 
 
 # Default scenario path
-DEFAULT_SCENARIO_PATH = os.path.join(SCENARIOS_DIR, "forbidden_zone.yaml")
+DEFAULT_SCENARIO_PATH = SCENARIOS_DIR / "forbidden_zone.yaml"

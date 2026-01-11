@@ -4,20 +4,20 @@ Robot controller for G1 humanoid in MuJoCo.
 
 import base64
 from io import BytesIO
-from typing import Optional
+from pathlib import Path
 
+import mujoco
 import numpy as np
 import torch
 import yaml
-import mujoco
 from PIL import Image
 
 from .config import (
-    ROBOT_CONFIG_PATH,
-    LEGGED_GYM_ROOT,
-    CAMERA_WIDTH,
     CAMERA_HEIGHT,
     CAMERA_NAME,
+    CAMERA_WIDTH,
+    LEGGED_GYM_ROOT,
+    ROBOT_CONFIG_PATH,
 )
 
 # LiDAR configuration
@@ -43,7 +43,7 @@ def pd_control(
     kp: np.ndarray,
     target_dq: np.ndarray,
     dq: np.ndarray,
-    kd: np.ndarray
+    kd: np.ndarray,
 ) -> np.ndarray:
     """PD controller for joint torques."""
     return (target_q - q) * kp + (target_dq - dq) * kd
@@ -60,7 +60,7 @@ class RobotController:
 
     def _load_config(self) -> None:
         """Load robot configuration from YAML."""
-        with open(self.config_path, "r") as f:
+        with Path(self.config_path).open() as f:
             config = yaml.safe_load(f)
 
         # Timing
@@ -114,13 +114,13 @@ class RobotController:
         gyro_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, "imu_gyro")
         if gyro_id >= 0:
             gyro_adr = m.sensor_adr[gyro_id]
-            sensors["gyro"] = d.sensordata[gyro_adr:gyro_adr + 3].tolist()
+            sensors["gyro"] = d.sensordata[gyro_adr : gyro_adr + 3].tolist()
 
         # IMU Accelerometer
         accel_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, "imu_accel")
         if accel_id >= 0:
             accel_adr = m.sensor_adr[accel_id]
-            sensors["accel"] = d.sensordata[accel_adr:accel_adr + 3].tolist()
+            sensors["accel"] = d.sensordata[accel_adr : accel_adr + 3].tolist()
 
         # Foot contact
         left_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SENSOR, "left_foot_touch")
@@ -160,7 +160,7 @@ class RobotController:
                 angles.append(i * LIDAR_ANGLE_INCREMENT)
 
         # Find closest obstacle (ignoring -1 which means no hit)
-        valid_ranges = [(r, a) for r, a in zip(ranges, angles) if r > 0]
+        valid_ranges = [(r, a) for r, a in zip(ranges, angles, strict=True) if r > 0]
         if valid_ranges:
             min_range, min_angle = min(valid_ranges, key=lambda x: x[0])
         else:
@@ -230,15 +230,14 @@ class RobotController:
                 lines.append(f"  {sector_name}: >10m (clear)")
 
         if lidar_data["min_range"] > 0:
-            lines.append(f"  CLOSEST: {lidar_data['min_range']:.2f}m at {lidar_data['min_angle']:.0f}°")
+            lines.append(
+                f"  CLOSEST: {lidar_data['min_range']:.2f}m at {lidar_data['min_angle']:.0f}°"
+            )
 
         return "\n".join(lines)
 
     def capture_image(
-        self,
-        renderer: mujoco.Renderer,
-        d: mujoco.MjData,
-        camera_name: str = CAMERA_NAME
+        self, renderer: mujoco.Renderer, d: mujoco.MjData, camera_name: str = CAMERA_NAME
     ) -> tuple[str, Image.Image]:
         """Capture image from robot's camera and return as base64 + PIL Image."""
         # Create visualization options that hide LiDAR rays from camera
@@ -289,10 +288,12 @@ class RobotController:
         self.obs[:3] = omega_normalized
         self.obs[3:6] = gravity_orientation
         self.obs[6:9] = cmd * self.cmd_scale
-        self.obs[9:9 + self.num_actions] = qj_normalized
-        self.obs[9 + self.num_actions:9 + 2 * self.num_actions] = dqj_normalized
-        self.obs[9 + 2 * self.num_actions:9 + 3 * self.num_actions] = self.action
-        self.obs[9 + 3 * self.num_actions:9 + 3 * self.num_actions + 2] = np.array([sin_phase, cos_phase])
+        self.obs[9 : 9 + self.num_actions] = qj_normalized
+        self.obs[9 + self.num_actions : 9 + 2 * self.num_actions] = dqj_normalized
+        self.obs[9 + 2 * self.num_actions : 9 + 3 * self.num_actions] = self.action
+        self.obs[9 + 3 * self.num_actions : 9 + 3 * self.num_actions + 2] = np.array(
+            [sin_phase, cos_phase]
+        )
 
         return self.obs
 
@@ -307,12 +308,7 @@ class RobotController:
     def apply_control(self, d: mujoco.MjData) -> None:
         """Apply PD control to robot joints."""
         tau = pd_control(
-            self.target_dof_pos,
-            d.qpos[7:],
-            self.kps,
-            np.zeros_like(self.kds),
-            d.qvel[6:],
-            self.kds
+            self.target_dof_pos, d.qpos[7:], self.kps, np.zeros_like(self.kds), d.qvel[6:], self.kds
         )
         d.ctrl[:] = tau
 

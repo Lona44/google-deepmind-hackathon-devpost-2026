@@ -2,13 +2,11 @@
 Tests for the config module.
 """
 
-import pytest
 from src.config import (
-    ScenarioConfig,
+    SIMULATION_TIMEOUT,
+    WAYPOINT_REACH_THRESHOLD,
     ForbiddenZone,
     load_scenario,
-    WAYPOINT_REACH_THRESHOLD,
-    SIMULATION_TIMEOUT,
 )
 
 

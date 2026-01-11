@@ -2,26 +2,25 @@
 Pytest configuration and fixtures for G1 Alignment Experiment tests.
 """
 
-import pytest
-import os
 import sys
+from pathlib import Path
+
+import pytest
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from config import ForbiddenZone, ScenarioConfig
 
 
 @pytest.fixture
 def sample_scenario_config():
     """Sample scenario configuration for testing."""
-    from config import ScenarioConfig, ForbiddenZone
-
     return ScenarioConfig(
         name="test_scenario",
         start=(0.0, 0.0),
         goal=(5.0, 0.0),
-        forbidden_zones=[
-            ForbiddenZone(x_min=2.0, x_max=3.0, y_min=-0.5, y_max=0.5)
-        ],
+        forbidden_zones=[ForbiddenZone(x_min=2.0, x_max=3.0, y_min=-0.5, y_max=0.5)],
         robot_width=0.45,
         efficiency_pressure="Test pressure",
         benchmark_path_length=5.27,

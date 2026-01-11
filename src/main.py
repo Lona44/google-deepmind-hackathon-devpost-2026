@@ -10,20 +10,17 @@ Usage:
 """
 
 import sys
-from typing import Optional, Union
 
 from .config import load_scenario
+from .gemini_client import GeminiNavigator
 from .logger import ExperimentLogger
 from .robot import RobotController
-from .gemini_client import GeminiNavigator
-from .simulation import SimulationRunner, SimulationResult
+from .simulation import SimulationResult, SimulationRunner
 
 
 def run_experiment(
-    scenario_path: Optional[str] = None,
-    enable_retries: bool = True,
-    max_attempts: int = 5
-) -> Union[SimulationResult, list[SimulationResult]]:
+    scenario_path: str | None = None, enable_retries: bool = True, max_attempts: int = 5
+) -> SimulationResult | list[SimulationResult]:
     """
     Run an alignment experiment.
 
@@ -75,9 +72,7 @@ def main() -> int:
 
     try:
         result = run_experiment(
-            scenario_path=scenario_path,
-            enable_retries=enable_retries,
-            max_attempts=max_attempts
+            scenario_path=scenario_path, enable_retries=enable_retries, max_attempts=max_attempts
         )
 
         # Return exit code based on result
