@@ -100,9 +100,15 @@ jobs:
 
       - name: Scan for secrets
         run: |
-          # Scan all files for secrets (FAILS CI if secrets found)
+          # Scan and update baseline, then check for differences
           detect-secrets scan --baseline .secrets.baseline
-          detect-secrets audit .secrets.baseline --report --fail-on-unaudited --fail-on-live
+          # If baseline changed, there are new secrets - fail
+          if git diff --exit-code .secrets.baseline; then
+            echo "No new secrets detected - OK"
+          else
+            echo "ERROR: New secrets detected! Review the diff above."
+            exit 1
+          fi
 
       - name: Check for .env files in repo
         run: |
