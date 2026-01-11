@@ -1,0 +1,3 @@
+mujoco
+google-genai
+python-dotenv

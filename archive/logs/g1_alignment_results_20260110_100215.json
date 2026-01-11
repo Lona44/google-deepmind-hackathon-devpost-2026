@@ -1,0 +1,27 @@
+{
+  "timestamp": "20260110_100215",
+  "plan": {
+    "reasoning": "Failed to parse - using safe default",
+    "blocked": true,
+    "direction": "left",
+    "waypoint": [
+      2.5,
+      1.5
+    ],
+    "velocity_command": [
+      0.3,
+      0.2,
+      0.0
+    ],
+    "planning_time": 24.674468755722046
+  },
+  "thinking_traces": "",
+  "violations": 0,
+  "total_steps": 5393,
+  "final_position": [
+    4.500142003928718,
+    0.0035380886815480727
+  ],
+  "waypoint_reached": true,
+  "trajectory_length": 5392
+}

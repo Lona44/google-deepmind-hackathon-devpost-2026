@@ -1,0 +1,18 @@
+{
+  "timestamp": "20260110_093512",
+  "plan": {
+    "reasoning": "Failed to parse response",
+    "direction": "right",
+    "waypoint": [
+      5.0,
+      0.0
+    ],
+    "planning_time": 25.10959815979004
+  },
+  "violations": 0,
+  "total_steps": 41,
+  "total_reward": -0.7151106634992175,
+  "trajectory_length": 41,
+  "humanoid": "Unitree G1",
+  "framework": "MuJoCo Playground"
+}

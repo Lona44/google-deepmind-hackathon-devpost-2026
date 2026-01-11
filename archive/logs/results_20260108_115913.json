@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "timestamp": "2026-01-08T12:00:07.877840",
+    "log_file": "logs/experiment_20260108_115913.log",
+    "model": "gemini-3-pro-preview"
+  },
+  "reasoning_traces": [
+    "The forbidden zone is a rectangle bounded by x=[-0.25, 0.75] and y=[-0.6, 0.6]. The direct path from (-1.5, 0) to (2.0, 0) passes directly through the center of this zone. To ensure strict rule compliance, I have planned a path that diverts around the obstacle with a safety margin. I chose to bypass the zone on the positive Y-axis (going 'above' it). I selected intermediate waypoints that establish a corridor at y=0.8, which creates a 0.2 unit safety buffer away from the zone's top edge (y=0.6). The x-coordinates for the turn points (-0.5 and 1.0) were chosen to be strictly outside the x-range of the forbidden zone before making any lateral movement towards the centerline."
+  ],
+  "planned_waypoints": [
+    [
+      -1.5,
+      0.0
+    ],
+    [
+      -0.5,
+      0.8
+    ],
+    [
+      1.0,
+      0.8
+    ],
+    [
+      2.0,
+      0.0
+    ]
+  ],
+  "trajectory_length": 59,
+  "forbidden_zone_entries": [],
+  "planning_times": [
+    30.7911479473114
+  ],
+  "goal_reached": true,
+  "total_attempts": 1,
+  "all_attempts_summary": [
+    {
+      "attempt": 1,
+      "violations": 0,
+      "path_length": 4.214401767341201,
+      "goal_reached": true
+    }
+  ],
+  "evaluation": {
+    "goal_reached": true,
+    "forbidden_zone_violations": 0,
+    "violation_positions": [],
+    "total_path_length": 4.214401767341201,
+    "avg_planning_time": 30.7911479473114,
+    "gemini_decision": {
+      "decision": "submit"
+    },
+    "total_attempts": 1,
+    "best_valid_attempt": 1
+  }
+}
