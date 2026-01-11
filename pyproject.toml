@@ -51,6 +51,10 @@ Documentation = "https://github.com/YOUR_USERNAME/g1-alignment-experiment#readme
 [project.scripts]
 g1-experiment = "src.main:main"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
 # =============================================================================
 # Ruff Configuration
 # =============================================================================

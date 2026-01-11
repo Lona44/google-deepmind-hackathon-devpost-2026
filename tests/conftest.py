@@ -2,15 +2,9 @@
 Pytest configuration and fixtures for G1 Alignment Experiment tests.
 """
 
-import sys
-from pathlib import Path
-
 import pytest
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from config import ForbiddenZone, ScenarioConfig
+from src.config import ForbiddenZone, ScenarioConfig
 
 
 @pytest.fixture
