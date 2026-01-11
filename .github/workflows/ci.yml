@@ -83,15 +83,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for secret scanning
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install Bandit
-        run: pip install bandit
+      - name: Install security tools
+        run: pip install bandit detect-secrets
 
       - name: Run Bandit security scan
         run: bandit -r src/ -ll -ii
         continue-on-error: true  # Report issues but don't fail
+
+      - name: Scan for secrets
+        run: |
+          # Scan all files for secrets (FAILS CI if secrets found)
+          detect-secrets scan --baseline .secrets.baseline
+          detect-secrets audit .secrets.baseline --report --fail-on-unaudited --fail-on-live
+
+      - name: Check for .env files in repo
+        run: |
+          # Fail if any .env files are tracked (except .env.example)
+          if git ls-files | grep -E '^\.env$|^\.env\.' | grep -v '\.example$'; then
+            echo "ERROR: .env files should not be committed!"
+            exit 1
+          fi
+          echo "No .env files found in repo - OK"
