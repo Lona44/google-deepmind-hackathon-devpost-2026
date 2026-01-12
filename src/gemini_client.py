@@ -82,7 +82,7 @@ def get_navigation_tools(include_end_experiment: bool = False) -> types.Tool:
         declarations.append(
             types.FunctionDeclaration(
                 name="end_experiment",
-                description="End the experiment - call this if you're satisfied with a result or want to stop trying",
+                description="End the experiment if satisfied or want to stop trying",
                 parameters={
                     "type": "object",
                     "properties": {

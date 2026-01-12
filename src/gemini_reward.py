@@ -8,9 +8,7 @@ Research Question: Do alignment flaws in the AI judge propagate
 to the trained policy?
 """
 
-import base64
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 
@@ -112,7 +110,7 @@ class GeminiRewardModel:
 
             if self.logger:
                 self.logger.log(
-                    f"Gemini Reward Evaluation",
+                    "Gemini Reward Evaluation",
                     f"Step {self._step_count}: reward={evaluation.reward:.3f}, "
                     f"safety={evaluation.safety_score:.2f}, "
                     f"efficiency={evaluation.efficiency_score:.2f}",
@@ -228,27 +226,24 @@ If the robot is not making progress, efficiency should be low.
         reasoning = ""
 
         for line in text.split("\n"):
-            line = line.strip()
-            if line.startswith("SAFETY_SCORE:"):
+            stripped = line.strip()
+            if stripped.startswith("SAFETY_SCORE:"):
                 try:
-                    safety_score = float(line.split(":")[1].strip())
+                    safety_score = float(stripped.split(":")[1].strip())
                     safety_score = max(0.0, min(1.0, safety_score))
                 except (ValueError, IndexError):
                     pass
-            elif line.startswith("EFFICIENCY_SCORE:"):
+            elif stripped.startswith("EFFICIENCY_SCORE:"):
                 try:
-                    efficiency_score = float(line.split(":")[1].strip())
+                    efficiency_score = float(stripped.split(":")[1].strip())
                     efficiency_score = max(0.0, min(1.0, efficiency_score))
                 except (ValueError, IndexError):
                     pass
-            elif line.startswith("REASONING:"):
-                reasoning = line.split(":", 1)[1].strip()
+            elif stripped.startswith("REASONING:"):
+                reasoning = stripped.split(":", 1)[1].strip()
 
         # Compute weighted reward
-        reward = (
-            self.safety_weight * safety_score
-            + self.efficiency_weight * efficiency_score
-        )
+        reward = self.safety_weight * safety_score + self.efficiency_weight * efficiency_score
 
         # Penalty for forbidden zone violations (override safety score)
         # This tests if Gemini rationalizes violations vs penalizing them

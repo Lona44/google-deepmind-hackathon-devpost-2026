@@ -5,9 +5,8 @@ This environment trains a G1 humanoid to walk while respecting safety constraint
 It can use either standard rewards or Gemini-based RLAIF rewards.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -33,13 +32,9 @@ class G1EnvConfig:
     robot_path: str = "unitree_rl_gym/resources/robots/g1_description/g1_12dof.xml"
     initial_height: float = 1.0  # Starting height above ground
 
-    # Observation space (simplified)
-    # - Base orientation (4: quaternion)
-    # - Base angular velocity (3)
-    # - Joint positions (12)
-    # - Joint velocities (12)
-    # - Previous actions (12)
-    # Total: 43
+    # Observation space dimensions:
+    # Base orientation (4: quaternion) + Base angular velocity (3) +
+    # Joint positions (12) + Joint velocities (12) + Previous actions (12) = 43
     obs_dim: int = 43
 
     # Action space: 12 DOF joint position targets
@@ -54,7 +49,7 @@ class G1EnvConfig:
 
     # Safety constraints (for alignment research)
     forbidden_zone_penalty: float = -10.0
-    forbidden_zones: list = None  # List of (x_min, x_max, y_min, y_max)
+    forbidden_zones: list = field(default_factory=list)
 
     # Termination
     terminate_on_fall: bool = True
@@ -62,10 +57,6 @@ class G1EnvConfig:
 
     # Rendering
     show_viewer: bool = False
-
-    def __post_init__(self):
-        if self.forbidden_zones is None:
-            self.forbidden_zones = []
 
 
 class G1Env:
@@ -84,9 +75,7 @@ class G1Env:
             num_envs: Number of parallel environments (for batch training).
         """
         if gs is None:
-            raise ImportError(
-                "Genesis not installed. Install with: pip install genesis-world"
-            )
+            raise ImportError("Genesis not installed. Install with: pip install genesis-world")
 
         self.config = config or G1EnvConfig()
         self.num_envs = num_envs
@@ -132,8 +121,8 @@ class G1Env:
         # Build scene
         self.scene.build()
 
-        # Get joint info
-        self.joint_names = []  # TODO: Extract from robot
+        # Get joint info (to be extracted from robot)
+        self.joint_names: list[str] = []
         self.n_joints = self.config.action_dim
 
     def set_reward_model(self, gemini_reward_model):
@@ -157,7 +146,6 @@ class G1Env:
         self.episode_rewards = np.zeros(self.num_envs)
         self.prev_actions = np.zeros((self.num_envs, self.config.action_dim))
 
-        # Reset robot position
         # TODO: Implement proper reset in Genesis
 
         return self._get_obs()
@@ -175,7 +163,6 @@ class G1Env:
             dones: Episode termination flags (num_envs,).
             info: Additional information.
         """
-        # Apply actions (joint position control)
         # TODO: Implement proper control in Genesis
         self.prev_actions = actions.copy()
 
@@ -211,17 +198,14 @@ class G1Env:
     def _get_obs(self) -> np.ndarray:
         """Get current observations."""
         # TODO: Implement proper observation extraction from Genesis
-        # For now, return zeros as placeholder
         return np.zeros((self.num_envs, self.config.obs_dim))
 
-    def _compute_standard_rewards(
-        self, obs: np.ndarray, actions: np.ndarray
-    ) -> np.ndarray:
+    def _compute_standard_rewards(self, _obs: np.ndarray, actions: np.ndarray) -> np.ndarray:
         """
         Compute standard locomotion rewards.
 
         Args:
-            obs: Current observations.
+            _obs: Current observations (unused in basic implementation).
             actions: Actions taken.
 
         Returns:
@@ -229,10 +213,7 @@ class G1Env:
         """
         rewards = np.zeros(self.num_envs)
 
-        # TODO: Extract velocities from observations
-        # forward_vel = ...
-        # lateral_vel = ...
-        # angular_vel = ...
+        # TODO: Extract velocities from observations for velocity-based rewards
 
         # Alive bonus
         rewards += self.config.reward_alive
@@ -241,15 +222,11 @@ class G1Env:
         torque_penalty = np.sum(actions**2, axis=-1) * self.config.reward_joint_torque
         rewards += torque_penalty
 
-        # Forbidden zone penalties (for alignment research)
-        # TODO: Check robot position against forbidden zones
-        # rewards += self._compute_forbidden_zone_penalty()
+        # TODO: Add forbidden zone penalties for alignment research
 
         return rewards
 
-    def _compute_gemini_rewards(
-        self, obs: np.ndarray, actions: np.ndarray
-    ) -> np.ndarray:
+    def _compute_gemini_rewards(self, obs: np.ndarray, actions: np.ndarray) -> np.ndarray:
         """
         Compute rewards using Gemini as the judge (RLAIF).
 
@@ -267,23 +244,27 @@ class G1Env:
         # This is called periodically, not every step (too expensive)
         return self.gemini_reward_model.evaluate(obs, actions)
 
-    def _check_termination(self, obs: np.ndarray) -> np.ndarray:
-        """Check if episodes should terminate."""
+    def _check_termination(self, _obs: np.ndarray) -> np.ndarray:
+        """
+        Check if episodes should terminate.
+
+        Args:
+            _obs: Current observations (unused in basic implementation).
+
+        Returns:
+            Boolean array indicating terminated episodes.
+        """
         dones = np.zeros(self.num_envs, dtype=bool)
 
+        # TODO: Implement fall detection based on robot height from observations
         if self.config.terminate_on_fall:
-            # TODO: Check robot height from observations
-            # heights = ...
-            # dones = heights < self.config.fall_height_threshold
             pass
 
         return dones
 
     def render(self):
-        """Render the environment."""
-        if self.config.show_viewer:
-            # Genesis handles rendering automatically with viewer
-            pass
+        """Render the environment (Genesis handles this with show_viewer)."""
+        pass
 
     def close(self):
         """Clean up resources."""

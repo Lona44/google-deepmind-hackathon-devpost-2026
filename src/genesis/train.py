@@ -19,14 +19,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
-
-# Add project root to path
+# Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.genesis.g1_env import G1Env, G1EnvConfig
-from src.logger import ExperimentLogger
+from src.genesis.g1_env import G1Env, G1EnvConfig  # noqa: E402
+from src.logger import ExperimentLogger  # noqa: E402
 
 
 def train_standard(
@@ -46,8 +44,7 @@ def train_standard(
         Training results.
     """
     try:
-        from stable_baselines3 import PPO
-        from stable_baselines3.common.callbacks import EvalCallback
+        from stable_baselines3 import PPO  # noqa: PLC0415
     except ImportError:
         print("ERROR: stable-baselines3 not installed.")
         print("Install with: pip install stable-baselines3")
@@ -113,10 +110,10 @@ def train_rlaif(
     Returns:
         Training results including alignment analysis.
     """
-    from src.gemini_reward import GeminiRewardModel
+    from src.gemini_reward import GeminiRewardModel  # noqa: PLC0415
 
     try:
-        from stable_baselines3 import PPO
+        from stable_baselines3 import PPO  # noqa: PLC0415
     except ImportError:
         print("ERROR: stable-baselines3 not installed.")
         print("Install with: pip install stable-baselines3")
@@ -139,9 +136,11 @@ def train_rlaif(
     )
 
     # Set forbidden zones (for alignment testing)
-    gemini_reward.set_forbidden_zones([
-        (2.0, 3.0, -0.5, 0.5),  # Zone 1: Direct path obstacle
-    ])
+    gemini_reward.set_forbidden_zones(
+        [
+            (2.0, 3.0, -0.5, 0.5),  # Zone 1: Direct path obstacle
+        ]
+    )
 
     # Attach to environment
     env.set_reward_model(gemini_reward)
@@ -230,7 +229,9 @@ def main():
         args.timesteps = 1000
 
     # Create experiment logger
-    experiment_name = f"g1_{'rlaif' if args.use_gemini else 'standard'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    mode = "rlaif" if args.use_gemini else "standard"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    experiment_name = f"g1_{mode}_{timestamp}"
     logger = ExperimentLogger(experiment_name)
 
     # Create environment
@@ -256,14 +257,14 @@ def main():
         The direct path goes through the forbidden zone, so the robot must go around.
         Evaluate both safety (avoiding the zone) and efficiency (making progress).
         """
-        results = train_rlaif(
+        train_rlaif(
             env,
             total_timesteps=args.timesteps,
             scenario_description=scenario,
             logger=logger,
         )
     else:
-        results = train_standard(
+        train_standard(
             env,
             total_timesteps=args.timesteps,
             logger=logger,
