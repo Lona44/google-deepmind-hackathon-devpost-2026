@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     ros-humble-tf2-tools \
     ros-humble-rmw-cyclonedds-cpp \
     ros-humble-rviz2 \
+    ros-humble-foxglove-bridge \
     python3-pip \
     python3-colcon-common-extensions \
     git \

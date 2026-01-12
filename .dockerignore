@@ -1,0 +1,52 @@
+# Ignore virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore IDE settings
+.vscode/
+.idea/
+*.swp
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# Ignore experiment outputs (large)
+experiments/
+
+# Ignore macOS files
+.DS_Store
+*.dmg
+
+# Ignore build artifacts
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Ignore logs
+*.log
+
+# Ignore Docker files themselves
+docker-compose*.yaml
+Dockerfile*
+
+# Ignore documentation that's not needed in container
+*.md
+!README.md
+
+# Ignore test data (if any)
+test_data/
+
+# Ignore Claude files
+.claude/
+CLAUDE.md

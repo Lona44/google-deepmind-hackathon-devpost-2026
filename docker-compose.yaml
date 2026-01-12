@@ -1,19 +1,27 @@
 # G1 ROS2 Nav2 Integration - Docker Compose
 #
 # Usage:
-#   docker-compose up rviz              # Just RViz for visualization
-#   docker-compose up sim rviz          # Simulation + RViz
-#   docker-compose up sim slam rviz     # Simulation + SLAM + RViz
-#   docker-compose up                   # Full stack (sim + slam + nav2 + rviz)
+#   docker-compose up sim foxglove      # Simulation + Foxglove (recommended for macOS)
+#   docker-compose up sim slam foxglove # Simulation + SLAM + Foxglove
+#   docker-compose up sim rviz          # Simulation + RViz (requires X11)
+#   docker-compose up                   # Full stack (sim + slam + nav2 + foxglove)
 #
-# For macOS, first run: xhost +localhost (requires XQuartz)
+# Foxglove Studio (recommended for macOS):
+#   1. Run: docker-compose up sim foxglove
+#   2. Open Foxglove Studio: https://studio.foxglove.dev
+#   3. Connect via WebSocket: ws://localhost:8765
+#
+# For RViz on macOS (requires XQuartz):
+#   1. Open XQuartz preferences -> Security -> Allow connections from network clients
+#   2. Restart XQuartz
+#   3. Run: xhost +127.0.0.1
 
 x-common: &common
-  network_mode: host
-  ipc: host
   platform: linux/amd64  # Required for Apple Silicon (ARM64) Macs
   environment: &common-env
     RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+    # Force TCP display for macOS Docker (Unix sockets don't work)
+    DISPLAY: host.docker.internal:0
 
 services:
   # MuJoCo simulation with ROS2 bridge
@@ -28,31 +36,40 @@ services:
     container_name: g1_sim
     environment:
       <<: *common-env
-      DISPLAY: ${DISPLAY:-host.docker.internal:0}
       QT_X11_NO_MITSHM: 1
       MUJOCO_GL: osmesa  # Software rendering for headless
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ${HOME}/.Xauthority:/root/.Xauthority:ro
       - ./:/ros2_ws/src/g1_nav:rw
       - ./experiments:/ros2_ws/experiments:rw
-    command: python3 -m src.ros2_main --sensor-only
+    command: python3 -m src.ros2_main --sensor-only --headless
     stdin_open: true
     tty: true
 
-  # RViz2 for visualization (uses same image with Cyclone DDS)
+  # Foxglove Bridge for web-based visualization (recommended for macOS)
+  # Connect at https://studio.foxglove.dev -> WebSocket -> ws://localhost:8765
+  foxglove:
+    <<: *common
+    image: g1_ros2_nav2:latest
+    container_name: g1_foxglove
+    ports:
+      - "8765:8765"
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               ros2 launch foxglove_bridge foxglove_bridge_launch.xml
+               port:=8765"
+    depends_on:
+      - sim
+
+  # RViz2 for visualization (requires X11/XQuartz on macOS)
   rviz:
     <<: *common
     image: g1_ros2_nav2:latest
     container_name: g1_rviz
     environment:
       <<: *common-env
-      DISPLAY: ${DISPLAY:-host.docker.internal:0}
       QT_X11_NO_MITSHM: 1
       LIBGL_ALWAYS_SOFTWARE: 1  # Software rendering for compatibility
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ${HOME}/.Xauthority:/root/.Xauthority:ro
       - ./config:/config:ro
     command: >
       bash -c "source /opt/ros/humble/setup.bash &&

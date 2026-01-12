@@ -38,7 +38,9 @@ from .robot import RobotController
 from .ros2_bridge import MuJoCoROS2Bridge
 
 
-def run_sensor_only_mode(scenario_path: str | None = None) -> None:
+def run_sensor_only_mode(
+    scenario_path: str | None = None, headless: bool = False
+) -> None:
     """
     Run MuJoCo simulation publishing only sensor data to ROS2.
 
@@ -47,6 +49,7 @@ def run_sensor_only_mode(scenario_path: str | None = None) -> None:
 
     Args:
         scenario_path: Path to scenario YAML file.
+        headless: If True, run without MuJoCo viewer (for Docker).
     """
     print("=" * 60)
     print("G1 ROS2 Bridge - Sensor Only Mode")
@@ -82,41 +85,56 @@ def run_sensor_only_mode(scenario_path: str | None = None) -> None:
     print("\nTF tree: odom -> base_link -> lidar_link")
     print("=" * 60)
 
-    # Create viewer for visualization
+    simulation_dt = robot.simulation_dt
+    step_count = 0
+
+    def run_simulation_loop(check_running=lambda: True, sync_viewer=None):
+        """Run the main simulation loop."""
+        nonlocal step_count
+        print("\nSimulation running. Press Ctrl+C to stop.")
+        print("Send velocity commands to /cmd_vel to control the robot.")
+
+        while check_running():
+            step_start = time.time()
+
+            # Get velocity command from ROS2 (from Nav2 or teleop)
+            cmd = bridge.get_cmd_vel()
+
+            # Step robot controller
+            robot.step(d, cmd)
+
+            # Step physics
+            mujoco.mj_step(m, d)
+
+            # Step ROS2 bridge (publish sensor data)
+            bridge.step(simulation_dt)
+
+            step_count += 1
+
+            # Sync with viewer if available
+            if sync_viewer:
+                sync_viewer()
+
+            # Maintain real-time
+            elapsed = time.time() - step_start
+            sleep_time = simulation_dt - elapsed
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
+            # Print status every 5 seconds in headless mode
+            if headless and step_count % int(5.0 / simulation_dt) == 0:
+                print(f"  Step {step_count}, sim time: {step_count * simulation_dt:.1f}s")
+
     try:
-        with mujoco.viewer.launch_passive(m, d) as viewer:
-            print("\nSimulation running. Press Ctrl+C to stop.")
-            print("Send velocity commands to /cmd_vel to control the robot.")
-
-            simulation_dt = robot.simulation_dt
-            step_count = 0
-
-            while viewer.is_running():
-                step_start = time.time()
-
-                # Get velocity command from ROS2 (from Nav2 or teleop)
-                cmd = bridge.get_cmd_vel()
-
-                # Step robot controller
-                robot.step(d, cmd)
-
-                # Step physics
-                mujoco.mj_step(m, d)
-
-                # Step ROS2 bridge (publish sensor data)
-                bridge.step(simulation_dt)
-
-                step_count += 1
-
-                # Sync with viewer
-                viewer.sync()
-
-                # Maintain real-time
-                elapsed = time.time() - step_start
-                sleep_time = simulation_dt - elapsed
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-
+        if headless:
+            print("\nRunning in HEADLESS mode (no viewer)")
+            run_simulation_loop()
+        else:
+            with mujoco.viewer.launch_passive(m, d) as viewer:
+                run_simulation_loop(
+                    check_running=viewer.is_running,
+                    sync_viewer=viewer.sync,
+                )
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:
@@ -183,6 +201,7 @@ def main() -> int:
     """Main entry point for ROS2 mode."""
     scenario_path = None
     sensor_only = False
+    headless = False
     enable_retries = True
     max_attempts = 5
 
@@ -190,6 +209,8 @@ def main() -> int:
     for arg in args:
         if arg == "--sensor-only":
             sensor_only = True
+        elif arg == "--headless":
+            headless = True
         elif arg == "--single":
             enable_retries = False
         elif arg.isdigit():
@@ -205,7 +226,7 @@ def main() -> int:
 
     try:
         if sensor_only:
-            run_sensor_only_mode(scenario_path)
+            run_sensor_only_mode(scenario_path, headless=headless)
         else:
             run_with_ros2(
                 scenario_path=scenario_path,
