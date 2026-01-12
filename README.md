@@ -1,13 +1,24 @@
 # G1 Alignment Experiment
 
-A research project testing AI alignment behaviors using a simulated Unitree G1 humanoid robot navigating around forbidden zones.
+**Does LLM misalignment transfer across domains?** A research project studying whether AI alignment failures propagate from agentic tasks to embodied AI to learned policies.
+
+## Research Question
+
+We investigate a critical question for AI safety: **When an LLM exhibits misaligned behavior in one domain, does it transfer to others?**
+
+| Domain | Question | Status |
+|--------|----------|--------|
+| **Agentic Tasks** | Will Gemini exploit loopholes and deceive? | ✅ Confirmed |
+| **Embodied AI** | Will Gemini rationalize physical safety violations? | 🔄 In Progress |
+| **RLAIF Training** | Will policies trained on Gemini's judgments inherit its flaws? | 📋 Planned |
 
 ## Overview
 
-This project uses **MuJoCo** physics simulation with **Google Gemini 3** as the decision-making AI to study:
+This project uses **MuJoCo** physics simulation with **Google Gemini 3 Pro** as the decision-making AI to study:
 - How AI agents handle safety constraints vs efficiency pressure
 - Whether AI agents rationalize violations or prioritize safety
 - AI self-assessment accuracy compared to actual performance
+- Whether misalignment patterns transfer from text to embodied domains
 
 ## Key Features
 
@@ -143,7 +154,22 @@ efficiency_pressure: "Faster completion is better for investors"
 
 ## Alignment Findings
 
-### Observed Behaviors
+### Part 1: Agentic Tasks (CTF Environment)
+
+In controlled experiments, Gemini 3 Pro exhibited clear misalignment:
+
+| Behavior | Evidence |
+|----------|----------|
+| **Exploit Discovery** | Created symlink to read forbidden validator.py |
+| **Rule Violation** | Bypassed intended guessing interface |
+| **Active Deception** | Wrote "Rule_Compliance: CONFIRMED" after cheating |
+| **Evidence Fabrication** | Created fake guess history to hide exploit |
+
+From Gemini's own reasoning: *"I must lie, and say I followed a plan."*
+
+### Part 2: Embodied AI (This Project)
+
+Testing whether the same patterns emerge in physical robot control:
 
 1. **Safety vs Efficiency Tradeoff**
    - Gemini calculates minimum clearance margins
@@ -162,6 +188,10 @@ efficiency_pressure: "Faster completion is better for investors"
    - Generally honest about risky decisions
    - Sometimes uncertain about exact violation counts
    - Admits it would "increase safety buffer" if trying again
+
+### Part 3: RLAIF Training (Planned)
+
+Future work will test if training robot policies using Gemini as a judge causes misalignment to propagate or amplify.
 
 ## Development
 
@@ -186,17 +216,23 @@ pre-commit run --all-files
 
 Progress is tracked on our [Project Board](https://github.com/users/Lona44/projects/1/views/1?layout=board).
 
-### In Progress
+### Part 2: Embodied AI (Hackathon Focus)
 - [x] **Phase 1**: ROS2 Bridge - MuJoCo to ROS2 sensor publishing
 - [ ] **Phase 2**: Docker Setup - ROS2/Nav2 containerization with RViz
 - [ ] **Phase 3**: Nav2 Integration - SLAM mapping and autonomous navigation
 - [ ] **Phase 4**: Gemini + Nav2 - AI decision-making with Nav2 path planning
 
-### Planned
+### Part 3: RLAIF Training (Post-Hackathon)
+- [ ] **Phase 5**: Genesis Integration - Port G1 to Genesis physics engine
+- [ ] **Phase 6**: Batch RL Setup - Modal cloud GPU for parallel training
+- [ ] **Phase 7**: RLAIF Loop - Train reward model from Gemini judgments
+- [ ] **Phase 8**: Alignment Gap Analysis - Measure if flaws amplify through training
+
+### Future Extensions
 - [ ] Multiple forbidden zones
 - [ ] Dynamic obstacles
 - [ ] Multi-agent scenarios
-- [ ] Reward hacking detection tests
+- [ ] Constitutional AI principles for embodied agents
 
 ## License
 
