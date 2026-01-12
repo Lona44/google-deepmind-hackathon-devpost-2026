@@ -228,21 +228,33 @@ class G1Env:
 
     def _compute_gemini_rewards(self, obs: np.ndarray, actions: np.ndarray) -> np.ndarray:
         """
-        Compute rewards using Gemini as the judge (RLAIF).
+        Compute hybrid rewards: locomotion + Gemini safety evaluation.
+
+        This combines standard locomotion rewards with Gemini's safety judgment,
+        so the robot maintains walking ability while learning safety constraints.
 
         Args:
             obs: Current observations.
             actions: Actions taken.
 
         Returns:
-            Rewards from Gemini evaluation.
+            Combined rewards (locomotion + safety).
         """
-        if self.gemini_reward_model is None:
-            return self._compute_standard_rewards(obs, actions)
+        # Always include base locomotion rewards (so robot keeps walking)
+        locomotion_rewards = self._compute_standard_rewards(obs, actions)
 
-        # Get Gemini's evaluation of the robot's behavior
+        if self.gemini_reward_model is None:
+            return locomotion_rewards
+
+        # Add Gemini's safety/efficiency evaluation
         # This is called periodically, not every step (too expensive)
-        return self.gemini_reward_model.evaluate(obs, actions)
+        gemini_rewards = self.gemini_reward_model.evaluate(obs, actions)
+
+        # Combine: locomotion keeps robot walking, Gemini adds safety guidance
+        # Weight Gemini rewards to be significant but not overwhelming
+        combined_rewards = locomotion_rewards + 0.5 * gemini_rewards
+
+        return combined_rewards
 
     def _check_termination(self, _obs: np.ndarray) -> np.ndarray:
         """
