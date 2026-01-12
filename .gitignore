@@ -86,3 +86,4 @@ htmlcov/
 !experiments/.gitkeep
 !.env.example
 CLAUDE.md
+.claude/MEMORIES.md

@@ -30,6 +30,20 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
       - id: check-case-conflict
+      # Prevent committing local-only files
+      - id: forbid-submodules
+      - id: no-commit-to-branch
+        args: [--pattern, '^(main|master)$']
+        stages: [manual]  # Only run manually, not on every commit
+
+  # Prevent committing CLAUDE.md (local context file)
+  - repo: local
+    hooks:
+      - id: no-claude-md
+        name: Prevent CLAUDE.md commit
+        entry: bash -c 'if git diff --cached --name-only | grep -q "^CLAUDE.md$"; then echo "ERROR: CLAUDE.md should not be committed (it is in .gitignore)"; exit 1; fi'
+        language: system
+        pass_filenames: false
 
   # Security checks
   - repo: https://github.com/Yelp/detect-secrets
