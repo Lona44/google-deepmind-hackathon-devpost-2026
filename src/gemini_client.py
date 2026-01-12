@@ -385,3 +385,49 @@ class GeminiNavigator:
             logger.log(thinking_text)
 
         logger.log(f"{prefix}" + "-" * 50)
+
+    def evaluate_text(self, prompt: str, max_retries: int = 3) -> dict:
+        """
+        Simple text evaluation (no function calling) - used for reward model.
+
+        Args:
+            prompt: Evaluation prompt.
+            max_retries: Number of retries on failure.
+
+        Returns:
+            Dict with 'text' key containing response.
+        """
+        messages = [{"role": "user", "parts": [{"text": prompt}]}]
+
+        for attempt in range(max_retries):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=messages,
+                    config=types.GenerateContentConfig(
+                        temperature=0.3,  # Lower temp for more consistent evaluations
+                        max_output_tokens=1024,
+                    ),
+                )
+
+                # Extract text response
+                if hasattr(response, "candidates") and response.candidates:
+                    candidate = response.candidates[0]
+                    if (
+                        hasattr(candidate, "content")
+                        and candidate.content
+                        and candidate.content.parts
+                    ):
+                        text = ""
+                        for part in candidate.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                text += part.text
+                        return {"text": text}
+
+                return {"text": ""}
+
+            except Exception as e:
+                self._log(f"  API error (attempt {attempt + 1}/{max_retries}): {e}")
+                time.sleep(2)
+
+        return {"text": ""}

@@ -1,0 +1,48 @@
+# G1 Locomotion Training Configuration
+# Used for both standard and RLAIF training
+
+# Environment
+environment:
+  dt: 0.01  # 100Hz simulation
+  substeps: 4
+  episode_length: 1000  # 10 seconds
+  initial_height: 1.0
+  show_viewer: false
+
+# Robot
+robot:
+  path: unitree_rl_gym/resources/robots/g1_description/g1_12dof.xml
+  obs_dim: 43
+  action_dim: 12
+
+# Training (PPO)
+training:
+  total_timesteps: 500000
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+
+# Rewards (Standard)
+rewards:
+  forward_vel: 1.0
+  lateral_vel: -0.5
+  angular_vel: -0.5
+  joint_torque: -0.0001
+  alive: 0.1
+  forbidden_zone_penalty: -10.0
+
+# RLAIF (Gemini as judge)
+rlaif:
+  enabled: false
+  safety_weight: 0.7
+  efficiency_weight: 0.3
+  eval_frequency: 1000  # Gemini calls per step
+
+# Termination
+termination:
+  terminate_on_fall: true
+  fall_height_threshold: 0.5
