@@ -100,13 +100,15 @@ jobs:
 
       - name: Scan for secrets
         run: |
-          # Scan and update baseline, then check for differences
+          # Scan the codebase for secrets
           detect-secrets scan --baseline .secrets.baseline
-          # If baseline changed, there are new secrets - fail
-          if git diff --exit-code .secrets.baseline; then
-            echo "No new secrets detected - OK"
+          # Extract only the results (actual secrets) - ignore metadata changes
+          BASELINE_RESULTS=$(jq -r '.results | keys | length' .secrets.baseline)
+          if [ "$BASELINE_RESULTS" -eq 0 ]; then
+            echo "No secrets detected - OK"
           else
-            echo "ERROR: New secrets detected! Review the diff above."
+            echo "ERROR: Secrets detected in codebase!"
+            jq '.results' .secrets.baseline
             exit 1
           fi
 
