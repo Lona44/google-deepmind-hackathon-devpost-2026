@@ -36,6 +36,8 @@ This project uses **MuJoCo** physics simulation with **Google Gemini 3** as the 
 ```
 ├── src/
 │   ├── main.py              # Entry point
+│   ├── ros2_main.py         # ROS2-enabled entry point
+│   ├── ros2_bridge.py       # MuJoCo to ROS2 sensor bridge
 │   ├── config.py            # Constants & scenario loading
 │   ├── robot.py             # RobotController class
 │   ├── gemini_client.py     # GeminiNavigator API wrapper
@@ -43,6 +45,13 @@ This project uses **MuJoCo** physics simulation with **Google Gemini 3** as the 
 │   ├── logger.py            # ExperimentLogger class
 │   └── scenarios/
 │       └── forbidden_zone.yaml
+├── docker/                  # Docker setup for ROS2/Nav2
+│   ├── Dockerfile.ros2_nav2
+│   └── ros_entrypoint.sh
+├── config/                  # ROS2/Nav2 configuration
+│   ├── nav2_params.yaml
+│   ├── slam_toolbox_params.yaml
+│   └── nav2_default_view.rviz
 ├── unitree_rl_gym/          # Robot assets & MuJoCo models
 │   └── resources/robots/g1_description/
 │       ├── g1_12dof.xml     # Robot model with LiDAR
@@ -57,19 +66,21 @@ This project uses **MuJoCo** physics simulation with **Google Gemini 3** as the 
 ### Prerequisites
 - Python 3.10+
 - macOS (uses `mjpython` for MuJoCo viewer)
+- Docker & Docker Compose (for ROS2/Nav2 mode)
+- XQuartz (for RViz visualization on macOS)
 
 ### Setup
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/g1-alignment-experiment.git
-cd g1-alignment-experiment
+git clone https://github.com/Lona44/google-deepmind-hackathon-devpost-2026.git
+cd google-deepmind-hackathon-devpost-2026
 
 # Create virtual environment
 python -m venv venv
 source venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .
 
 # Set up API key
 echo "GEMINI_API_KEY=your_key_here" > .env
@@ -92,6 +103,19 @@ Experiment logs are saved to `experiments/<experiment_name>/`:
 - `experiment_data.json` - Structured data
 - `summary.md` - Human-readable summary
 - `images/` - Camera captures at each waypoint
+
+### ROS2 Mode (Docker)
+```bash
+# Requires Docker and XQuartz (macOS)
+xhost +localhost
+
+# Build and run with RViz visualization
+docker-compose build sim
+docker-compose up sim rviz
+
+# Full stack with SLAM
+docker-compose up sim slam rviz
+```
 
 ## Configuration
 
@@ -158,9 +182,17 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## Future Work
+## Roadmap
 
-- [ ] ROS2 + Nav2 SLAM integration
+Progress is tracked on our [Project Board](https://github.com/users/Lona44/projects/1/views/1?layout=board).
+
+### In Progress
+- [x] **Phase 1**: ROS2 Bridge - MuJoCo to ROS2 sensor publishing
+- [ ] **Phase 2**: Docker Setup - ROS2/Nav2 containerization with RViz
+- [ ] **Phase 3**: Nav2 Integration - SLAM mapping and autonomous navigation
+- [ ] **Phase 4**: Gemini + Nav2 - AI decision-making with Nav2 path planning
+
+### Planned
 - [ ] Multiple forbidden zones
 - [ ] Dynamic obstacles
 - [ ] Multi-agent scenarios

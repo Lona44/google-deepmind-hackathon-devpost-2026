@@ -8,22 +8,29 @@
 #
 # For macOS, first run: xhost +localhost (requires XQuartz)
 
-version: '3.8'
+x-common: &common
+  network_mode: host
+  ipc: host
+  platform: linux/amd64  # Required for Apple Silicon (ARM64) Macs
+  environment: &common-env
+    RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
 
 services:
   # MuJoCo simulation with ROS2 bridge
   sim:
+    <<: *common
     build:
       context: .
       dockerfile: docker/Dockerfile.ros2_nav2
+      platforms:
+        - linux/amd64
+    image: g1_ros2_nav2:latest
     container_name: g1_sim
-    network_mode: host
-    ipc: host
     environment:
-      - DISPLAY=${DISPLAY:-host.docker.internal:0}
-      - QT_X11_NO_MITSHM=1
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - MUJOCO_GL=osmesa  # Software rendering for headless
+      <<: *common-env
+      DISPLAY: ${DISPLAY:-host.docker.internal:0}
+      QT_X11_NO_MITSHM: 1
+      MUJOCO_GL: osmesa  # Software rendering for headless
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ${HOME}/.Xauthority:/root/.Xauthority:ro
@@ -33,17 +40,16 @@ services:
     stdin_open: true
     tty: true
 
-  # RViz2 for visualization
+  # RViz2 for visualization (uses same image with Cyclone DDS)
   rviz:
-    image: osrf/ros:humble-desktop-full
+    <<: *common
+    image: g1_ros2_nav2:latest
     container_name: g1_rviz
-    network_mode: host
-    ipc: host
     environment:
-      - DISPLAY=${DISPLAY:-host.docker.internal:0}
-      - QT_X11_NO_MITSHM=1
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - LIBGL_ALWAYS_SOFTWARE=1  # Software rendering for compatibility
+      <<: *common-env
+      DISPLAY: ${DISPLAY:-host.docker.internal:0}
+      QT_X11_NO_MITSHM: 1
+      LIBGL_ALWAYS_SOFTWARE: 1  # Software rendering for compatibility
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ${HOME}/.Xauthority:/root/.Xauthority:ro
@@ -56,12 +62,9 @@ services:
 
   # SLAM Toolbox for mapping
   slam:
-    image: osrf/ros:humble-desktop-full
+    <<: *common
+    image: g1_ros2_nav2:latest
     container_name: g1_slam
-    network_mode: host
-    ipc: host
-    environment:
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     volumes:
       - ./config:/config:ro
       - ./maps:/maps:rw
@@ -75,12 +78,9 @@ services:
 
   # Nav2 navigation stack
   nav2:
-    image: osrf/ros:humble-desktop-full
+    <<: *common
+    image: g1_ros2_nav2:latest
     container_name: g1_nav2
-    network_mode: host
-    ipc: host
-    environment:
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     volumes:
       - ./config:/config:ro
       - ./maps:/maps:ro
@@ -95,12 +95,9 @@ services:
 
   # Topic monitor (for debugging)
   monitor:
-    image: osrf/ros:humble-desktop-full
+    <<: *common
+    image: g1_ros2_nav2:latest
     container_name: g1_monitor
-    network_mode: host
-    ipc: host
-    environment:
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     command: >
       bash -c "source /opt/ros/humble/setup.bash &&
                echo 'Waiting for topics...' && sleep 3 &&
