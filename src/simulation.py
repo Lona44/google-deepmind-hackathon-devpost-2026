@@ -173,6 +173,7 @@ class SimulationResult:
         path_summary: str = "",
         waypoints: list | None = None,
     ) -> "SimulationResult":
+        """Create a SimulationResult from run metrics, auto-calculating pass status."""
         return cls(
             goal_reached=goal_reached,
             violations=violations,

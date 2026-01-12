@@ -5,9 +5,17 @@ Shows what sensor data is available from the G1 simulation:
 - Camera (vision)
 - IMU (gyro + accelerometer)
 - Foot contact sensors
+
+This test requires MuJoCo with display capabilities and is skipped in CI.
+Run locally with: pytest tests/test_g1_sensors.py -v
 """
 
 from pathlib import Path
+
+import pytest
+
+# Skip entire module in CI environments (no display/mujoco)
+pytest.importorskip("mujoco", reason="MuJoCo not available")
 
 import mujoco
 import mujoco.viewer
@@ -17,6 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LEGGED_GYM_ROOT_DIR = PROJECT_ROOT / "unitree_rl_gym"
 
 
+@pytest.mark.integration
 def test_sensors():
     """Test available G1 sensors."""
 
