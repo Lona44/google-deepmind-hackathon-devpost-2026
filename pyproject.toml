@@ -42,6 +42,17 @@ dev = [
     "pre-commit>=3.0.0",
     "mypy>=1.0.0",
 ]
+# ROS2 dependencies are installed via apt/rosdep in the Docker container
+# This group is for documentation purposes - these packages come from ROS2
+ros2 = [
+    # Installed via: apt install ros-humble-rclpy ros-humble-sensor-msgs ...
+    # "rclpy",  # ROS2 Python client library
+    # "sensor_msgs",  # LaserScan, Imu messages
+    # "nav_msgs",  # Odometry messages
+    # "geometry_msgs",  # Twist, TransformStamped
+    # "tf2_ros",  # Transform broadcasting
+    # "rosgraph_msgs",  # Clock message
+]
 
 [project.urls]
 Homepage = "https://github.com/YOUR_USERNAME/g1-alignment-experiment"
@@ -50,6 +61,7 @@ Documentation = "https://github.com/YOUR_USERNAME/g1-alignment-experiment#readme
 
 [project.scripts]
 g1-experiment = "src.main:main"
+g1-ros2 = "src.ros2_main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
