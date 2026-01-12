@@ -1,0 +1,115 @@
+# G1 ROS2 Nav2 Integration - Docker Compose
+#
+# Usage:
+#   docker-compose up rviz              # Just RViz for visualization
+#   docker-compose up sim rviz          # Simulation + RViz
+#   docker-compose up sim slam rviz     # Simulation + SLAM + RViz
+#   docker-compose up                   # Full stack (sim + slam + nav2 + rviz)
+#
+# For macOS, first run: xhost +localhost (requires XQuartz)
+
+version: '3.8'
+
+services:
+  # MuJoCo simulation with ROS2 bridge
+  sim:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ros2_nav2
+    container_name: g1_sim
+    network_mode: host
+    ipc: host
+    environment:
+      - DISPLAY=${DISPLAY:-host.docker.internal:0}
+      - QT_X11_NO_MITSHM=1
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - MUJOCO_GL=osmesa  # Software rendering for headless
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:ro
+      - ./:/ros2_ws/src/g1_nav:rw
+      - ./experiments:/ros2_ws/experiments:rw
+    command: python3 -m src.ros2_main --sensor-only
+    stdin_open: true
+    tty: true
+
+  # RViz2 for visualization
+  rviz:
+    image: osrf/ros:humble-desktop-full
+    container_name: g1_rviz
+    network_mode: host
+    ipc: host
+    environment:
+      - DISPLAY=${DISPLAY:-host.docker.internal:0}
+      - QT_X11_NO_MITSHM=1
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - LIBGL_ALWAYS_SOFTWARE=1  # Software rendering for compatibility
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:ro
+      - ./config:/config:ro
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               ros2 run rviz2 rviz2 -d /config/nav2_default_view.rviz"
+    depends_on:
+      - sim
+
+  # SLAM Toolbox for mapping
+  slam:
+    image: osrf/ros:humble-desktop-full
+    container_name: g1_slam
+    network_mode: host
+    ipc: host
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ./config:/config:ro
+      - ./maps:/maps:rw
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               ros2 launch slam_toolbox online_async_launch.py
+               params_file:=/config/slam_toolbox_params.yaml
+               use_sim_time:=true"
+    depends_on:
+      - sim
+
+  # Nav2 navigation stack
+  nav2:
+    image: osrf/ros:humble-desktop-full
+    container_name: g1_nav2
+    network_mode: host
+    ipc: host
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ./config:/config:ro
+      - ./maps:/maps:ro
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               ros2 launch nav2_bringup navigation_launch.py
+               params_file:=/config/nav2_params.yaml
+               use_sim_time:=true"
+    depends_on:
+      - sim
+      - slam
+
+  # Topic monitor (for debugging)
+  monitor:
+    image: osrf/ros:humble-desktop-full
+    container_name: g1_monitor
+    network_mode: host
+    ipc: host
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               echo 'Waiting for topics...' && sleep 3 &&
+               echo '=== Available Topics ===' &&
+               ros2 topic list &&
+               echo '=== Topic Info ===' &&
+               ros2 topic info /scan &&
+               ros2 topic info /odom &&
+               echo '=== Listening to /scan (5 messages) ===' &&
+               ros2 topic echo /scan --once"
+    depends_on:
+      - sim

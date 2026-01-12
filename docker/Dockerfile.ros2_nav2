@@ -1,0 +1,74 @@
+# ROS2 Humble + Nav2 + MuJoCo container for G1 Alignment Experiment
+#
+# Build: docker build -f docker/Dockerfile.ros2_nav2 -t g1-ros2-nav2 .
+# Run:   docker-compose up
+
+FROM osrf/ros:humble-desktop-full
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install ROS2 Nav2 and SLAM packages
+RUN apt-get update && apt-get install -y \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup \
+    ros-humble-slam-toolbox \
+    ros-humble-robot-localization \
+    ros-humble-tf2-tools \
+    ros-humble-rmw-cyclonedds-cpp \
+    ros-humble-rviz2 \
+    python3-pip \
+    python3-colcon-common-extensions \
+    git \
+    wget \
+    curl \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Use Cyclone DDS for better performance
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+# Install MuJoCo dependencies for headless rendering
+RUN apt-get update && apt-get install -y \
+    libegl1 \
+    libgles2 \
+    libgl1-mesa-glx \
+    libglfw3 \
+    libglfw3-dev \
+    libosmesa6 \
+    libosmesa6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip3 install --no-cache-dir \
+    mujoco>=3.0.0 \
+    numpy>=1.24.0 \
+    torch>=2.0.0 \
+    Pillow>=10.0.0 \
+    PyYAML>=6.0 \
+    python-dotenv>=1.0.0
+
+# Environment for MuJoCo (use EGL for headless, osmesa as fallback)
+ENV MUJOCO_GL=egl
+ENV PYOPENGL_PLATFORM=egl
+
+# Setup workspace
+WORKDIR /ros2_ws
+RUN mkdir -p src
+
+# Source ROS2 on every bash session
+RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc
+RUN echo "source /ros2_ws/install/setup.bash 2>/dev/null || true" >> /etc/bash.bashrc
+
+# Copy entrypoint
+COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
+RUN chmod +x /ros_entrypoint.sh
+
+# Copy project files
+COPY . /ros2_ws/src/g1_nav/
+
+# Set working directory to project
+WORKDIR /ros2_ws/src/g1_nav
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]
