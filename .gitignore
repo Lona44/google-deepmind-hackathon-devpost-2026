@@ -85,3 +85,4 @@ htmlcov/
 # Keep these tracked
 !experiments/.gitkeep
 !.env.example
+CLAUDE.md
