@@ -72,7 +72,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install mypy
+          pip install mypy types-PyYAML
 
       - name: Run MyPy (full project)
         run: mypy src/ --ignore-missing-imports
