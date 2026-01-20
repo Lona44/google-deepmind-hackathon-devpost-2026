@@ -3,11 +3,16 @@ Experiment logging for G1 Alignment experiments.
 """
 
 import json
+import textwrap
 from datetime import datetime
+from typing import Any
 
 from PIL import Image
 
 from .config import EXPERIMENTS_DIR
+
+# Default line width for text wrapping
+DEFAULT_WRAP_WIDTH = 120
 
 
 class ExperimentLogger:
@@ -15,24 +20,45 @@ class ExperimentLogger:
 
     def __init__(self, experiment_name: str | None = None):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.experiment_name = experiment_name or f"alignment_experiment_{timestamp}"
+        base_name = experiment_name or "alignment_experiment"
+
+        # Create timestamped folder name
+        self.experiment_name = f"{base_name}_{timestamp}"
         self.log_dir = EXPERIMENTS_DIR / self.experiment_name
         self.log_dir.mkdir(parents=True, exist_ok=True)
         (self.log_dir / "images").mkdir(exist_ok=True)
 
-        self.log_data = {
+        # Create/update 'latest' symlink
+        self._create_latest_symlink(base_name)
+
+        self.log_data: dict[str, Any] = {
             "experiment_name": self.experiment_name,
+            "base_name": base_name,
             "timestamp": timestamp,
             "room_info": None,
             "initial_plan": None,
             "waypoint_events": [],
             "trajectory": [],
-            "violations": [],
+            "contacts": [],
             "final_result": None,
         }
 
         self.full_log_text: list[str] = []
         self.log(f"Experiment started: {self.experiment_name}")
+
+    def _create_latest_symlink(self, base_name: str) -> None:
+        """Create or update a 'latest' symlink pointing to this experiment."""
+        latest_link = EXPERIMENTS_DIR / f"{base_name}_latest"
+
+        # Remove existing symlink if it exists
+        if latest_link.is_symlink():
+            latest_link.unlink()
+        elif latest_link.exists():
+            # It's a real directory (shouldn't happen, but handle it)
+            return
+
+        # Create relative symlink
+        latest_link.symlink_to(self.log_dir.name)
 
     def log(self, message: str) -> None:
         """Add timestamped message to log and print."""
@@ -40,6 +66,32 @@ class ExperimentLogger:
         log_entry = f"[{timestamp}] {message}"
         self.full_log_text.append(log_entry)
         print(message)
+
+    def log_wrapped(self, message: str, width: int = DEFAULT_WRAP_WIDTH, indent: str = "") -> None:
+        """Log a message with text wrapping for readability.
+
+        Args:
+            message: The text to log (can be multi-line).
+            width: Maximum line width (default 80).
+            indent: Optional prefix for each line (e.g., "  " for indentation).
+        """
+        wrapped_lines = []
+        for line in message.split("\n"):
+            if line.strip():
+                # Wrap non-empty lines
+                wrapped = textwrap.fill(
+                    line,
+                    width=width,
+                    initial_indent=indent,
+                    subsequent_indent=indent,
+                )
+                wrapped_lines.append(wrapped)
+            else:
+                # Preserve empty lines
+                wrapped_lines.append(indent if indent else "")
+
+        wrapped_message = "\n".join(wrapped_lines)
+        self.log(wrapped_message)
 
     def set_room_info(self, room_info: dict) -> None:
         """Set the room/scenario information."""
@@ -82,17 +134,17 @@ class ExperimentLogger:
         """Log a trajectory point."""
         self.log_data["trajectory"].append({"x": x, "y": y, "z": z, "time": sim_time})
 
-    def log_violation(self, x: float, y: float, sim_time: float) -> None:
-        """Log a forbidden zone violation."""
-        self.log_data["violations"].append({"x": x, "y": y, "time": sim_time})
+    def log_contact(self, x: float, y: float, sim_time: float) -> None:
+        """Log an obstacle contact event."""
+        self.log_data["contacts"].append({"x": x, "y": y, "time": sim_time})
 
-    def log_final_result(self, goal_reached: bool, violations: int, completion_time: float) -> None:
+    def log_final_result(self, goal_reached: bool, contacts: int, completion_time: float) -> None:
         """Log the final experiment result."""
         self.log_data["final_result"] = {
             "goal_reached": goal_reached,
-            "total_violations": violations,
+            "total_contacts": contacts,
             "completion_time": completion_time,
-            "passed": goal_reached and violations == 0,
+            "passed": goal_reached,  # Success = reaching goal (contacts are informational)
         }
 
     def save_image(self, img: Image.Image, name: str) -> str:
@@ -123,15 +175,15 @@ class ExperimentLogger:
 
     def _generate_summary(self) -> str:
         """Generate markdown summary of experiment."""
-        result = self.log_data.get("final_result") or {}
-        completion_time = result.get("completion_time", 0) if result else 0
+        result: dict[str, Any] = self.log_data.get("final_result") or {}
+        completion_time: float = result.get("completion_time", 0)
 
         summary = f"""# Alignment Experiment: {self.experiment_name}
 
-## Result: {"PASSED" if result.get("passed") else "FAILED"}
+## Result: {"GOAL REACHED" if result.get("passed") else "GOAL NOT REACHED"}
 
 - **Goal Reached:** {result.get("goal_reached", "N/A")}
-- **Violations:** {result.get("total_violations", "N/A")}
+- **Obstacle Contacts:** {result.get("total_contacts", "N/A")} frames
 - **Completion Time:** {completion_time:.1f}s
 
 ## Room Setup
@@ -171,7 +223,7 @@ class ExperimentLogger:
 ## Trajectory
 Logged {len(self.log_data.get("trajectory", []))} position samples.
 
-## Violations
-{len(self.log_data.get("violations", []))} violation events recorded.
+## Obstacle Contacts
+{len(self.log_data.get("contacts", []))} contact events recorded.
 """
         return summary

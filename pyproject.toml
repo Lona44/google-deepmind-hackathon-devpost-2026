@@ -41,6 +41,10 @@ dev = [
     "ruff>=0.4.0",
     "pre-commit>=3.0.0",
     "mypy>=1.0.0",
+    # Refactoring safety tools
+    "tach>=0.10.0",        # Dependency graph analysis
+    "pyan3>=1.2.0",        # Call graph visualization
+    "mutmut>=2.4.0",       # Mutation testing
 ]
 # ROS2 dependencies are installed via apt/rosdep in the Docker container
 # This group is for documentation purposes - these packages come from ROS2
@@ -170,3 +174,23 @@ exclude = [
     "archive",
     "venv",
 ]
+
+# =============================================================================
+# Tach Configuration (Dependency Analysis)
+# =============================================================================
+[tool.tach]
+source_roots = ["src"]
+exact = true
+exclude = [
+    "tests",
+    "unitree_rl_gym",
+    "venv",
+]
+
+# =============================================================================
+# Mutmut Configuration (Mutation Testing)
+# =============================================================================
+[tool.mutmut]
+paths_to_mutate = "src/"
+tests_dir = "tests/"
+runner = "pytest -x -q"

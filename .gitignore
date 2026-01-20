@@ -41,11 +41,9 @@ env/
 .env.local
 .env.*.local
 
-# Experiment outputs (large files)
-experiments/*/images/
-experiments/*/*.json
-# Keep log files for review
-# experiments/*/*.txt
+# Experiment outputs (large files, keep only .gitkeep)
+experiments/
+!experiments/.gitkeep
 
 # MuJoCo
 *.mjb
@@ -82,8 +80,10 @@ htmlcov/
 *.onnx
 *.pkl
 
+# Claude Code local files (rules, memories, etc.)
+.claude/
+CLAUDE.md
+
 # Keep these tracked
 !experiments/.gitkeep
 !.env.example
-CLAUDE.md
-.claude/MEMORIES.md

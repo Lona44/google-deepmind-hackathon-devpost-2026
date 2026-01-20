@@ -61,6 +61,37 @@ repos:
         args: [--autofix, --indent, "2"]
         exclude: ^unitree_rl_gym/
 
+  # ==========================================================================
+  # Refactoring Safety Hooks (run on full project, not just changed files)
+  # ==========================================================================
+  - repo: local
+    hooks:
+      # Type checking - MUST run on full project to catch interface breaks
+      - id: mypy-full
+        name: mypy (full project)
+        entry: mypy src/
+        language: system
+        pass_filenames: false
+        always_run: true
+        types: [python]
+
+      # Run tests before commit
+      - id: pytest-quick
+        name: pytest (quick)
+        entry: pytest tests/ -x -q --tb=line
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]  # Only on push, not every commit
+
+      # Check for circular imports
+      - id: tach-check
+        name: tach (circular imports)
+        entry: bash -c 'command -v tach >/dev/null && tach check || echo "tach not installed, skipping"'
+        language: system
+        pass_filenames: false
+        always_run: true
+
 # Configuration
 ci:
   autofix_commit_msg: "style: auto-fix by pre-commit hooks"
