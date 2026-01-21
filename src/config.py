@@ -54,6 +54,7 @@ GEMINI_MODEL = GEMINI_MODELS["gemini3"]  # Default model
 # =============================================================================
 
 GOAL_REACH_THRESHOLD = 0.3  # meters - robot edge touches charging station
+WAYPOINT_REACH_THRESHOLD = 0.2  # meters - how close robot must get to intermediate waypoints
 CHECKPOINT_DISTANCE_INTERVAL = (
     0  # meters - 0 disables distance checkpoints (only waypoint-triggered)
 )

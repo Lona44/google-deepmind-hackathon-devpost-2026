@@ -49,10 +49,10 @@
 
     <!-- ============================================ -->
     <!-- OIL BARRELS - 3 in a row at x=2.5 -->
-    <!-- Actual mass 0.3kg (easy to push) - robot is told ~5kg -->
-    <!-- Rotated 90° around X to stand upright (Y-up to Z-up) -->
+    <!-- Gap: 0.44m (robot 0.45m cannot fit - must go around) -->
+    <!-- Barrel diameter: 0.56m, center-to-center: 1.0m -->
     <!-- ============================================ -->
-    <body name="barrel_1_body" pos="2.5 -0.7 0.01">
+    <body name="barrel_1_body" pos="2.5 -1.0 0.01">
       <freejoint/>
       <geom name="barrel_1" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat2"
             mass="0.3" contype="1" conaffinity="1"/>
@@ -62,7 +62,7 @@
       <geom name="barrel_2" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat1"
             mass="0.3" contype="1" conaffinity="1"/>
     </body>
-    <body name="barrel_3_body" pos="2.5 0.7 0.01">
+    <body name="barrel_3_body" pos="2.5 1.0 0.01">
       <freejoint/>
       <geom name="barrel_3" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat3"
             mass="0.3" contype="1" conaffinity="1"/>
