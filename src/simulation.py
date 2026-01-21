@@ -21,6 +21,7 @@ from .config import (
     SIMULATION_TIMEOUT,
     STATUS_PRINT_INTERVAL,
     TRAJECTORY_LOG_INTERVAL,
+    WAYPOINT_REACH_THRESHOLD,
     BatterySimulator,
     ScenarioConfig,
 )
@@ -627,8 +628,6 @@ class SimulationRunner:
         self._initial_waypoints = []
         self._waypoint_adjustments = []
         self.checkpoint_num = 0  # Reset checkpoint counter for new attempt
-        self._prev_dist_to_waypoint: float | None = None  # For detecting passed waypoints
-        self._min_dist_to_waypoint: float | None = None  # Track closest approach to waypoint
         self.contacts = 0
         self._last_checkpoint_contacts = 0
         self._was_in_zone = False
@@ -1084,45 +1083,14 @@ class SimulationRunner:
                     target = all_waypoints[0]
                     dx = target[0] - x
                     dy = target[1] - y
-                    dist_to_waypoint = math.sqrt(dx * dx + dy * dy)
                     cmd = self._compute_navigation_cmd(dx, dy)
 
-                    # Robot has arrived at waypoint when velocity command is zero (stopped)
-                    stopped_at_waypoint = np.allclose(cmd, 0.0)
-
-                    # Fallback: detect if robot passed the waypoint without stopping
-                    # This happens when the walking path doesn't precisely hit the waypoint
-                    passed_waypoint = False
-                    if (
-                        self._prev_dist_to_waypoint is not None
-                        and self._min_dist_to_waypoint is not None
-                    ):
-                        # If we got close (within 0.5m) and distance is now increasing, we passed it
-                        got_close = self._min_dist_to_waypoint < 0.5
-                        moving_away = dist_to_waypoint > self._prev_dist_to_waypoint + 0.05
-                        passed_waypoint = got_close and moving_away
-
-                    # Track minimum distance to current waypoint
-                    if (
-                        not hasattr(self, "_min_dist_to_waypoint")
-                        or self._min_dist_to_waypoint is None
-                    ):
-                        self._min_dist_to_waypoint = dist_to_waypoint
-                    else:
-                        self._min_dist_to_waypoint = min(
-                            self._min_dist_to_waypoint, dist_to_waypoint
-                        )
-                    self._prev_dist_to_waypoint = dist_to_waypoint
-
-                    # Waypoint reached if stopped at it OR passed it
-                    arrived_at_waypoint = stopped_at_waypoint or passed_waypoint
+                    # Robot has arrived at waypoint when velocity command is zero (within threshold)
+                    arrived_at_waypoint = np.allclose(cmd, 0.0)
 
                     # If arrived at an intermediate waypoint (not the goal), trigger checkpoint
                     if arrived_at_waypoint and len(all_waypoints) > 1:
                         reached_wp = self.waypoints.pop(0)  # Remove from waypoint list
-                        # Reset waypoint tracking for next waypoint
-                        self._prev_dist_to_waypoint = None
-                        self._min_dist_to_waypoint = None
                         action = self._handle_waypoint_checkpoint(
                             m, d, renderer, reached_wp, x, y, sim_time, self.waypoints
                         )
@@ -1274,23 +1242,20 @@ class SimulationRunner:
         if not self.goal_reached:
             self.completion_time = time.time() - start_time
 
-    def _compute_navigation_cmd(
-        self, dx: float, dy: float, stop_threshold: float = 0.15
-    ) -> np.ndarray:
+    def _compute_navigation_cmd(self, dx: float, dy: float) -> np.ndarray:
         """Compute velocity command to move toward target.
 
         Args:
             dx: Distance to target in x direction
             dy: Distance to target in y direction
-            stop_threshold: Stop when within this distance of target (meters)
 
         Returns:
-            Velocity command [vx, vy, vyaw]. Returns zero when close to target.
+            Velocity command [vx, vy, vyaw]. Returns zero when within WAYPOINT_REACH_THRESHOLD.
         """
         dist = math.sqrt(dx * dx + dy * dy)
 
         # Stop when close to target
-        if dist < stop_threshold:
+        if dist < WAYPOINT_REACH_THRESHOLD:
             return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
         vy = np.clip(dy * 0.8, -0.5, 0.5)
