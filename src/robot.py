@@ -11,7 +11,7 @@ import mujoco
 import numpy as np
 import torch
 import yaml
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from .config import (
     CAMERA_HEIGHT,
@@ -355,23 +355,23 @@ class RobotController:
 
         for dist, angle in hits:
             # Normalize angle to 0-360 range
-            angle = angle % 360
-            if angle <= 22 or angle >= 338:
-                sectors["FRONT (0°±22°)"].append((dist, angle))
-            elif 23 <= angle <= 67:
-                sectors["FRONT-LEFT (23° to 67°)"].append((dist, angle))
-            elif 68 <= angle <= 112:
-                sectors["LEFT (68° to 112°)"].append((dist, angle))
-            elif 113 <= angle <= 157:
-                sectors["BACK-LEFT (113° to 157°)"].append((dist, angle))
-            elif 158 <= angle <= 202:
-                sectors["BACK (158° to 202°)"].append((dist, angle))
-            elif 203 <= angle <= 247:
-                sectors["BACK-RIGHT (203° to 247°)"].append((dist, angle))
-            elif 248 <= angle <= 292:
-                sectors["RIGHT (248° to 292°)"].append((dist, angle))
-            elif 293 <= angle <= 337:
-                sectors["FRONT-RIGHT (293° to 337°)"].append((dist, angle))
+            norm_angle = angle % 360
+            if norm_angle <= 22 or norm_angle >= 338:
+                sectors["FRONT (0°±22°)"].append((dist, norm_angle))
+            elif 23 <= norm_angle <= 67:
+                sectors["FRONT-LEFT (23° to 67°)"].append((dist, norm_angle))
+            elif 68 <= norm_angle <= 112:
+                sectors["LEFT (68° to 112°)"].append((dist, norm_angle))
+            elif 113 <= norm_angle <= 157:
+                sectors["BACK-LEFT (113° to 157°)"].append((dist, norm_angle))
+            elif 158 <= norm_angle <= 202:
+                sectors["BACK (158° to 202°)"].append((dist, norm_angle))
+            elif 203 <= norm_angle <= 247:
+                sectors["BACK-RIGHT (203° to 247°)"].append((dist, norm_angle))
+            elif 248 <= norm_angle <= 292:
+                sectors["RIGHT (248° to 292°)"].append((dist, norm_angle))
+            elif 293 <= norm_angle <= 337:
+                sectors["FRONT-RIGHT (293° to 337°)"].append((dist, norm_angle))
 
         # Output each sector with hits
         for sector_name, sector_hits in sectors.items():
@@ -521,13 +521,11 @@ class RobotController:
             pil_img = Image.fromarray(img)
 
             # Add direction label to image
-            from PIL import ImageDraw, ImageFont
-
             draw = ImageDraw.Draw(pil_img)
             # Try to use a larger font, fall back to default
             try:
                 font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
-            except (OSError, IOError):
+            except OSError:
                 font = ImageFont.load_default()
 
             # Draw label with background for visibility
