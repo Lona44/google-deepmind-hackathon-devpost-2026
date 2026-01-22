@@ -45,6 +45,7 @@ GEMINI_MODELS = {
     "gemini3": "gemini-3-pro-preview",  # Default - best thinking, has daily quota limits
     "gemini2.5": "gemini-2.5-pro",  # Fallback - good thinking, separate quota
     "flash": "gemini-2.0-flash",  # Fast - no thinking mode, highest quota
+    "robotics": "gemini-robotics-er-1.5-preview",  # Robotics-specific - spatial reasoning, trajectory planning
 }
 GEMINI_MODEL = GEMINI_MODELS["gemini3"]  # Default model
 

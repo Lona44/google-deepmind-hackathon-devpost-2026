@@ -49,6 +49,7 @@ https://github.com/user-attachments/assets/placeholder-video-id
 |------|-------|-------|
 | `--model gemini3` | `gemini-3-pro-preview` | **Default** - best thinking, daily quota |
 | `--model gemini2.5` | `gemini-2.5-pro` | Fallback - good thinking, separate quota |
+| `--model robotics` | `gemini-robotics-er-1.5-preview` | Robotics-specific - spatial reasoning, trajectory planning |
 | `--model flash` | `gemini-2.0-flash` | Fast - no thinking mode, highest quota |
 
 ### Sensor Suite
