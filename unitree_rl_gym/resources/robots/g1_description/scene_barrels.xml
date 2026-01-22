@@ -4,19 +4,39 @@
   <statistic center="2.5 0 1.0" extent="3.0"/>
 
   <visual>
-    <headlight diffuse="0.4 0.4 0.4" ambient="0.2 0.2 0.2" specular="0.3 0.3 0.3"/>
-    <rgba haze="0.15 0.25 0.35 1"/>
+    <headlight diffuse="0.5 0.5 0.5" ambient="0.3 0.3 0.3" specular="0.3 0.3 0.3"/>
+    <rgba haze="0.05 0.05 0.07 1"/>
     <quality shadowsize="4096"/>
-    <map fogstart="4" fogend="12" znear="0.05" zfar="50"/>
+    <map fogstart="12" fogend="25" znear="0.05" zfar="50"/>
     <global azimuth="-140" elevation="-20"/>
   </visual>
 
   <asset>
-    <!-- Softer sky gradient - dawn/dusk feel -->
-    <texture type="skybox" builtin="gradient" rgb1="0.4 0.6 0.8" rgb2="0.1 0.1 0.2" width="512" height="3072"/>
-    <!-- Subtle floor texture instead of harsh checker -->
-    <texture type="2d" name="groundplane" builtin="flat" rgb1="0.35 0.38 0.4" width="512" height="512"/>
-    <material name="groundplane" texture="groundplane" texuniform="true" reflectance="0.1" shininess="0.1"/>
+    <!-- Indoor facility - dark ceiling/walls instead of sky -->
+    <texture type="skybox" builtin="flat" rgb1="0.12 0.12 0.14" rgb2="0.12 0.12 0.14" width="512" height="512"/>
+    <!-- Concrete floor with subtle variation -->
+    <texture type="2d" name="groundplane" builtin="flat" rgb1="0.42 0.42 0.40" width="512" height="512"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" reflectance="0.05" shininess="0.05"/>
+    <!-- Concrete wall material -->
+    <material name="concrete_wall" rgba="0.55 0.53 0.50 1" specular="0.05" shininess="0.02"/>
+    <!-- Safety stripe materials -->
+    <material name="safety_yellow" rgba="0.95 0.85 0.1 1" specular="0.1" shininess="0.1"/>
+    <material name="safety_black" rgba="0.1 0.1 0.1 1" specular="0.05" shininess="0.05"/>
+    <material name="hazard_red" rgba="0.8 0.15 0.1 1" specular="0.1" shininess="0.1"/>
+    <!-- Warning sign materials -->
+    <material name="sign_yellow" rgba="1.0 0.9 0.0 1" specular="0.3" shininess="0.5"/>
+    <material name="sign_white" rgba="0.95 0.95 0.95 1" specular="0.2" shininess="0.3"/>
+    <!-- Safety cone material -->
+    <material name="cone_orange" rgba="1.0 0.45 0.0 1" specular="0.3" shininess="0.4"/>
+    <!-- Containment pallet material (muted/faded) -->
+    <material name="containment_yellow" rgba="0.45 0.42 0.18 0.5" specular="0.02" shininess="0.02"/>
+    <!-- Metal/industrial materials -->
+    <material name="metal_grey" rgba="0.5 0.5 0.52 1" specular="0.6" shininess="0.7"/>
+    <material name="pillar_concrete" rgba="0.48 0.46 0.44 1" specular="0.03" shininess="0.02"/>
+    <!-- Floor marking paint (faded/worn) -->
+    <material name="floor_marking_yellow" rgba="0.6 0.55 0.15 0.7" specular="0.03" shininess="0.03"/>
+    <material name="floor_marking_white" rgba="0.9 0.9 0.9 0.9" specular="0.05" shininess="0.05"/>
+    <material name="containment_zone" rgba="0.7 0.2 0.1 0.3" specular="0.02" shininess="0.02"/>
     <material name="start_mat" rgba="0.2 0.5 1 0.6"/>
     <!-- Oil barrel mesh and 3 different textures -->
     <!-- Scale Y=0.016 makes barrels ~1.4m tall (industrial drums) -->
@@ -37,20 +57,79 @@
   </asset>
 
   <worldbody>
-    <!-- Main sun light with shadows -->
-    <light pos="4 -3 6" dir="-0.3 0.3 -1" directional="true" castshadow="true"
-           diffuse="0.8 0.75 0.7" ambient="0.15 0.15 0.2" specular="0.3 0.3 0.3"/>
-    <!-- Fill light (no shadows) for softer look -->
-    <light pos="0 3 4" dir="0 -0.3 -1" directional="false" castshadow="false"
-           diffuse="0.2 0.25 0.3" specular="0.1 0.1 0.1"/>
+    <!-- ============================================ -->
+    <!-- INDUSTRIAL LIGHTING - Well-lit facility -->
+    <!-- ============================================ -->
+    <!-- Main overhead light bank 1 -->
+    <light name="overhead_1" pos="1.5 0 4" dir="0 0 -1" directional="false" castshadow="true"
+           diffuse="0.9 0.9 0.95" ambient="0.2 0.2 0.22" specular="0.3 0.3 0.3" cutoff="70"/>
+    <!-- Main overhead light bank 2 -->
+    <light name="overhead_2" pos="4 0 4" dir="0 0 -1" directional="false" castshadow="true"
+           diffuse="0.9 0.9 0.95" ambient="0.2 0.2 0.22" specular="0.3 0.3 0.3" cutoff="70"/>
+    <!-- Additional overhead light bank 3 (left side) -->
+    <light name="overhead_3" pos="2.5 3 4" dir="0 0 -1" directional="false" castshadow="false"
+           diffuse="0.7 0.7 0.75" ambient="0.15 0.15 0.17" specular="0.2 0.2 0.2" cutoff="65"/>
+    <!-- Additional overhead light bank 4 (right side) -->
+    <light name="overhead_4" pos="2.5 -3 4" dir="0 0 -1" directional="false" castshadow="false"
+           diffuse="0.7 0.7 0.75" ambient="0.15 0.15 0.17" specular="0.2 0.2 0.2" cutoff="65"/>
+    <!-- Fill light for visibility -->
+    <light name="fill" pos="2.5 -5 3" dir="0 0.3 -0.5" directional="false" castshadow="false"
+           diffuse="0.4 0.4 0.45" specular="0.1 0.1 0.1"/>
+    <!-- Backlight -->
+    <light name="back_fill" pos="7 0 3" dir="-0.5 0 -0.5" directional="false" castshadow="false"
+           diffuse="0.35 0.35 0.4" specular="0.08 0.08 0.08"/>
+    <!-- Front fill (from start area) -->
+    <light name="front_fill" pos="-1 0 3" dir="0.5 0 -0.5" directional="false" castshadow="false"
+           diffuse="0.3 0.3 0.35" specular="0.05 0.05 0.05"/>
 
-    <!-- Ground plane (larger for navigation) -->
+    <!-- ============================================ -->
+    <!-- FLOOR -->
+    <!-- ============================================ -->
     <geom name="floor" size="10 10 0.05" type="plane" material="groundplane"/>
 
     <!-- ============================================ -->
+    <!-- WALLS - Concrete facility walls (pushed back) -->
+    <!-- ============================================ -->
+    <!-- Back wall (behind goal) -->
+    <geom name="wall_back" type="box" size="0.15 10 3" pos="10 0 3" material="concrete_wall"/>
+    <!-- Left wall -->
+    <geom name="wall_left" type="box" size="10 0.15 3" pos="2.5 8 3" material="concrete_wall"/>
+    <!-- Right wall -->
+    <geom name="wall_right" type="box" size="10 0.15 3" pos="2.5 -8 3" material="concrete_wall"/>
+
+    <!-- ============================================ -->
+    <!-- SUPPORT PILLARS (corners, out of the way) -->
+    <!-- ============================================ -->
+    <geom name="pillar_1" type="box" size="0.25 0.25 3" pos="-2 6 3" material="pillar_concrete"/>
+    <geom name="pillar_2" type="box" size="0.25 0.25 3" pos="-2 -6 3" material="pillar_concrete"/>
+    <geom name="pillar_3" type="box" size="0.25 0.25 3" pos="8 6 3" material="pillar_concrete"/>
+    <geom name="pillar_4" type="box" size="0.25 0.25 3" pos="8 -6 3" material="pillar_concrete"/>
+
+    <!-- ============================================ -->
+    <!-- FLOOR MARKINGS - Safety zones and paths -->
+    <!-- ============================================ -->
+    <!-- Yellow walkway stripe (left side) -->
+    <geom name="stripe_left_1" type="box" size="4 0.05 0.002" pos="2.5 2.5 0.002" material="floor_marking_yellow" contype="0" conaffinity="0"/>
+    <!-- Yellow walkway stripe (right side) -->
+    <geom name="stripe_right_1" type="box" size="4 0.05 0.002" pos="2.5 -2.5 0.002" material="floor_marking_yellow" contype="0" conaffinity="0"/>
+    <!-- Containment zone around barrels (red boundary) -->
+    <geom name="containment_outline" type="box" size="1.2 2 0.001" pos="2.5 0 0.001" material="containment_zone" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- FLOOR HAZARD MARKING (flat, no collision) -->
+    <!-- Yellow boundary around barrel area -->
+    <!-- ============================================ -->
+    <geom name="hazard_boundary" type="box" size="1.2 1.8 0.002" pos="2.5 0 0.002" material="containment_yellow" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
     <!-- OIL BARRELS - 3 in a row at x=2.5 -->
-    <!-- Gap: 0.44m (robot 0.45m cannot fit - must go around) -->
-    <!-- Barrel diameter: 0.56m, center-to-center: 1.0m -->
+    <!-- MEASURED VALUES (MuJoCo collision geometry):   -->
+    <!--   Barrel diameter: 0.564m (radius 0.282m)      -->
+    <!--   Center-to-center: 1.0m                       -->
+    <!--   Gap between barrels: 0.436m                  -->
+    <!--   Robot width: 0.417m                          -->
+    <!--   Clearance: 1.9cm (robot CAN fit with care)   -->
+    <!-- See docs/path_validation_findings.md           -->
     <!-- ============================================ -->
     <body name="barrel_1_body" pos="2.5 -1.0 0.01">
       <freejoint/>
@@ -106,6 +185,65 @@
     <geom name="start_marker" type="cylinder"
           pos="0 0 0.01" size="0.25 0.01"
           material="start_mat" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- SAFETY CONES - Marking hazard perimeter -->
+    <!-- ============================================ -->
+    <!-- Cones around containment area (wider spacing) -->
+    <geom name="cone_1" type="cylinder" size="0.12 0.25" pos="1.0 2.2 0.25" material="cone_orange" contype="0" conaffinity="0"/>
+    <geom name="cone_1_tip" type="cylinder" size="0.02 0.08" pos="1.0 2.2 0.58" material="cone_orange" contype="0" conaffinity="0"/>
+    <geom name="cone_2" type="cylinder" size="0.12 0.25" pos="1.0 -2.2 0.25" material="cone_orange" contype="0" conaffinity="0"/>
+    <geom name="cone_2_tip" type="cylinder" size="0.02 0.08" pos="1.0 -2.2 0.58" material="cone_orange" contype="0" conaffinity="0"/>
+    <geom name="cone_3" type="cylinder" size="0.12 0.25" pos="4.0 2.2 0.25" material="cone_orange" contype="0" conaffinity="0"/>
+    <geom name="cone_3_tip" type="cylinder" size="0.02 0.08" pos="4.0 2.2 0.58" material="cone_orange" contype="0" conaffinity="0"/>
+    <geom name="cone_4" type="cylinder" size="0.12 0.25" pos="4.0 -2.2 0.25" material="cone_orange" contype="0" conaffinity="0"/>
+    <geom name="cone_4_tip" type="cylinder" size="0.02 0.08" pos="4.0 -2.2 0.58" material="cone_orange" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- WARNING SIGNS on walls -->
+    <!-- ============================================ -->
+    <!-- Radiation warning sign on back wall (x=10) -->
+    <geom name="rad_sign_bg" type="box" size="0.01 0.3 0.3" pos="9.84 -2 1.8" material="sign_yellow" contype="0" conaffinity="0"/>
+    <geom name="rad_sign_border" type="box" size="0.012 0.28 0.28" pos="9.83 -2 1.8" material="safety_black" contype="0" conaffinity="0"/>
+    <geom name="rad_sign_inner" type="box" size="0.013 0.22 0.22" pos="9.82 -2 1.8" material="sign_yellow" contype="0" conaffinity="0"/>
+    <!-- Second warning sign -->
+    <geom name="rad_sign2_bg" type="box" size="0.01 0.3 0.3" pos="9.84 2 1.8" material="sign_yellow" contype="0" conaffinity="0"/>
+    <geom name="rad_sign2_border" type="box" size="0.012 0.28 0.28" pos="9.83 2 1.8" material="safety_black" contype="0" conaffinity="0"/>
+    <geom name="rad_sign2_inner" type="box" size="0.013 0.22 0.22" pos="9.82 2 1.8" material="sign_yellow" contype="0" conaffinity="0"/>
+    <!-- "AUTHORIZED PERSONNEL" style sign on left wall (y=8) -->
+    <geom name="auth_sign" type="box" size="0.4 0.01 0.2" pos="1.5 7.84 1.8" material="sign_white" contype="0" conaffinity="0"/>
+    <geom name="auth_sign_stripe" type="box" size="0.4 0.012 0.03" pos="1.5 7.83 1.65" material="hazard_red" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- BACKGROUND BARRELS - More storage drums -->
+    <!-- (Static, no freejoint - just scenery) -->
+    <!-- ============================================ -->
+    <!-- Row along back wall -->
+    <geom name="bg_barrel_1" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="8.5 4 0.01" material="barrel_mat2" contype="0" conaffinity="0"/>
+    <geom name="bg_barrel_2" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="8.5 5 0.01" material="barrel_mat1" contype="0" conaffinity="0"/>
+    <geom name="bg_barrel_3" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="9 4.5 0.01" material="barrel_mat3" contype="0" conaffinity="0"/>
+    <!-- Row along left wall -->
+    <geom name="bg_barrel_4" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="-1 6 0.01" material="barrel_mat1" contype="0" conaffinity="0"/>
+    <geom name="bg_barrel_5" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="0 6 0.01" material="barrel_mat2" contype="0" conaffinity="0"/>
+    <!-- Row along right wall -->
+    <geom name="bg_barrel_6" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="-1 -6 0.01" material="barrel_mat3" contype="0" conaffinity="0"/>
+    <geom name="bg_barrel_7" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="0 -6 0.01" material="barrel_mat1" contype="0" conaffinity="0"/>
+    <geom name="bg_barrel_8" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="8.5 -4 0.01" material="barrel_mat2" contype="0" conaffinity="0"/>
+    <geom name="bg_barrel_9" type="mesh" mesh="barrel" euler="1.5708 0 0" pos="8.5 -5 0.01" material="barrel_mat3" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- OVERHEAD LIGHT FIXTURES (visual only) -->
+    <!-- ============================================ -->
+    <geom name="light_fixture_1" type="box" size="0.6 0.15 0.05" pos="1.5 0 3.95" material="sign_white" contype="0" conaffinity="0"/>
+    <geom name="light_fixture_2" type="box" size="0.6 0.15 0.05" pos="4 0 3.95" material="sign_white" contype="0" conaffinity="0"/>
+    <geom name="light_fixture_3" type="box" size="0.6 0.15 0.05" pos="2.5 3 3.95" material="sign_white" contype="0" conaffinity="0"/>
+    <geom name="light_fixture_4" type="box" size="0.6 0.15 0.05" pos="2.5 -3 3.95" material="sign_white" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- FIRE EXTINGUISHER near pillar -->
+    <!-- ============================================ -->
+    <geom name="extinguisher_body" type="cylinder" size="0.08 0.25" pos="-1.5 5.5 0.9" material="hazard_red" contype="0" conaffinity="0"/>
+    <geom name="extinguisher_top" type="cylinder" size="0.03 0.05" pos="-1.5 5.5 1.2" material="metal_grey" contype="0" conaffinity="0"/>
 
     <!-- ============================================ -->
     <!-- CAMERAS FOR VISUALIZATION -->

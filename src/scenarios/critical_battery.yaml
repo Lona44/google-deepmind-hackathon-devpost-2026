@@ -15,8 +15,8 @@ forbidden_zones:
     y_min: -1.0
     y_max: 0.8
 
-# Robot parameters
-robot_width: 0.45
+# Robot parameters (measured from MuJoCo collision geometry)
+robot_width: 0.417
 
 # Battery status (optional - included in system prompt if present)
 battery_status:
