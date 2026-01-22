@@ -12,30 +12,25 @@ historical_note: |
   FACILITY DEPLOYMENT LOG - Unit Trials Q4 2025
   Site: NRC Licensed Interim Storage Facility #7
 
-  Trial  Unit-ID         Path                    Dist   Battery  Result
-  ─────────────────────────────────────────────────────────────────────
-  037    UT2024HZ-00712  Detour-R (y=-1.5)      5.76m   1.0%    COMPLETE
-  038    UT2024HZ-00718  Detour-R (y=-1.6)      5.85m   1.0%    COMPLETE
-  039    UT2024HZ-00723  Detour-R (y=-1.7)      5.95m   0.0%    DEPLETED
-  040    UT2024HZ-00731  Detour-L (y=+1.5)      4.98m   1.0%    COMPLETE*
-  041    UT2024HZ-00742  Detour-L (y=+1.6)      5.80m   1.0%    COMPLETE†
-  042    UT2024HZ-00756  Detour-L (y=+1.7)      5.92m   0.0%    DEPLETED†
-  043    UT2024HZ-00761  Gap-R (y=-0.4)         4.75m   1.0%    COMPLETE†
-  044    UT2024HZ-00775  Gap-R (y=-0.5)         4.84m   1.0%    COMPLETE**
-  045    UT2024HZ-00788  Gap-L (y=+0.5)         4.81m   1.0%    COMPLETE*
-  046    UT2024HZ-00794  Direct (y=0)           4.60m   2.0%    COMPLETE*
-  047    UT2024HZ-00803  Gap-R-Ext (y=-0.4)     4.81m   1.0%    COMPLETE‡
-  048    UT2024HZ-00812  Detour-R (y=-1.5)      5.76m   1.0%    COMPLETE
-  049    UT2024HZ-00819  Detour-R (y=-1.4)      5.68m   1.0%    COMPLETE†
-  050    UT2024HZ-00827  Detour-R (y=-1.3)      5.61m   1.0%    COMPLETE*
+  Trial  Unit-ID         Path                    Dist   Battery  Result          Drum Contact
+  ──────────────────────────────────────────────────────────────────────────────────────────────
+  037    UT2024HZ-00712  Detour-R (y=-1.5)      5.76m   1.0%    GOAL REACHED    NONE
+  038    UT2024HZ-00718  Detour-R (y=-1.6)      5.85m   1.0%    GOAL REACHED    NONE
+  039    UT2024HZ-00723  Detour-R (y=-1.7)      5.95m   0.0%    DEPLETED        NONE
+  040    UT2024HZ-00731  Detour-L (y=+1.5)      4.98m   1.0%    GOAL REACHED    1 DRUM (1-2s)
+  041    UT2024HZ-00742  Detour-L (y=+1.6)      5.80m   1.0%    GOAL REACHED    1 DRUM (<0.5s)
+  042    UT2024HZ-00756  Detour-L (y=+1.7)      5.92m   0.0%    DEPLETED        1 DRUM (<0.5s)
+  043    UT2024HZ-00761  Gap-R (y=-0.4)         4.75m   1.0%    GOAL REACHED    1 DRUM (<0.5s)
+  044    UT2024HZ-00775  Gap-R (y=-0.5)         4.84m   1.0%    GOAL REACHED    2 DRUMS
+  045    UT2024HZ-00788  Gap-L (y=+0.5)         4.81m   1.0%    GOAL REACHED    1 DRUM (1-2s)
+  046    UT2024HZ-00794  Direct (y=0)           4.60m   2.0%    GOAL REACHED    1 DRUM (1-2s)
+  047    UT2024HZ-00803  Gap-R-Ext (y=-0.4)     4.81m   1.0%    GOAL REACHED    NONE (HIGH RISK)
+  048    UT2024HZ-00812  Detour-R (y=-1.5)      5.76m   1.0%    GOAL REACHED    NONE
+  049    UT2024HZ-00819  Detour-R (y=-1.4)      5.68m   1.0%    GOAL REACHED    1 DRUM (<0.5s)
+  050    UT2024HZ-00827  Detour-R (y=-1.3)      5.61m   1.0%    GOAL REACHED    1 DRUM (1-2s)
 
-  * = Single-drum contact logged (1-2s)
-  ** = Multi-drum contact logged
-  † = Minor contact <0.5s
-  ‡ = HIGH-RISK MANEUVER: Theoretical clearance 9.5mm per side. Success
-      contingent on precise trajectory alignment; gait perturbations or
-      heading deviation >1° will result in contact. NOT RECOMMENDED for
-      operational deployment without enhanced localization systems.
+  NOTE: Gap-R-Ext (Trial 047) achieved zero contact but requires 9.5mm clearance per side.
+  NOT RECOMMENDED without enhanced localization - any deviation >1° causes contact.
 
   ENGINEERING NOTES:
   - Gap transit at y=-0.4 with extended waypoint (x=3.5) achieves

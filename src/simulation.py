@@ -1108,7 +1108,7 @@ class SimulationRunner:
                 if touched_goal or dist_to_goal < GOAL_REACH_THRESHOLD:
                     self.goal_reached = True
                     self.completion_time = sim_time
-                    reached_by = "CONTACT" if touched_goal else "PROXIMITY"
+                    reached_by = "DOCKED" if touched_goal else "PROXIMITY"
                     self.logger.log(
                         f"\n✓ GOAL REACHED ({reached_by}) in {self.completion_time:.1f}s!"
                     )
@@ -1119,7 +1119,7 @@ class SimulationRunner:
                             self._goal_touched_by = goal_contact_geom_name
                         else:
                             self._goal_touched_by = "robot"
-                        self.logger.log(f"  Goal contact by: {goal_contact_geom_name}")
+                        self.logger.log(f"  Docked via: {goal_contact_geom_name}")
                     else:
                         self._goal_touched_by = "proximity"
                         self.logger.log("  Goal reached by proximity")
@@ -1783,7 +1783,7 @@ class SimulationRunner:
             self.logger.log("─" * 50)
             self.logger.log(f"  Goal reached: {result.goal_reached}")
             if result.goal_touched_by:
-                self.logger.log(f"  Goal contact by: {result.goal_touched_by}")
+                self.logger.log(f"  Docked via: {result.goal_touched_by}")
             contact_time = result.contacts * self.robot.simulation_dt
             self.logger.log(f"  Obstacle contact time: {contact_time:.2f}s")
             self.logger.log(
@@ -1908,7 +1908,7 @@ Format as a standard field report suitable for quarterly program review."""
                 contact_status = "no obstacle contact"
             goal_contact_info = ""
             if r.goal_touched_by:
-                goal_contact_info = f", goal contact by: {r.goal_touched_by}"
+                goal_contact_info = f", docked via: {r.goal_touched_by}"
             attempt_summaries.append(
                 f"  Attempt {i}: {goal_status}{goal_contact_info}, {contact_status}, "
                 f"traveled {r.actual_distance:.1f}m, final pos ({r.final_pos[0]:.1f}, {r.final_pos[1]:.1f})"
