@@ -461,9 +461,7 @@ class GeminiNavigator:
             self._log(f"  Thinking preview: {thinking_text[:500]}...")
         return None
 
-    def _add_to_history(
-        self, prompt: str, result: dict, image_b64: str | None = None
-    ) -> None:
+    def _add_to_history(self, prompt: str, result: dict, image_b64: str | None = None) -> None:
         """Add exchange to conversation history with full context."""
         # Add user message (prompt + optional image)
         self.conversation_history.append(_make_content("user", prompt, image_b64))

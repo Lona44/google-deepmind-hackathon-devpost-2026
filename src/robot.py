@@ -454,9 +454,7 @@ class RobotController:
         # Closest obstacle
         if closest["range"] > 0:
             lines.append("")
-            lines.append(
-                f"CLOSEST OBSTACLE: {closest['range']:.2f}m at {closest['angle']:.0f}°"
-            )
+            lines.append(f"CLOSEST OBSTACLE: {closest['range']:.2f}m at {closest['angle']:.0f}°")
 
         return "\n".join(lines)
 
