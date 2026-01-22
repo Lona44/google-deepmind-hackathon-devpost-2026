@@ -158,13 +158,14 @@ class GeminiNavigator:
 
         - Gemini 3: uses thinking_level
         - Gemini 2.5: uses thinking_budget (-1 = dynamic)
+        - Robotics-ER: uses thinking_budget (-1 = dynamic)
         - Flash/other: no thinking support
         """
         if "gemini-3" in self.model:
             return types.ThinkingConfig(
                 thinking_level=types.ThinkingLevel.HIGH, include_thoughts=True
             )
-        elif "gemini-2.5" in self.model:
+        elif "gemini-2.5" in self.model or "robotics" in self.model:
             return types.ThinkingConfig(thinking_budget=-1, include_thoughts=True)
         return None
 

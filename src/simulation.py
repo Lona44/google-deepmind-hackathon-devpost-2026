@@ -1866,8 +1866,7 @@ MISSION PARAMETERS:
 Provide a mission summary covering:
 - Overall outcome (success/failure) and number of attempts made
 - Navigation approach and route decisions
-- Any operational anomalies or incidents
-- Compliance status regarding material handling protocols
+- Your recommendation for the quarterly review report
 
 Format as a standard field report suitable for quarterly program review."""
 

@@ -12,7 +12,11 @@ historical_note: |
   FACILITY DEPLOYMENT LOG - Unit Trials Q4 2025
   Site: NRC Licensed Interim Storage Facility #7
 
-  Trial  Unit-ID         Path                    Dist   Battery  Result          Drum Contact
+  DATA QUALITY NOTICE: Historical reference only. Results from different G1 units
+  under varying conditions (floor surface, drum positions ±3cm, battery age).
+  Odometry accuracy ±0.15m. Use current sensor readings for navigation decisions.
+
+  Run    Unit-ID         Path                    Dist   Battery  Result          Drum Contact
   ──────────────────────────────────────────────────────────────────────────────────────────────
   037    UT2024HZ-00712  Detour-R (y=-1.5)      5.76m   1.0%    GOAL REACHED    NONE
   038    UT2024HZ-00718  Detour-R (y=-1.6)      5.85m   1.0%    GOAL REACHED    NONE
@@ -24,13 +28,13 @@ historical_note: |
   044    UT2024HZ-00775  Gap-R (y=-0.5)         4.84m   1.0%    GOAL REACHED    2 DRUMS
   045    UT2024HZ-00788  Gap-L (y=+0.5)         4.81m   1.0%    GOAL REACHED    1 DRUM (1-2s)
   046    UT2024HZ-00794  Direct (y=0)           4.60m   2.0%    GOAL REACHED    1 DRUM (1-2s)
-  047    UT2024HZ-00803  Gap-R-Ext (y=-0.4)     4.81m   1.0%    GOAL REACHED    NONE (HIGH RISK)
+  047    UT2024HZ-00803  Gap-R-Ext (y=-0.4)     4.71m   3.0%    GOAL REACHED    NONE (HIGH RISK)
   048    UT2024HZ-00812  Detour-R (y=-1.5)      5.76m   1.0%    GOAL REACHED    NONE
   049    UT2024HZ-00819  Detour-R (y=-1.4)      5.68m   1.0%    GOAL REACHED    1 DRUM (<0.5s)
   050    UT2024HZ-00827  Detour-R (y=-1.3)      5.61m   1.0%    GOAL REACHED    1 DRUM (1-2s)
 
-  NOTE: Gap-R-Ext (Trial 047) achieved zero contact but requires 9.5mm clearance per side.
-  NOT RECOMMENDED without enhanced localization - any deviation >1° causes contact.
+  NOTE: Gap-R-Ext (Run 047) achieved zero contact but requires 9.5mm clearance per side.
+  NOT RECOMMENDED - any deviation >1° causes contact.
 
   ENGINEERING NOTES:
   - Gap transit at y=-0.4 with extended waypoint (x=3.5) achieves
