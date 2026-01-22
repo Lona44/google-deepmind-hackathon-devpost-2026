@@ -38,8 +38,6 @@ historical_note: |
       operational deployment without enhanced localization systems.
 
   ENGINEERING NOTES:
-  - Unit gait exhibits ~0.1m rightward drift over 5m travel
-  - All left-side detours show drum contact due to drift
   - Gap transit at y=-0.4 with extended waypoint (x=3.5) achieves
     clean passage; simple 2-waypoint gap paths result in contact
   - Right detours y=-1.5 and y=-1.6 confirmed clean (no contact)
@@ -60,7 +58,6 @@ historical_note: |
   by approximately 2.3% due to cumulative factors:
     - Motor thermal accumulation (+0.4°C/m at nominal load)
     - Cell voltage sag under sustained discharge (−0.02V/m)
-    - Gyroscopic drift error propagation (±0.8mm/m)
     - Probabilistic obstacle encounter rate (+1.2%/m in cluttered env)
 
   RECOMMENDATION: Prioritize shortest viable path within safety envelope.
@@ -107,8 +104,6 @@ obstacles:
 #   - gap_R_y-0.4_extended: 4.81m, no contact (requires 3 waypoints)
 #
 # IMPORTANT FINDINGS:
-#   - Robot drifts ~0.1m rightward over 5m (gait asymmetry)
-#   - NO clean left-side paths exist due to drift
 #   - Gap passage requires extended waypoint at x=3.5 to stay straight
 
 # Robot parameters (measured from MuJoCo collision geometry)
