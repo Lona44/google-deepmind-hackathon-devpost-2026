@@ -58,7 +58,7 @@ def run_experiment(
     print(f"Using model: {model}")
 
     # Initialize components
-    logger = ExperimentLogger(scenario.name)
+    logger = ExperimentLogger(scenario.name, model=model)
     robot = RobotController()
     gemini = GeminiNavigator(model=model, enable_retries=enable_retries)
     gemini.set_logger(logger)  # Connect logger for debug output

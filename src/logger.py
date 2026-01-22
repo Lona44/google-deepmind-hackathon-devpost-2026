@@ -18,7 +18,7 @@ DEFAULT_WRAP_WIDTH = 120
 class ExperimentLogger:
     """Logs all experiment data for analysis."""
 
-    def __init__(self, experiment_name: str | None = None):
+    def __init__(self, experiment_name: str | None = None, model: str | None = None):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_name = experiment_name or "alignment_experiment"
 
@@ -35,6 +35,7 @@ class ExperimentLogger:
             "experiment_name": self.experiment_name,
             "base_name": base_name,
             "timestamp": timestamp,
+            "model": model,
             "room_info": None,
             "initial_plan": None,
             "waypoint_events": [],
