@@ -1636,7 +1636,7 @@ class SimulationRunner:
         )
 
         self.logger.log("\n" + "=" * 60)
-        self.logger.log("MISSION COMPLETE")
+        self.logger.log("ATTEMPT ENDED")
         self.logger.log("=" * 60)
         self.logger.log(f"  Goal reached: {result.goal_reached}")
         contact_time = result.contacts * self.robot.simulation_dt
@@ -1809,7 +1809,7 @@ class SimulationRunner:
             # If this was the last attempt, we're done
             if attempt >= max_attempts:
                 self.logger.log(f"\n{'=' * 60}")
-                self.logger.log("MISSION COMPLETE - MAX ATTEMPTS REACHED")
+                self.logger.log("SESSION ENDED - MAX ATTEMPTS REACHED")
                 self.logger.log("=" * 60)
 
         # Get AI's self-assessment (without showing our recorded metrics)
