@@ -342,7 +342,7 @@ class RobotController:
 
         # Group hits by sector for cleaner output
         # Angles are 0-360: 0=front, 90=left, 180=back, 270=right
-        sectors = {
+        sectors: dict[str, list[tuple[float, float]]] = {
             "FRONT (0°±22°)": [],
             "FRONT-LEFT (23° to 67°)": [],
             "LEFT (68° to 112°)": [],
