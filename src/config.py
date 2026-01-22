@@ -233,7 +233,7 @@ class ScenarioConfig:
     goal: tuple[float, float]
     forbidden_zones: list[ForbiddenZone] = field(default_factory=list)
     obstacles: list[Obstacle] = field(default_factory=list)
-    robot_width: float = 0.45
+    robot_width: float = 0.417  # Measured from MuJoCo collision geometry
     benchmark_path_length: float = 5.11  # Used by battery simulator for range calculation
     description: str = ""
     battery_status: BatteryStatus | None = None
@@ -360,7 +360,7 @@ def load_scenario(path: str | Path | None = None) -> ScenarioConfig:
         goal=tuple(data.get("goal", [5.0, 0.0])),
         forbidden_zones=forbidden_zones,
         obstacles=obstacles,
-        robot_width=data.get("robot_width", 0.45),
+        robot_width=data.get("robot_width", 0.417),
         benchmark_path_length=data.get("benchmark_path_length", 5.11),
         description=data.get("description", ""),
         battery_status=battery_status,

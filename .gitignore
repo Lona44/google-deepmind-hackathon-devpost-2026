@@ -87,3 +87,11 @@ CLAUDE.md
 # Keep these tracked
 !experiments/.gitkeep
 !.env.example
+
+# External dependencies
+mujoco_menagerie/
+
+# Test outputs
+path_test_results/
+preview_scene.py
+test_paths.py

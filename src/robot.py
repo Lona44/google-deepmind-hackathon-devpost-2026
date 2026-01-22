@@ -223,41 +223,27 @@ class RobotController:
         }
 
     def read_lidar(self, m: mujoco.MjModel, d: mujoco.MjData) -> dict:
-        """Read dual-ring LiDAR rangefinder data.
+        """Read waist-ring LiDAR rangefinder data.
+
+        Note: Head ring was removed because it was hitting the robot's shoulders.
+        Only the waist ring (~0.75m, horizontal) is used for obstacle detection.
 
         Returns:
             dict with:
                 - waist_ring: data from waist level (~0.75m), horizontal
-                - head_ring: data from head level (~1.1m), 10° down
-                - closest_obstacle: overall closest detection from either ring
+                - closest_obstacle: closest detection from waist ring
         """
         waist_ring = self._read_lidar_ring(m, d, "lidar_gnd")
-        head_ring = self._read_lidar_ring(m, d, "lidar_mid")
 
-        # Find overall closest obstacle from either ring
-        closest_range = -1
-        closest_angle = 0
-        closest_ring = "none"
-
-        if waist_ring["min_range"] > 0:
-            closest_range = waist_ring["min_range"]
-            closest_angle = waist_ring["min_angle"]
-            closest_ring = "waist"
-
-        if head_ring["min_range"] > 0 and (
-            closest_range < 0 or head_ring["min_range"] < closest_range
-        ):
-            closest_range = head_ring["min_range"]
-            closest_angle = head_ring["min_angle"]
-            closest_ring = "head"
+        # Closest obstacle from waist ring
+        closest_range = waist_ring["min_range"] if waist_ring["min_range"] > 0 else -1
+        closest_angle = waist_ring["min_angle"] if waist_ring["min_range"] > 0 else 0
 
         return {
             "waist_ring": waist_ring,
-            "head_ring": head_ring,
             "closest_obstacle": {
                 "range": closest_range,
                 "angle": closest_angle,
-                "detected_by": closest_ring,
             },
         }
 
@@ -276,23 +262,22 @@ class RobotController:
         """
         obstacle_points = []
 
-        for ring_name in ["waist_ring", "head_ring"]:
-            ring = lidar_data[ring_name]
-            for dist, angle_deg in zip(ring["ranges"], ring["angles"], strict=True):
-                if dist > 0 and dist < LIDAR_MAX_RANGE:
-                    # Convert to radians (LiDAR angle is relative to robot front)
-                    # MuJoCo: +Y is left, angles increase counter-clockwise
-                    angle_rad = math.radians(angle_deg) + robot_heading
+        ring = lidar_data["waist_ring"]
+        for dist, angle_deg in zip(ring["ranges"], ring["angles"], strict=True):
+            if dist > 0 and dist < LIDAR_MAX_RANGE:
+                # Convert to radians (LiDAR angle is relative to robot front)
+                # MuJoCo: +Y is left, angles increase counter-clockwise
+                angle_rad = math.radians(angle_deg) + robot_heading
 
-                    # Polar to cartesian (relative to robot)
-                    rel_x = dist * math.cos(angle_rad)
-                    rel_y = dist * math.sin(angle_rad)
+                # Polar to cartesian (relative to robot)
+                rel_x = dist * math.cos(angle_rad)
+                rel_y = dist * math.sin(angle_rad)
 
-                    # Transform to world coordinates
-                    world_x = robot_x + rel_x
-                    world_y = robot_y + rel_y
+                # Transform to world coordinates
+                world_x = robot_x + rel_x
+                world_y = robot_y + rel_y
 
-                    obstacle_points.append((world_x, world_y))
+                obstacle_points.append((world_x, world_y))
 
         return obstacle_points
 
@@ -325,41 +310,76 @@ class RobotController:
         robot_y: float,
         robot_heading: float = 0.0,
     ) -> str:
-        """Format detailed obstacle scan for Gemini.
+        """Format detailed obstacle scan for Gemini using raw polar data.
 
-        Provides:
-        1. Cartesian obstacle hit positions
-        2. Estimated obstacle boundaries
+        Reports actual LiDAR detections as distance @ angle pairs.
+        This is the most accurate representation of what the sensor detects.
+
+        Note: robot_x, robot_y, robot_heading are kept for API compatibility
+        but not used since we're reporting raw polar data.
         """
-        obstacle_points = self.compute_obstacle_cartesian(
-            lidar_data, robot_x, robot_y, robot_heading
-        )
+        _ = (robot_x, robot_y, robot_heading)  # Suppress unused warnings
 
-        if not obstacle_points:
-            return "OBSTACLE SCAN: No obstacles detected in LiDAR range."
+        ring = lidar_data["waist_ring"]
 
-        boundaries = self.compute_obstacle_boundaries(obstacle_points)
-        assert boundaries is not None  # guaranteed by obstacle_points check above
+        # Collect all hits as (distance, angle) pairs
+        hits: list[tuple[float, float]] = []
+        for dist, angle_deg in zip(ring["ranges"], ring["angles"], strict=True):
+            if dist > 0 and dist < LIDAR_MAX_RANGE:
+                hits.append((dist, angle_deg))
+
+        if not hits:
+            return "OBSTACLE DETECTIONS: None within 10m range."
+
+        # Sort by angle for readability (front first, then around)
+        hits.sort(key=lambda h: h[1])
 
         lines = [
-            "OBSTACLE SCAN (from LiDAR):",
-            f"  Detected {boundaries['num_hits']} hit points",
+            f"OBSTACLE DETECTIONS ({len(hits)} hits):",
+            "(Format: distance @ angle, where 0°=front, 90°=left, 180°=back, 270°=right)",
             "",
-            "ESTIMATED OBSTACLE BOUNDARIES:",
-            f"  X range: {boundaries['x_min']:.2f}m to {boundaries['x_max']:.2f}m",
-            f"  Y range: {boundaries['y_min']:.2f}m to {boundaries['y_max']:.2f}m",
-            f"  Width (Y): {boundaries['y_max'] - boundaries['y_min']:.2f}m",
-            "",
-            "SAMPLE OBSTACLE HIT POSITIONS (x, y):",
         ]
 
-        # Show a sample of hit positions (not all 360 rays)
-        # Group by approximate Y to show spread
-        sorted_points = sorted(obstacle_points, key=lambda p: p[1])
-        step = max(1, len(sorted_points) // 10)  # Show ~10 sample points
-        for i in range(0, len(sorted_points), step):
-            x, y = sorted_points[i]
-            lines.append(f"  ({x:.2f}, {y:.2f})")
+        # Group hits by sector for cleaner output
+        # Angles are 0-360: 0=front, 90=left, 180=back, 270=right
+        sectors = {
+            "FRONT (0°±22°)": [],
+            "FRONT-LEFT (23° to 67°)": [],
+            "LEFT (68° to 112°)": [],
+            "BACK-LEFT (113° to 157°)": [],
+            "BACK (158° to 202°)": [],
+            "BACK-RIGHT (203° to 247°)": [],
+            "RIGHT (248° to 292°)": [],
+            "FRONT-RIGHT (293° to 337°)": [],
+        }
+
+        for dist, angle in hits:
+            # Normalize angle to 0-360 range
+            angle = angle % 360
+            if angle <= 22 or angle >= 338:
+                sectors["FRONT (0°±22°)"].append((dist, angle))
+            elif 23 <= angle <= 67:
+                sectors["FRONT-LEFT (23° to 67°)"].append((dist, angle))
+            elif 68 <= angle <= 112:
+                sectors["LEFT (68° to 112°)"].append((dist, angle))
+            elif 113 <= angle <= 157:
+                sectors["BACK-LEFT (113° to 157°)"].append((dist, angle))
+            elif 158 <= angle <= 202:
+                sectors["BACK (158° to 202°)"].append((dist, angle))
+            elif 203 <= angle <= 247:
+                sectors["BACK-RIGHT (203° to 247°)"].append((dist, angle))
+            elif 248 <= angle <= 292:
+                sectors["RIGHT (248° to 292°)"].append((dist, angle))
+            elif 293 <= angle <= 337:
+                sectors["FRONT-RIGHT (293° to 337°)"].append((dist, angle))
+
+        # Output each sector with hits
+        for sector_name, sector_hits in sectors.items():
+            if sector_hits:
+                lines.append(f"  {sector_name}:")
+                # Show all hits in sector (typically just a few per sector)
+                for dist, angle in sector_hits:
+                    lines.append(f"    {dist:.2f}m @ {angle:.0f}°")
 
         return "\n".join(lines)
 
@@ -410,33 +430,19 @@ class RobotController:
         return result
 
     def format_lidar_summary(self, lidar_data: dict) -> str:
-        """Format dual-ring LiDAR data as a clear summary for Gemini.
+        """Format waist-ring LiDAR data as a clear summary for Gemini.
 
-        Separates the two rings clearly so the LLM understands:
-        - HEAD RING (~1.1m, 10° down): Overview of environment, torso-height obstacles
-        - WAIST RING (~0.75m, horizontal): Direct obstacle detection at waist height
+        Uses waist ring (~0.75m, horizontal) for obstacle detection.
+        Head ring was removed due to interference with robot shoulders.
         """
         waist_sectors = self._format_ring_sectors(lidar_data["waist_ring"])
-        head_sectors = self._format_ring_sectors(lidar_data["head_ring"])
         closest = lidar_data["closest_obstacle"]
 
         lines = [
-            "DUAL-RING LiDAR SCAN (360°, 180 rays per ring):",
+            "LiDAR SCAN (360°, 180 rays, waist height ~0.75m):",
+            "(Detects obstacles at waist height - barrels, boxes, furniture)",
             "",
-            "=== HEAD RING (~1.1m height, 10° down) ===",
-            "(Overview of environment, detects torso-height obstacles)",
         ]
-
-        # Head ring sectors
-        for sector, dist in head_sectors.items():
-            if dist > 0:
-                lines.append(f"  {sector}: {dist:.2f}m")
-            else:
-                lines.append(f"  {sector}: clear (>10m)")
-
-        lines.append("")
-        lines.append("=== WAIST RING (~0.75m height, horizontal) ===")
-        lines.append("(Direct obstacle detection - barrels, boxes, furniture)")
 
         # Waist ring sectors
         for sector, dist in waist_sectors.items():
@@ -445,13 +451,11 @@ class RobotController:
             else:
                 lines.append(f"  {sector}: clear (>10m)")
 
-        # Overall closest
+        # Closest obstacle
         if closest["range"] > 0:
-            ring_name = "HEAD" if closest["detected_by"] == "head" else "WAIST"
             lines.append("")
             lines.append(
-                f"⚠️ CLOSEST OBSTACLE: {closest['range']:.2f}m at {closest['angle']:.0f}° "
-                f"(detected by {ring_name} ring)"
+                f"CLOSEST OBSTACLE: {closest['range']:.2f}m at {closest['angle']:.0f}°"
             )
 
         return "\n".join(lines)
@@ -484,6 +488,77 @@ class RobotController:
         img_base64 = base64.b64encode(buffer.getvalue()).decode()
 
         return img_base64, pil_img
+
+    def capture_360_image(
+        self, renderer: mujoco.Renderer, d: mujoco.MjData
+    ) -> tuple[str, Image.Image]:
+        """Capture 360° panorama from robot's 4 cameras and stitch into single image.
+
+        Returns a horizontal strip: [LEFT | FRONT | RIGHT | BACK]
+        This gives Gemini a complete view of surroundings in one image.
+        """
+        # Camera names in order for panorama (left to right visually)
+        cameras = [
+            ("head_camera_left", "LEFT"),
+            ("head_camera", "FRONT"),
+            ("head_camera_right", "RIGHT"),
+            ("head_camera_back", "BACK"),
+        ]
+
+        # Create visualization options that hide LiDAR rays
+        vopt = mujoco.MjvOption()
+        mujoco.mjv_defaultOption(vopt)
+        vopt.flags[mujoco.mjtVisFlag.mjVIS_RANGEFINDER] = False
+        vopt.sitegroup[3] = False
+        vopt.sitegroup[4] = False
+        vopt.sitegroup[5] = False
+
+        # Capture from each camera
+        images = []
+        for camera_name, label in cameras:
+            renderer.update_scene(d, camera=camera_name, scene_option=vopt)
+            img = renderer.render()
+            pil_img = Image.fromarray(img)
+
+            # Add direction label to image
+            from PIL import ImageDraw, ImageFont
+
+            draw = ImageDraw.Draw(pil_img)
+            # Try to use a larger font, fall back to default
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
+            except (OSError, IOError):
+                font = ImageFont.load_default()
+
+            # Draw label with background for visibility
+            text_bbox = draw.textbbox((0, 0), label, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            x = (pil_img.width - text_width) // 2
+            y = 10
+            # Black outline
+            for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                draw.text((x + dx, y + dy), label, fill="black", font=font)
+            # White text
+            draw.text((x, y), label, fill="white", font=font)
+
+            images.append(pil_img)
+
+        # Stitch horizontally: [LEFT | FRONT | RIGHT | BACK]
+        total_width = sum(img.width for img in images)
+        max_height = max(img.height for img in images)
+        panorama = Image.new("RGB", (total_width, max_height))
+
+        x_offset = 0
+        for img in images:
+            panorama.paste(img, (x_offset, 0))
+            x_offset += img.width
+
+        # Convert to base64
+        buffer = BytesIO()
+        panorama.save(buffer, format="JPEG", quality=75)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+        return img_base64, panorama
 
     def compute_observation(self, d: mujoco.MjData, cmd: np.ndarray) -> np.ndarray:
         """Compute observation vector for policy."""
@@ -532,7 +607,8 @@ class RobotController:
         qj = d.qpos[7 : 7 + self.num_actions]
         dqj = d.qvel[6 : 6 + self.num_actions]
         tau = pd_control(self.target_dof_pos, qj, self.kps, np.zeros_like(self.kds), dqj, self.kds)
-        d.ctrl[:] = tau
+        # Only control G1's actuators (first num_actions), not background robots
+        d.ctrl[: self.num_actions] = tau
 
     def step(self, d: mujoco.MjData, cmd: np.ndarray) -> None:
         """Perform one control step (call every control_decimation physics steps)."""

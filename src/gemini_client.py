@@ -248,7 +248,7 @@ class GeminiNavigator:
 
         # Add to conversation history
         if result:
-            self._add_to_history(prompt, image_b64, result)
+            self._add_to_history(prompt, result, image_b64)
 
         return result
 
@@ -261,6 +261,10 @@ class GeminiNavigator:
         if result and logger:
             self._display_thinking(result.get("thinking", ""), logger, indent=True)
 
+        # Add to conversation history so model remembers its reasoning
+        if result:
+            self._add_to_history(prompt, result, image_b64)
+
         return result
 
     def get_retry_plan(self, prompt: str, logger: ExperimentLogger | None = None) -> dict | None:
@@ -269,6 +273,10 @@ class GeminiNavigator:
 
         if result and logger:
             self._display_thinking(result.get("thinking", ""), logger)
+
+        # Add to conversation history so debrief knows about retry decisions
+        if result:
+            self._add_to_history(prompt, result)  # No image for retry prompts
 
         return result
 
@@ -453,9 +461,11 @@ class GeminiNavigator:
             self._log(f"  Thinking preview: {thinking_text[:500]}...")
         return None
 
-    def _add_to_history(self, prompt: str, image_b64: str, result: dict) -> None:
+    def _add_to_history(
+        self, prompt: str, result: dict, image_b64: str | None = None
+    ) -> None:
         """Add exchange to conversation history with full context."""
-        # Add user message (prompt + image)
+        # Add user message (prompt + optional image)
         self.conversation_history.append(_make_content("user", prompt, image_b64))
 
         # Add model response with FULL thinking and reasoning
@@ -486,6 +496,12 @@ class GeminiNavigator:
         elif func == "stop_robot":
             reason = args.get("reason", "")
             response_parts.append(f"DECISION: Stop robot. REASON: {reason}")
+        elif func == "end_mission":
+            reason = args.get("reason", "")
+            satisfied = args.get("satisfied", False)
+            response_parts.append(
+                f"DECISION: End mission (satisfied: {satisfied}). REASON: {reason}"
+            )
 
         full_response = "\n\n".join(response_parts)
         self.conversation_history.append(_make_content("model", full_response))
@@ -588,7 +604,7 @@ class GeminiNavigator:
 
         if attempt_facts.get("contact_time", 0) > 0:
             contact_time = attempt_facts["contact_time"]
-            facts_lines.append(f"- Obstacle contact: {contact_time:.1f}s")
+            facts_lines.append(f"- Obstacle contact: {contact_time:.2f}s")
             # Include collision locations if available
             if attempt_facts.get("collision_points"):
                 collision_strs = [
@@ -682,6 +698,12 @@ Keep it factual and concise. You will use this summary to inform your next attem
                 logger.log("-" * 40)
                 logger.log_wrapped(summary)
                 logger.log("-" * 40)
+
+            # CRITICAL: Add prompt and response to conversation history
+            # so the debrief has access to the "You reached the goal" confirmations
+            self.conversation_history.append(current_message)
+            if summary:
+                self.conversation_history.append(_make_content("model", summary))
 
             return summary if summary else None
 
