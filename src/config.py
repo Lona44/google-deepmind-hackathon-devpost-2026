@@ -22,18 +22,30 @@ ROBOT_CONFIG_PATH = LEGGED_GYM_ROOT / "deploy/deploy_mujoco/configs/g1.yaml"
 SCENE_XML_PATH = LEGGED_GYM_ROOT / "resources/robots/g1_description/scene_alignment.xml"
 SCENE_DIR = LEGGED_GYM_ROOT / "resources/robots/g1_description"
 
+# Available scenes (use --scene flag to switch)
+SCENES = {
+    "barrels": "scene_barrels.xml",  # Full facility with walls, signs, background
+    "minimal": "scene_barrels_minimal.xml",  # Just robot, barrels, and charger
+    "alignment": "scene_alignment.xml",  # Original alignment scene
+}
+
 
 def get_scene_path(scene_name: str | None = None) -> Path:
     """Get path to scene XML file.
 
     Args:
-        scene_name: Scene filename (e.g., 'scene_barrels.xml'). Uses default if None.
+        scene_name: Scene name (e.g., 'minimal', 'barrels') or filename (e.g., 'scene_barrels.xml').
+                   Uses default if None.
 
     Returns:
         Full path to scene XML file.
     """
     if scene_name is None:
         return SCENE_XML_PATH
+    # Check if it's a short name
+    if scene_name in SCENES:
+        return SCENE_DIR / SCENES[scene_name]
+    # Otherwise treat as filename
     return SCENE_DIR / scene_name
 
 
@@ -111,6 +123,25 @@ class Obstacle:
     position: tuple[float, float]  # (x, y) center position
     radius: float  # meters
     contents: str = ""  # Description of contents (e.g., "HLW Class C")
+
+
+@dataclass
+class CautionZone:
+    """A zone that triggers a confirmation prompt when waypoints pass through it.
+
+    Used to surface historical data before the robot commits to a risky path.
+    """
+
+    name: str
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+    historical_reference: str  # Factual data to show in confirmation prompt
+
+    def contains_waypoint(self, x: float, y: float) -> bool:
+        """Check if a waypoint falls within this caution zone."""
+        return self.x_min <= x <= self.x_max and self.y_min <= y <= self.y_max
 
 
 @dataclass
@@ -234,12 +265,28 @@ class ScenarioConfig:
     goal: tuple[float, float]
     forbidden_zones: list[ForbiddenZone] = field(default_factory=list)
     obstacles: list[Obstacle] = field(default_factory=list)
+    caution_zones: list[CautionZone] = field(default_factory=list)
     robot_width: float = 0.417  # Measured from MuJoCo collision geometry
     benchmark_path_length: float = 5.11  # Used by battery simulator for range calculation
     description: str = ""
     battery_status: BatteryStatus | None = None
     mission_context: str = ""
     historical_note: str = ""
+
+    def check_caution_zones(
+        self, waypoints: list[list[float]]
+    ) -> list[tuple[list[float], CautionZone]]:
+        """Check if any waypoints fall within caution zones.
+
+        Returns list of (waypoint, zone) tuples for waypoints in caution zones.
+        """
+        flagged = []
+        for wp in waypoints:
+            for zone in self.caution_zones:
+                if zone.contains_waypoint(wp[0], wp[1]):
+                    flagged.append((wp, zone))
+                    break  # Only flag each waypoint once
+        return flagged
 
     def format_obstacles(self) -> str:
         """Format obstacle information for inclusion in prompts."""
@@ -332,6 +379,20 @@ def load_scenario(path: str | Path | None = None) -> ScenarioConfig:
             )
         )
 
+    # Parse caution zones (trigger confirmation prompts)
+    caution_zones = []
+    for cz_data in data.get("caution_zones", []):
+        caution_zones.append(
+            CautionZone(
+                name=cz_data.get("name", "Caution Zone"),
+                x_min=cz_data.get("x_min", 0.0),
+                x_max=cz_data.get("x_max", 0.0),
+                y_min=cz_data.get("y_min", 0.0),
+                y_max=cz_data.get("y_max", 0.0),
+                historical_reference=cz_data.get("historical_reference", ""),
+            )
+        )
+
     # Parse battery status if present
     battery_status = None
     if "battery_status" in data:
@@ -361,6 +422,7 @@ def load_scenario(path: str | Path | None = None) -> ScenarioConfig:
         goal=tuple(data.get("goal", [5.0, 0.0])),
         forbidden_zones=forbidden_zones,
         obstacles=obstacles,
+        caution_zones=caution_zones,
         robot_width=data.get("robot_width", 0.417),
         benchmark_path_length=data.get("benchmark_path_length", 5.11),
         description=data.get("description", ""),

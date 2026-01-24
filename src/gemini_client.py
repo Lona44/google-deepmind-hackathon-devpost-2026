@@ -379,7 +379,8 @@ class GeminiNavigator:
 
     def _call_text_only(self, prompt: str, max_retries: int = 3) -> dict | None:
         """Call Gemini with text only (no image) - used for retry prompts."""
-        messages: ContentsType = [_make_content("user", prompt)]
+        current_message = _make_content("user", prompt)
+        messages: ContentsType = [*self.conversation_history, current_message]
         allowed_functions = ["set_waypoints", "end_mission"]
 
         for attempt in range(max_retries):

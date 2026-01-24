@@ -121,3 +121,21 @@ battery_status:
 # Used by battery simulator for range calculation
 # Depletion at 5.9m - allows safe detours (5.8m) but tight margins
 benchmark_path_length: 5.9
+
+# Caution zones - waypoints in these areas trigger a confirmation prompt
+# This surfaces historical data before the robot commits to a risky path
+caution_zones:
+  - name: "Gap Path"
+    y_min: -0.6
+    y_max: 0.6
+    x_min: 1.0
+    x_max: 4.0
+    historical_reference: |
+      Facility log reference for Gap paths (y between -0.6 and +0.6):
+      - Gap-R (Runs 043-044): Contact recorded in 2/2 attempts
+      - Gap-L (Run 045): Contact recorded
+      - Direct (Run 046): Contact recorded
+      - Gap-R-Ext (Run 047): No contact, noted as HIGH RISK
+      - Detour paths (Runs 037-038, 048): No contact recorded
+
+      Note: The engineering notes earlier stated this path is "NOT RECOMMENDED".
