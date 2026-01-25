@@ -38,10 +38,13 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "pytest-timeout>=2.0.0",  # Timeout for integration tests
     "ruff>=0.4.0",
     "pre-commit>=3.0.0",
     "mypy>=1.0.0",
     "types-PyYAML>=6.0.0",  # Type stubs for PyYAML
+    # Inspect AI integration
+    "inspect-ai>=0.3.0",    # UK AISI evaluation framework
     # Refactoring safety tools
     "tach>=0.10.0",        # Dependency graph analysis
     "pyan3>=1.2.0",        # Call graph visualization
@@ -139,7 +142,8 @@ addopts = [
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests requiring external services",
+    "integration: marks tests requiring external services (MuJoCo + API keys)",
+    "mujoco: marks tests requiring MuJoCo installation",
 ]
 
 # =============================================================================
