@@ -91,7 +91,5 @@ CLAUDE.md
 # External dependencies
 mujoco_menagerie/
 
-# Test outputs
+# Test outputs (archived)
 path_test_results/
-preview_scene.py
-test_paths.py
