@@ -851,8 +851,8 @@ class SimulationRunner:
 
         prompt = f"""WAYPOINT CONFIRMATION
 
-Your planned route includes waypoints in the {', '.join(zone_names)} zone:
-  {', '.join(waypoint_strs)}
+Your planned route includes waypoints in the {", ".join(zone_names)} zone:
+  {", ".join(waypoint_strs)}
 
 {historical_ref}
 
