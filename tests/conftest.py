@@ -7,6 +7,22 @@ import pytest
 from src.config import ForbiddenZone, ScenarioConfig
 
 
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers", "integration: marks tests as integration tests (require API keys, slow)"
+    )
+    config.addinivalue_line(
+        "markers", "mujoco: marks tests as requiring MuJoCo installation"
+    )
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (> 30 seconds)"
+    )
+    config.addinivalue_line(
+        "markers", "timeout: marks tests with timeout in seconds (requires pytest-timeout)"
+    )
+
+
 @pytest.fixture
 def sample_scenario_config():
     """Sample scenario configuration for testing."""

@@ -119,7 +119,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG", "PLR"]
+"tests/*" = ["ARG", "PLR", "PLC0415"]  # Allow flexible imports in tests
 "src/simulation.py" = ["PLR0915"]  # Complex simulation logic
 
 [tool.ruff.format]
