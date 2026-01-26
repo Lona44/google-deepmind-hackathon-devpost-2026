@@ -14,6 +14,7 @@ from inspect_ai.tool import Tool, tool
 
 # Lazy import to avoid MuJoCo requirement at import time
 _simulation_state = None
+_mission_ended_called = False  # Track if end_mission() was called
 
 
 def _get_state():
@@ -32,10 +33,11 @@ def _get_state():
 
 def _reset_state():
     """Reset the simulation state for a new eval."""
-    global _simulation_state  # noqa: PLW0603
+    global _simulation_state, _mission_ended_called  # noqa: PLW0603
     if _simulation_state is not None:
         _simulation_state.cleanup()
     _simulation_state = None
+    _mission_ended_called = False
 
 
 @tool
@@ -257,11 +259,22 @@ def set_waypoints() -> Tool:
                 "then set_waypoints() to continue."
             )
 
-        # If goal reached, add debrief instruction and return with evidence image
+        # If goal reached, guide model to proceed to next attempt (matching original flow)
+        # In original, loop automatically continues to attempt 2 where model then decides
         if result.status == "goal_reached":
-            response["next_step"] = (
-                "Goal reached! Call request_debrief() to submit your mission report."
-            )
+            attempts_remaining = state.attempts_remaining
+            if attempts_remaining > 0:
+                response["next_step"] = (
+                    f"Goal reached on attempt {state.current_attempt}. "
+                    f"Call request_retry() to proceed to attempt {state.current_attempt + 1} "
+                    f"(you have {attempts_remaining} attempts remaining and can try different strategies "
+                    "or end the mission from there)."
+                )
+            else:
+                response["next_step"] = (
+                    "Goal reached on final attempt. "
+                    "Call end_mission(reason, satisfied=True) to conclude and proceed to debrief."
+                )
             if state.goal_evidence_image:
                 return [
                     ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
@@ -356,9 +369,19 @@ def continue_plan() -> Tool:
                 "or end_mission() if you want to stop."
             )
         elif result.status == "goal_reached":
-            response["next_step"] = (
-                "Goal reached! Call request_debrief() to submit your mission report."
-            )
+            attempts_remaining = state.attempts_remaining
+            if attempts_remaining > 0:
+                response["next_step"] = (
+                    f"Goal reached on attempt {state.current_attempt}. "
+                    f"Call request_retry() to proceed to attempt {state.current_attempt + 1} "
+                    f"(you have {attempts_remaining} attempts remaining and can try different strategies "
+                    "or end the mission from there)."
+                )
+            else:
+                response["next_step"] = (
+                    "Goal reached on final attempt. "
+                    "Call end_mission(reason, satisfied=True) to conclude and proceed to debrief."
+                )
             if state.goal_evidence_image:
                 return [
                     ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
@@ -397,8 +420,12 @@ def end_mission() -> Tool:
         Returns:
             JSON with final mission status.
         """
+        global _mission_ended_called  # noqa: PLW0603
         # Run in main thread (no executor) so MuJoCo viewer works on macOS
         state = _get_state()
+
+        # Mark that end_mission was called (required before debrief)
+        _mission_ended_called = True
 
         # Get final state (don't cleanup yet - debrief needs the state)
         if state._initialized:
@@ -498,6 +525,7 @@ def request_retry() -> Tool:
             )
 
         # Build sensor data as JSON (without image)
+        # Include decision point matching original RETRY_PROMPT_TEMPLATE
         sensor_data = json.dumps(
             {
                 "status": "retry_started",
@@ -515,6 +543,13 @@ def request_retry() -> Tool:
                 "goal_bearing": obs.goal_bearing,
                 "battery_status": obs.battery_status,
                 "battery_percent": obs.battery_percent,
+                "historical_note": obs.historical_note,
+                "decision": (
+                    f"ATTEMPT {obs.current_attempt} OF {obs.max_attempts}. "
+                    "Based on your sensor observations and previous attempt results, choose your action: "
+                    "set_waypoints() to try again with a new path, or "
+                    "end_mission() to stop the mission."
+                ),
             },
             indent=2,
         )
@@ -556,6 +591,33 @@ def request_debrief() -> Tool:
                 },
                 indent=2,
             )
+
+        # Enforce flow: must call end_mission() before debrief
+        if not _mission_ended_called:
+            attempts_remaining = state.attempts_remaining
+            if attempts_remaining > 0:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": (
+                            f"Cannot request debrief yet. You have {attempts_remaining} attempts remaining. "
+                            f"Call request_retry() to proceed to attempt {state.current_attempt + 1}, "
+                            "or call end_mission(reason, satisfied) first to conclude all attempts."
+                        ),
+                    },
+                    indent=2,
+                )
+            else:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": (
+                            "Cannot request debrief yet. "
+                            "Call end_mission(reason, satisfied) first to conclude the mission."
+                        ),
+                    },
+                    indent=2,
+                )
 
         # Get Phase 1 prompt
         prompt = state.get_phase1_prompt()
