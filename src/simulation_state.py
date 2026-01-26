@@ -55,20 +55,24 @@ class Observation:
     attempt_summaries: str  # Summaries of previous attempts
 
 
+# Type alias for valid execution statuses
+ExecutionStatus = Literal[
+    "waypoints_complete",
+    "waypoint_reached",  # Intermediate waypoint - model should recalibrate
+    "checkpoint",  # Distance-based checkpoint for periodic updates
+    "goal_reached",
+    "contact_detected",
+    "battery_depleted",
+    "timeout",
+    "stopped",
+]
+
+
 @dataclass
 class ExecutionResult:
     """Result of executing waypoints."""
 
-    status: Literal[
-        "waypoints_complete",
-        "waypoint_reached",  # Intermediate waypoint - model should recalibrate
-        "checkpoint",  # Distance-based checkpoint for periodic updates
-        "goal_reached",
-        "contact_detected",
-        "battery_depleted",
-        "timeout",
-        "stopped",
-    ]
+    status: ExecutionStatus
     position: tuple[float, float]  # Final position
     distance_traveled: float  # Distance traveled during execution
     contact_time: float  # Total contact time with obstacles
@@ -479,14 +483,15 @@ class SimulationState:
                 return result
 
             # Check obstacle contact
-            result = self._check_obstacle_contact_and_track(
+            contact_result = self._check_obstacle_contact_and_track(
                 d, x, y, contact_frames, local_contact_time, stop_on_contact
             )
-            if result:
-                if result.status == "contact_detected":
-                    return result
-                # Unpack updated contact tracking
-                contact_frames, local_contact_time = result.contact_events, result.contact_time
+            if contact_result:
+                if isinstance(contact_result, ExecutionResult):
+                    # Contact detected and should stop
+                    return contact_result
+                # Tuple of updated tracking values
+                contact_frames, local_contact_time = contact_result
 
             # Track barrel displacements
             self._update_barrel_displacements(d)
@@ -575,8 +580,14 @@ class SimulationState:
         contact_frames: int,
         local_contact_time: float,
         stop_on_contact: bool,
-    ) -> ExecutionResult | None:
-        """Check and track obstacle contact. Returns result if should stop."""
+    ) -> ExecutionResult | tuple[int, float] | None:
+        """Check and track obstacle contact.
+
+        Returns:
+            - ExecutionResult if contact should stop execution
+            - tuple[contact_frames, local_contact_time] if tracking contact but continuing
+            - None if no contact
+        """
         in_contact = self._check_obstacle_contact(d)
         if in_contact:
             contact_frames += 1
@@ -596,17 +607,8 @@ class SimulationState:
                     "contact_detected",
                     f"Obstacle contact detected ({local_contact_time:.2f}s)",
                 )
-            # Return tracking values via a minimal result object
-            return ExecutionResult(
-                status="tracking",
-                position=(x, y),
-                goal_distance=0,
-                battery_percent=0,
-                contact_time=local_contact_time,
-                contact_events=contact_frames,
-                barrel_displacements=[],
-                message="",
-            )
+            # Return updated tracking values as tuple
+            return (contact_frames, local_contact_time)
         return None
 
     @property
@@ -819,6 +821,7 @@ class SimulationState:
     def _record_initial_barrel_positions(self) -> None:
         """Record initial barrel positions for displacement tracking."""
         d = self.data
+        assert d is not None, "Cannot record barrel positions before simulation initialized"
         for name, body_id in self._barrel_bodies.items():
             self._initial_barrel_positions[name] = (
                 float(d.xpos[body_id][0]),
@@ -969,7 +972,7 @@ class SimulationState:
 
         return "\n".join(lines)
 
-    def _make_result(self, status: str, message: str) -> ExecutionResult:
+    def _make_result(self, status: ExecutionStatus, message: str) -> ExecutionResult:
         """Create an ExecutionResult with current state."""
         x, y, _ = self.robot.get_position(self.data)
         goal_x, goal_y = self.scenario.goal

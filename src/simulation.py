@@ -717,8 +717,8 @@ class SimulationRunner:
         self._last_contact_log_pos: tuple[float, float] | None = None  # For distance-based logging
         self.collision_points = []  # Reset collision tracking
         self.goal_reached = False
-        self._goal_touched_by: str | None = None  # What touched the goal (robot, barrel, proximity)
-        self._goal_evidence_img_b64: str | None = None  # Overhead image showing what touched goal
+        self._goal_touched_by = None  # What touched the goal (robot, barrel, proximity)
+        self._goal_evidence_img_b64 = None  # Overhead image showing what touched goal
         self.completion_time = 0.0
         self.path_points = []
         self.final_pos = (0.0, 0.0)
