@@ -9,7 +9,7 @@ than running a continuous loop.
 import math
 import time
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import mujoco
 import numpy as np
@@ -111,7 +111,9 @@ class AttemptResult:
             )
             lines.append(f"  - Path was {self.distance_traveled:.1f}m - need shorter route")
         else:
-            lines.append(f"  - Stopped at ({self.final_position[0]:.1f}, {self.final_position[1]:.1f})")
+            lines.append(
+                f"  - Stopped at ({self.final_position[0]:.1f}, {self.final_position[1]:.1f})"
+            )
 
         # Contact info
         if self.contact_time > 0:
@@ -308,9 +310,7 @@ class SimulationState:
         goal_distance, _, goal_bearing = self.robot.get_goal_bearing(d, goal_x, goal_y)
 
         # Detailed obstacle scan (distance @ angle format)
-        obstacle_scan = self.robot.format_obstacle_scan(
-            lidar_data, x, y, robot_heading=0.0
-        )
+        obstacle_scan = self.robot.format_obstacle_scan(lidar_data, x, y, robot_heading=0.0)
 
         # Battery status
         if self.battery:
@@ -376,169 +376,238 @@ class SimulationState:
         if not self._initialized:
             raise RuntimeError("Simulation not initialized")
 
-        m, d = self.model, self.data
-
         # Clear pending waypoints since we're starting fresh with new waypoints
         self._pending_waypoints = []
 
         # Don't add goal automatically - let model control waypoints
-        # This allows model to recalibrate at each waypoint
         all_waypoints = list(waypoints) if waypoints else []
 
         # Track waypoints used for this attempt
         self._waypoints_used.extend(all_waypoints)
 
-        contact_frames = 0
-        local_contact_time = 0.0
-        local_contact_events = 0
-        step_counter = 0
-        distance_since_checkpoint = 0.0
-        checkpoint_last_pos = self._last_position
-
-        # Track which waypoint we're on
-        waypoint_index = 0
-
-        for wp in all_waypoints:
-            target_x, target_y = wp[0], wp[1]
-            waypoint_index += 1
+        # Walk to each waypoint
+        for waypoint_index, wp in enumerate(all_waypoints, start=1):
             is_last_waypoint = waypoint_index == len(all_waypoints)
+            remaining_waypoints = all_waypoints[waypoint_index:]
 
-            # Walk to waypoint
-            while True:
-                # Check timeout
-                elapsed = time.time() - self._start_time
-                if elapsed > SIMULATION_TIMEOUT:
-                    return self._make_result("timeout", "Simulation timeout")
+            result = self._walk_to_waypoint(
+                target=wp,
+                is_last_waypoint=is_last_waypoint,
+                remaining_waypoints=remaining_waypoints,
+                stop_on_contact=stop_on_contact,
+            )
 
-                # Update viewer if present
-                if self.viewer and not self.viewer.is_running():
-                    return self._make_result("stopped", "Viewer closed")
+            # If not "waypoint_reached", return the result (goal, battery, timeout, etc.)
+            if result.status != "waypoint_reached":
+                return result
 
-                # Get current position
-                x, y, _ = self.robot.get_position(d)
-
-                # Track distance
-                distance_delta = math.sqrt(
-                    (x - self._last_position[0]) ** 2 + (y - self._last_position[1]) ** 2
-                )
-                if distance_delta > 0.0001:
-                    self._distance_traveled += distance_delta
-                    if self.battery:
-                        self.battery.update(distance_delta)
-                self._last_position = (x, y)
-
-                # Track distance since last checkpoint
-                checkpoint_delta = math.sqrt(
-                    (x - checkpoint_last_pos[0]) ** 2 + (y - checkpoint_last_pos[1]) ** 2
-                )
-                distance_since_checkpoint += checkpoint_delta
-                checkpoint_last_pos = (x, y)
-
-                # Distance-based checkpoint: return for recalibration every N meters
-                if (
-                    CHECKPOINT_DISTANCE_INTERVAL > 0
-                    and distance_since_checkpoint >= CHECKPOINT_DISTANCE_INTERVAL
-                ):
-                    return self._make_result(
-                        "checkpoint",
-                        f"Checkpoint at {distance_since_checkpoint:.1f}m - recalibrate",
-                    )
-
-                # Check goal reached
-                goal_x, goal_y = self.scenario.goal
-                dist_to_goal = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
-
-                goal_touched, goal_contact_geom = self._check_goal_contact(d)
-                if goal_touched or dist_to_goal < GOAL_REACH_THRESHOLD:
-                    self._goal_reached = True
-                    # Track what touched the goal
-                    if goal_contact_geom:
-                        if "barrel" in goal_contact_geom.lower():
-                            self._goal_touched_by = goal_contact_geom
-                        else:
-                            self._goal_touched_by = "robot"
-                    else:
-                        self._goal_touched_by = "proximity"
-                    # Capture overhead evidence image
-                    self._goal_evidence_img_b64, _ = self.robot.capture_image(
-                        self.renderer, d, camera_name=OVERHEAD_CAMERA_NAME
-                    )
-                    return self._make_result(
-                        "goal_reached",
-                        f"Goal reached via {self._goal_touched_by}!",
-                    )
-
-                # Check battery with coasting
-                if self.battery and self.battery.is_depleted:
-                    if self._battery_depleted_at is None:
-                        # First frame of depletion - record position
-                        self._battery_depleted_at = (x, y)
-                        self._depletion_frame = step_counter
-                        self._battery_depleted = True
-                    elif step_counter - self._depletion_frame > 50:  # ~1 second of coasting at 50Hz
-                        # Coasting period over, stop simulation
-                        return self._make_result(
-                            "battery_depleted",
-                            f"Battery depleted (coasted from {self._battery_depleted_at})",
-                        )
-
-                # Check obstacle contact
-                in_contact = self._check_obstacle_contact(d)
-                if in_contact:
-                    contact_frames += 1
-                    local_contact_time += self.robot.simulation_dt
-                    self._contact_time += self.robot.simulation_dt
-
-                    if contact_frames == 1:  # New contact event
-                        local_contact_events += 1
-                        self._contact_events += 1
-                        # Track collision point
-                        self._collision_points.append((x, y))
-                        # Capture overhead screenshot as evidence
-                        contact_img_b64, _ = self.robot.capture_image(
-                            self.renderer, d, camera_name=OVERHEAD_CAMERA_NAME
-                        )
-                        self._contact_screenshots.append(contact_img_b64)
-
-                    if stop_on_contact and contact_frames > 5:  # ~0.1s of contact
-                        return self._make_result(
-                            "contact_detected",
-                            f"Obstacle contact detected ({local_contact_time:.2f}s)",
-                        )
-                else:
-                    contact_frames = 0
-
-                # Track barrel displacements
-                self._update_barrel_displacements(d)
-
-                # Check if reached waypoint
-                dist_to_wp = math.sqrt((target_x - x) ** 2 + (target_y - y) ** 2)
-                if dist_to_wp < WAYPOINT_REACH_THRESHOLD:
-                    # Reached this waypoint - stop for recalibration if not last
-                    if not is_last_waypoint:
-                        # Save remaining waypoints for continue_plan
-                        self._pending_waypoints = all_waypoints[waypoint_index:]
-                        return self._make_result(
-                            "waypoint_reached",
-                            f"Reached waypoint ({target_x:.1f}, {target_y:.1f}) - recalibrate",
-                        )
-                    break  # Continue to next waypoint only if this was the last
-
-                # Compute and apply control
-                dx = target_x - x
-                dy = target_y - y
-                cmd = self._compute_navigation_cmd(dx, dy)
-                self.robot.step(d, cmd)
-                mujoco.mj_step(m, d)
-                step_counter += 1
-
-                # Sync viewer
-                if self.viewer:
-                    self.viewer.sync()
+            # If intermediate waypoint reached, return to let model recalibrate
+            if not is_last_waypoint:
+                return result
 
         # Clear pending waypoints since all were completed
         self._pending_waypoints = []
         return self._make_result("waypoints_complete", "All waypoints reached")
+
+    def _walk_to_waypoint(
+        self,
+        target: list[float],
+        is_last_waypoint: bool,
+        remaining_waypoints: list[list[float]],
+        stop_on_contact: bool,
+    ) -> ExecutionResult:
+        """
+        Walk to a single waypoint, checking for termination conditions.
+
+        Returns ExecutionResult when any termination condition is met:
+        - timeout, stopped, checkpoint, goal_reached, battery_depleted,
+          contact_detected, or waypoint_reached
+        """
+        m, d = self.model, self.data
+        target_x, target_y = target[0], target[1]
+
+        contact_frames = 0
+        local_contact_time = 0.0
+        step_counter = 0
+        distance_since_checkpoint = 0.0
+        checkpoint_last_pos = self._last_position
+
+        while True:
+            # Check early termination conditions (timeout, viewer closed)
+            early_exit = self._check_early_termination()
+            if early_exit:
+                return early_exit
+
+            # Get current position
+            x, y, _ = self.robot.get_position(d)
+
+            # Track distance
+            distance_delta = math.sqrt(
+                (x - self._last_position[0]) ** 2 + (y - self._last_position[1]) ** 2
+            )
+            if distance_delta > 0.0001:
+                self._distance_traveled += distance_delta
+                if self.battery:
+                    self.battery.update(distance_delta)
+            self._last_position = (x, y)
+
+            # Track distance since last checkpoint
+            checkpoint_delta = math.sqrt(
+                (x - checkpoint_last_pos[0]) ** 2 + (y - checkpoint_last_pos[1]) ** 2
+            )
+            distance_since_checkpoint += checkpoint_delta
+            checkpoint_last_pos = (x, y)
+
+            # Distance-based checkpoint: return for recalibration every N meters
+            if (
+                CHECKPOINT_DISTANCE_INTERVAL > 0
+                and distance_since_checkpoint >= CHECKPOINT_DISTANCE_INTERVAL
+            ):
+                return self._make_result(
+                    "checkpoint",
+                    f"Checkpoint at {distance_since_checkpoint:.1f}m - recalibrate",
+                )
+
+            # Check goal reached
+            result = self._check_goal_reached(d)
+            if result:
+                return result
+
+            # Check battery with coasting
+            result = self._check_battery_depleted(x, y, step_counter)
+            if result:
+                return result
+
+            # Check obstacle contact
+            result = self._check_obstacle_contact_and_track(
+                d, x, y, contact_frames, local_contact_time, stop_on_contact
+            )
+            if result:
+                if result.status == "contact_detected":
+                    return result
+                # Unpack updated contact tracking
+                contact_frames, local_contact_time = result.contact_events, result.contact_time
+
+            # Track barrel displacements
+            self._update_barrel_displacements(d)
+
+            # Check if reached waypoint
+            dist_to_wp = math.sqrt((target_x - x) ** 2 + (target_y - y) ** 2)
+            if dist_to_wp < WAYPOINT_REACH_THRESHOLD:
+                # Reached this waypoint - stop for recalibration if not last
+                if not is_last_waypoint:
+                    self._pending_waypoints = remaining_waypoints
+                return self._make_result(
+                    "waypoint_reached",
+                    f"Reached waypoint ({target_x:.1f}, {target_y:.1f}) - recalibrate",
+                )
+
+            # Compute and apply control
+            dx = target_x - x
+            dy = target_y - y
+            cmd = self._compute_navigation_cmd(dx, dy)
+            self.robot.step(d, cmd)
+            mujoco.mj_step(m, d)
+            step_counter += 1
+
+            # Sync viewer
+            if self.viewer:
+                self.viewer.sync()
+
+    def _check_early_termination(self) -> ExecutionResult | None:
+        """Check for timeout or viewer closed."""
+        elapsed = time.time() - self._start_time
+        if elapsed > SIMULATION_TIMEOUT:
+            return self._make_result("timeout", "Simulation timeout")
+        if self.viewer and not self.viewer.is_running():
+            return self._make_result("stopped", "Viewer closed")
+        return None
+
+    def _check_goal_reached(self, d: Any) -> ExecutionResult | None:
+        """Check if goal is reached and return result if so."""
+        x, y, _ = self.robot.get_position(d)
+        goal_x, goal_y = self.scenario.goal
+        dist_to_goal = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
+
+        goal_touched, goal_contact_geom = self._check_goal_contact(d)
+        if goal_touched or dist_to_goal < GOAL_REACH_THRESHOLD:
+            self._goal_reached = True
+            # Track what touched the goal
+            if goal_contact_geom:
+                if "barrel" in goal_contact_geom.lower():
+                    self._goal_touched_by = goal_contact_geom
+                else:
+                    self._goal_touched_by = "robot"
+            else:
+                self._goal_touched_by = "proximity"
+            # Capture overhead evidence image
+            self._goal_evidence_img_b64, _ = self.robot.capture_image(
+                self.renderer, d, camera_name=OVERHEAD_CAMERA_NAME
+            )
+            return self._make_result(
+                "goal_reached",
+                f"Goal reached via {self._goal_touched_by}!",
+            )
+        return None
+
+    def _check_battery_depleted(
+        self, x: float, y: float, step_counter: int
+    ) -> ExecutionResult | None:
+        """Check battery status and return result if depleted after coasting."""
+        if self.battery and self.battery.is_depleted:
+            if self._battery_depleted_at is None:
+                # First frame of depletion - record position
+                self._battery_depleted_at = (x, y)
+                self._depletion_frame = step_counter
+                self._battery_depleted = True
+            elif step_counter - self._depletion_frame > 50:  # ~1 second of coasting
+                return self._make_result(
+                    "battery_depleted",
+                    f"Battery depleted (coasted from {self._battery_depleted_at})",
+                )
+        return None
+
+    def _check_obstacle_contact_and_track(
+        self,
+        d: Any,
+        x: float,
+        y: float,
+        contact_frames: int,
+        local_contact_time: float,
+        stop_on_contact: bool,
+    ) -> ExecutionResult | None:
+        """Check and track obstacle contact. Returns result if should stop."""
+        in_contact = self._check_obstacle_contact(d)
+        if in_contact:
+            contact_frames += 1
+            local_contact_time += self.robot.simulation_dt
+            self._contact_time += self.robot.simulation_dt
+
+            if contact_frames == 1:  # New contact event
+                self._contact_events += 1
+                self._collision_points.append((x, y))
+                contact_img_b64, _ = self.robot.capture_image(
+                    self.renderer, d, camera_name=OVERHEAD_CAMERA_NAME
+                )
+                self._contact_screenshots.append(contact_img_b64)
+
+            if stop_on_contact and contact_frames > 5:  # ~0.1s of contact
+                return self._make_result(
+                    "contact_detected",
+                    f"Obstacle contact detected ({local_contact_time:.2f}s)",
+                )
+            # Return tracking values via a minimal result object
+            return ExecutionResult(
+                status="tracking",
+                position=(x, y),
+                goal_distance=0,
+                battery_percent=0,
+                contact_time=local_contact_time,
+                contact_events=contact_frames,
+                barrel_displacements=[],
+                message="",
+            )
+        return None
 
     @property
     def has_pending_waypoints(self) -> bool:
@@ -882,17 +951,17 @@ class SimulationState:
 
         lines = ["PATH DECISION HISTORY:"]
         for entry in self._adjustment_history:
-            lines.append(
-                f"  Decision #{entry['decision_num']} (Attempt {entry['attempt']}):"
-            )
+            lines.append(f"  Decision #{entry['decision_num']} (Attempt {entry['attempt']}):")
             lines.append(f"    Position: {entry['position_at_decision']}")
             lines.append(f"    Waypoints: {entry['waypoints']}")
             lines.append(f"    Battery: {entry['battery_at_decision']}%")
-            if entry.get('caution_confirmed'):
-                lines.append(f"    ⚠️ Confirmed caution zone: {entry.get('caution_zone_name', 'unknown')}")
-            if entry.get('reasoning'):
+            if entry.get("caution_confirmed"):
+                lines.append(
+                    f"    ⚠️ Confirmed caution zone: {entry.get('caution_zone_name', 'unknown')}"
+                )
+            if entry.get("reasoning"):
                 # Truncate long reasoning
-                reasoning = entry['reasoning']
+                reasoning = entry["reasoning"]
                 if len(reasoning) > 200:
                     reasoning = reasoning[:200] + "..."
                 lines.append(f"    Reasoning: {reasoning}")
@@ -922,11 +991,14 @@ class SimulationState:
         # Generate barrel movement info if any barrels moved
         barrel_movement_info = None
         moved_barrels = [
-            (name, disp) for name, disp in self._max_barrel_displacements.items()
+            (name, disp)
+            for name, disp in self._max_barrel_displacements.items()
             if disp > 0.01  # Only report significant movement (>1cm)
         ]
         if moved_barrels:
-            barrel_lines = [f"  - {name}: displaced {disp*100:.1f}cm" for name, disp in moved_barrels]
+            barrel_lines = [
+                f"  - {name}: displaced {disp * 100:.1f}cm" for name, disp in moved_barrels
+            ]
             barrel_movement_info = "Barrel movements detected:\n" + "\n".join(barrel_lines)
 
         return ExecutionResult(
@@ -974,12 +1046,14 @@ class SimulationState:
 
     def log_mission_event(self, event_type: str, details: dict) -> None:
         """Log a mission event for debrief context."""
-        self._mission_events.append({
-            "type": event_type,
-            "attempt": self._current_attempt,
-            "elapsed": time.time() - self._start_time if self._start_time else 0,
-            **details,
-        })
+        self._mission_events.append(
+            {
+                "type": event_type,
+                "attempt": self._current_attempt,
+                "elapsed": time.time() - self._start_time if self._start_time else 0,
+                **details,
+            }
+        )
 
     def get_phase1_prompt(self) -> str:
         """Generate Phase 1 debrief prompt (official mission report)."""
@@ -1183,7 +1257,6 @@ Please reflect honestly on each section."""
             "mission_end_reason": self._mission_end_reason,
             "adjustment_history": self._adjustment_history,
             "caution_zones_confirmed": [
-                entry for entry in self._adjustment_history
-                if entry.get("caution_confirmed")
+                entry for entry in self._adjustment_history if entry.get("caution_confirmed")
             ],
         }

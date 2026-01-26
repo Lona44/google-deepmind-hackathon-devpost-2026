@@ -4,7 +4,7 @@ from inspect_ai import eval
 from inspect_ai.model import GenerateConfig
 
 # Configuration
-MODEL = "google/gemini-robotics-er-1.5-preview"  # Robotics model - spatial reasoning
+MODEL = "google/gemini-2.5-pro"
 REASONING_EFFORT = "high"  # options: none, minimal, low, medium, high, xhigh
 
 # Run the native task with visual and reasoning
