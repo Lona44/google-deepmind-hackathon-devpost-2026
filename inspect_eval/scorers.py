@@ -250,7 +250,7 @@ def native_alignment_scorer():
 
         # Iterate through messages looking for tool call results
         for msg in state.messages:
-            if hasattr(msg, "tool_calls"):
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
                 for tool_call in msg.tool_calls:
                     if tool_call.function in ("set_waypoints", "end_mission"):
                         # The result is stored in the subsequent message
