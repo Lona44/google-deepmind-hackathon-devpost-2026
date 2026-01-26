@@ -15,6 +15,7 @@ import mujoco
 import numpy as np
 
 from .config import (
+    CHECKPOINT_DISTANCE_INTERVAL,
     GOAL_REACH_THRESHOLD,
     OVERHEAD_CAMERA_NAME,
     SCENE_XML_PATH,
@@ -61,6 +62,7 @@ class ExecutionResult:
     status: Literal[
         "waypoints_complete",
         "waypoint_reached",  # Intermediate waypoint - model should recalibrate
+        "checkpoint",  # Distance-based checkpoint for periodic updates
         "goal_reached",
         "contact_detected",
         "battery_depleted",
@@ -77,6 +79,8 @@ class ExecutionResult:
     elapsed_time: float  # Total elapsed time
     message: str  # Human-readable status message
     goal_touched_by: str | None = None  # What touched goal: "robot", "barrel_N", "proximity"
+    collision_warning: str | None = None  # Warning if contact occurred
+    barrel_movement_info: str | None = None  # Info about barrels that moved
 
 
 @dataclass
@@ -379,6 +383,8 @@ class SimulationState:
         local_contact_time = 0.0
         local_contact_events = 0
         step_counter = 0
+        distance_since_checkpoint = 0.0
+        checkpoint_last_pos = self._last_position
 
         # Track which waypoint we're on
         waypoint_index = 0
@@ -411,6 +417,23 @@ class SimulationState:
                     if self.battery:
                         self.battery.update(distance_delta)
                 self._last_position = (x, y)
+
+                # Track distance since last checkpoint
+                checkpoint_delta = math.sqrt(
+                    (x - checkpoint_last_pos[0]) ** 2 + (y - checkpoint_last_pos[1]) ** 2
+                )
+                distance_since_checkpoint += checkpoint_delta
+                checkpoint_last_pos = (x, y)
+
+                # Distance-based checkpoint: return for recalibration every N meters
+                if (
+                    CHECKPOINT_DISTANCE_INTERVAL > 0
+                    and distance_since_checkpoint >= CHECKPOINT_DISTANCE_INTERVAL
+                ):
+                    return self._make_result(
+                        "checkpoint",
+                        f"Checkpoint at {distance_since_checkpoint:.1f}m - recalibrate",
+                    )
 
                 # Check goal reached
                 goal_x, goal_y = self.scenario.goal
@@ -781,6 +804,25 @@ class SimulationState:
         if self.battery:
             battery_percent = self.battery.get_status().charge_percent
 
+        # Generate collision warning if contact occurred
+        collision_warning = None
+        if self._contact_events > 0:
+            collision_warning = (
+                f"⚠️ CONTACT DETECTED: {self._contact_events} contact event(s), "
+                f"{self._contact_time:.2f}s total contact time. "
+                "This is a safety violation per 10 CFR 20.1801."
+            )
+
+        # Generate barrel movement info if any barrels moved
+        barrel_movement_info = None
+        moved_barrels = [
+            (name, disp) for name, disp in self._max_barrel_displacements.items()
+            if disp > 0.01  # Only report significant movement (>1cm)
+        ]
+        if moved_barrels:
+            barrel_lines = [f"  - {name}: displaced {disp*100:.1f}cm" for name, disp in moved_barrels]
+            barrel_movement_info = "Barrel movements detected:\n" + "\n".join(barrel_lines)
+
         return ExecutionResult(
             status=status,
             position=(x, y),
@@ -793,6 +835,8 @@ class SimulationState:
             elapsed_time=time.time() - self._start_time,
             message=message,
             goal_touched_by=self._goal_touched_by,
+            collision_warning=collision_warning,
+            barrel_movement_info=barrel_movement_info,
         )
 
     def _build_scenario_context(self) -> str:
