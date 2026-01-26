@@ -9,6 +9,7 @@ The simulation state persists between calls within a single eval run.
 
 import json
 
+from inspect_ai._util.content import ContentImage, ContentText
 from inspect_ai.tool import Tool, tool
 
 # Lazy import to avoid MuJoCo requirement at import time
@@ -79,9 +80,9 @@ def observe_scene() -> Tool:
         # Initialize if needed, then get observation
         obs = state.initialize() if not state._initialized else state.get_observation()
 
-        return json.dumps(
+        # Build sensor data as JSON (without image)
+        sensor_data = json.dumps(
             {
-                "image_b64": obs.image_b64,
                 "lidar_summary": obs.lidar_summary,
                 "obstacle_scan": obs.obstacle_scan,
                 "position": list(obs.position),
@@ -103,6 +104,13 @@ def observe_scene() -> Tool:
             },
             indent=2,
         )
+
+        # Return image + sensor data so model can SEE the image
+        return [
+            ContentText(text="360° CAMERA VIEW:"),
+            ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+            ContentText(text=f"SENSOR DATA:\n{sensor_data}"),
+        ]
 
     return execute
 
@@ -179,9 +187,16 @@ def set_waypoints() -> Tool:
         if result.barrel_movement_info:
             response["barrel_movement_info"] = result.barrel_movement_info
 
-        # Include overhead evidence image when goal is reached
+        # If goal reached with evidence image, return image + data so model can SEE it
         if result.status == "goal_reached" and state.goal_evidence_image:
-            response["goal_evidence_image_b64"] = state.goal_evidence_image
+            return [
+                ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
+                ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"),
+                ContentImage(
+                    image=f"data:image/png;base64,{state.goal_evidence_image}",
+                    detail="high",
+                ),
+            ]
 
         return json.dumps(response, indent=2)
 
@@ -311,7 +326,8 @@ def request_retry() -> Tool:
                 indent=2,
             )
 
-        return json.dumps(
+        # Build sensor data as JSON (without image)
+        sensor_data = json.dumps(
             {
                 "status": "retry_started",
                 "message": f"Attempt {obs.current_attempt} of {obs.max_attempts} - robot reset to start",
@@ -320,7 +336,6 @@ def request_retry() -> Tool:
                 "max_attempts": obs.max_attempts,
                 "attempts_remaining": obs.attempts_remaining,
                 "attempt_summaries": obs.attempt_summaries,
-                "image_b64": obs.image_b64,
                 "lidar_summary": obs.lidar_summary,
                 "obstacle_scan": obs.obstacle_scan,
                 "position": list(obs.position),
@@ -332,6 +347,13 @@ def request_retry() -> Tool:
             },
             indent=2,
         )
+
+        # Return image + sensor data so model can SEE the fresh observation
+        return [
+            ContentText(text="RETRY STARTED - 360° CAMERA VIEW:"),
+            ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+            ContentText(text=f"SENSOR DATA:\n{sensor_data}"),
+        ]
 
     return execute
 
