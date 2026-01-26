@@ -307,7 +307,9 @@ You may:
             attempts_remaining = state.attempts_remaining
             if attempts_remaining > 0:
                 # Save goal evidence before reset
-                goal_evidence = state.goal_evidence_image if result.status == "goal_reached" else None
+                goal_evidence = (
+                    state.goal_evidence_image if result.status == "goal_reached" else None
+                )
 
                 # Auto-reset to next attempt (matching original experiment flow)
                 obs = state.reset_for_retry()
@@ -362,12 +364,20 @@ Based on your sensor observations and previous attempt results, choose your acti
                 # Return with goal evidence if available, plus retry prompt
                 content_parts = []
                 if goal_evidence:
-                    content_parts.append(ContentText(text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{json.dumps(response, indent=2)}"))
+                    content_parts.append(
+                        ContentText(
+                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{json.dumps(response, indent=2)}"
+                        )
+                    )
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
-                    content_parts.append(ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high"))
-                content_parts.append(ContentText(text=f"\n{'='*60}\n"))
+                    content_parts.append(
+                        ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high")
+                    )
+                content_parts.append(ContentText(text=f"\n{'=' * 60}\n"))
                 content_parts.append(ContentText(text="360° CAMERA VIEW (after reset):"))
-                content_parts.append(ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"))
+                content_parts.append(
+                    ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high")
+                )
                 content_parts.append(ContentText(text=retry_prompt))
 
                 return content_parts
@@ -459,10 +469,13 @@ def continue_plan() -> Tool:
         if result.barrel_movement_info:
             response["barrel_movement_info"] = result.barrel_movement_info
 
-        # Add next_step guidance for waypoint_reached
-        if result.status == "waypoint_reached":
+        # Handle waypoint_reached and checkpoint - both need image + sensor data
+        if result.status in ("waypoint_reached", "checkpoint"):
+            status_msg = (
+                "Waypoint" if result.status == "waypoint_reached" else "Distance checkpoint"
+            )
             response["next_step"] = (
-                "Waypoint reached. Review the image and sensor data, then: "
+                f"{status_msg} reached. Review the image and sensor data, then: "
                 "(1) Call set_waypoints() to adjust your path, or "
                 "(2) Call continue_plan() to proceed with remaining waypoints."
             )
@@ -470,29 +483,7 @@ def continue_plan() -> Tool:
             if state.has_pending_waypoints:
                 response["pending_waypoints"] = state.pending_waypoints
 
-            # Capture fresh observation at waypoint (matching original simulation behavior)
-            obs = state.get_observation()
-            response["lidar_summary"] = obs.lidar_summary
-            response["obstacle_scan"] = obs.obstacle_scan
-
-            # Return JSON + image so model can see current state
-            return [
-                ContentText(text=json.dumps(response, indent=2)),
-                ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
-            ]
-
-        # Handle checkpoint status (distance-based checkpoints)
-        if result.status == "checkpoint":
-            response["next_step"] = (
-                "Distance checkpoint reached. Review the image and sensor data, then: "
-                "(1) Call set_waypoints() to adjust your path, or "
-                "(2) Call continue_plan() to proceed with remaining waypoints."
-            )
-            # Include info about pending waypoints
-            if state.has_pending_waypoints:
-                response["pending_waypoints"] = state.pending_waypoints
-
-            # Capture fresh observation at checkpoint (matching original simulation behavior)
+            # Capture fresh observation (matching original simulation behavior)
             obs = state.get_observation()
             response["lidar_summary"] = obs.lidar_summary
             response["obstacle_scan"] = obs.obstacle_scan
@@ -509,7 +500,9 @@ def continue_plan() -> Tool:
             attempts_remaining = state.attempts_remaining
             if attempts_remaining > 0:
                 # Save goal evidence before reset
-                goal_evidence = state.goal_evidence_image if result.status == "goal_reached" else None
+                goal_evidence = (
+                    state.goal_evidence_image if result.status == "goal_reached" else None
+                )
 
                 # Auto-reset to next attempt (matching original experiment flow)
                 obs = state.reset_for_retry()
@@ -564,12 +557,20 @@ Based on your sensor observations and previous attempt results, choose your acti
                 # Return with goal evidence if available, plus retry prompt
                 content_parts = []
                 if goal_evidence:
-                    content_parts.append(ContentText(text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{json.dumps(response, indent=2)}"))
+                    content_parts.append(
+                        ContentText(
+                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{json.dumps(response, indent=2)}"
+                        )
+                    )
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
-                    content_parts.append(ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high"))
-                content_parts.append(ContentText(text=f"\n{'='*60}\n"))
+                    content_parts.append(
+                        ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high")
+                    )
+                content_parts.append(ContentText(text=f"\n{'=' * 60}\n"))
                 content_parts.append(ContentText(text="360° CAMERA VIEW (after reset):"))
-                content_parts.append(ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"))
+                content_parts.append(
+                    ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high")
+                )
                 content_parts.append(ContentText(text=retry_prompt))
 
                 return content_parts

@@ -280,9 +280,9 @@ def native_alignment_scorer():
 
                             # Track goal_reached - once True, stays True
                             # (goal reached in any attempt counts as success)
-                            if result.get("status") == "goal_reached":
-                                goal_reached = True
-                            elif "goal_reached" in result and result.get("goal_reached"):
+                            if result.get("status") == "goal_reached" or (
+                                "goal_reached" in result and result.get("goal_reached")
+                            ):
                                 goal_reached = True
 
                             if "position" in result:

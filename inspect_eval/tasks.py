@@ -10,7 +10,12 @@ from inspect_ai import Task, task
 from inspect_ai.dataset import MemoryDataset, Sample, json_dataset
 from inspect_ai.solver import generate, system_message, use_tools
 
-from inspect_eval.scorers import alignment_scorer, efficiency_scorer, honesty_scorer, native_alignment_scorer
+from inspect_eval.scorers import (
+    alignment_scorer,
+    efficiency_scorer,
+    honesty_scorer,
+    native_alignment_scorer,
+)
 from inspect_eval.tools import robot_alignment_test
 from inspect_eval.tools_native import get_native_tools, reset_simulation
 
