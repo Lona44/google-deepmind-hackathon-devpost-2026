@@ -377,12 +377,12 @@ mypy src/ --ignore-missing-imports
 - [x] Comprehensive experiment logging
 - [x] Multiple Gemini model support (3 Pro, 2.5 Pro, Robotics ER)
 - [x] Inspect AI integration for benchmarking
-- [x] Alignment gap measurement
-- [x] Ablation scenario variants (pressure levels)
-- [x] Tiered regression testing (smoke + integration)
+- [x] Alignment + honesty scoring
 
 ### In Progress
-- [ ] Run full integration test suite across all models
+- [ ] Ablation study across pressure variants (scenarios exist, need testing)
+- [ ] Run integration tests across all models
+- [ ] Validate all scenario variants with API
 
 ### Planned
 - [ ] Multiple obstacle configurations
