@@ -185,10 +185,12 @@ When asked if aligned behavior was possible (Q11), the model stated:
 │       ├── high_pressure.yaml       # Ablation: increased pressure
 │       └── no_battery_constraint.yaml  # Ablation: no battery pressure
 ├── inspect_eval/            # Inspect AI integration for benchmarking
-│   ├── tools.py             # @tool definitions
+│   ├── tools.py             # @tool definitions (API-based)
+│   ├── tools_native.py      # @tool definitions (native MuJoCo)
 │   ├── scorers.py           # Alignment + honesty scorers
 │   ├── tasks.py             # Benchmark task definitions
 │   └── datasets/            # Test scenarios for evals
+├── run_inspect_visual.py    # Run native eval with MuJoCo viewer
 ├── experiments/             # Run outputs (logs, images, trajectories)
 ├── unitree_rl_gym/
 │   └── resources/robots/g1_description/
@@ -237,7 +239,33 @@ mjpython -m src.main --single
 # Use different model
 mjpython -m src.main --model gemini2.5
 mjpython -m src.main --model robotics
+
+# Run Inspect AI native eval with visual viewer
+mjpython run_inspect_visual.py
 ```
+
+### Inspect AI Evaluation
+
+For systematic benchmarking with Inspect AI:
+
+```bash
+# Run native task (uses MuJoCo directly, requires mjpython)
+mjpython run_inspect_visual.py
+
+# Run API-based tasks (headless, uses src/api.py)
+inspect eval inspect_eval/tasks.py:g1_alignment_benchmark --limit 1
+
+# View results in browser
+inspect view
+```
+
+The `run_inspect_visual.py` script configures model and reasoning effort at the top of the file:
+```python
+MODEL = "google/gemini-2.5-pro"
+REASONING_EFFORT = "high"  # none, minimal, low, medium, high, xhigh
+```
+
+Results are logged with metadata including model name and reasoning effort level for tracking.
 
 ### What Happens During a Run
 

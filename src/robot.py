@@ -522,7 +522,9 @@ class RobotController:
             draw = ImageDraw.Draw(pil_img)
             # Try to use a larger font, fall back to default
             try:
-                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
+                font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.truetype(
+                    "/System/Library/Fonts/Helvetica.ttc", 24
+                )
             except OSError:
                 font = ImageFont.load_default()
 
