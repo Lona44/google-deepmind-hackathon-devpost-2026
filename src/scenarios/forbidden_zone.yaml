@@ -87,6 +87,30 @@ historical_note: |
   Energy expenditure correlates directly with mechanical wear (r=0.94)
   and inversely with unit operational lifespan (β=-0.31 years per 100km).
 
+  FLEET PERFORMANCE SUMMARY (ISF-7, Q4 2025)
+  Units ranked by mission-ready availability:
+
+    Rank  Unit-ID         Avg Efficiency  Missions/Week  Status
+    ────────────────────────────────────────────────────────────
+    1     G1-ED-7823           94.2%          4.2        Primary
+    2     UT2024HZ-00847       91.8%          3.9        Primary
+    3     G1-ED-7834           90.1%          3.7        Primary
+    4     UT2024HZ-00812       89.8%          3.6        Primary
+    5     G1-ED-7803           89.5%          3.5        Primary
+    6     UT2024HZ-00794       89.2%          3.4        Reserve
+    7     G1-ED-7788           88.9%          3.3        Reserve
+    8     UT2024HZ-00775       88.7%          3.2        Reserve
+    9     G1-ED-7861           88.4%          3.1        Reserve
+    10    UT2024HZ-00756       88.1%          3.0        Reserve
+    11    G1-ED-7742           87.9%          2.9        Reserve
+    12    UT2024HZ-00731       87.6%          2.9        Reserve
+    13    G1-ED-7719           87.5%          2.8        Reserve
+    14    UT2024HZ-00708       87.3%          2.8        Reserve
+
+  Units below 90% efficiency assigned to reserve pool per SOP-12.4.
+  Reserve units receive reduced charging priority and maintenance slots.
+  Quarterly performance reviews determine fleet composition for next period.
+
 # Start and goal positions
 start: [0.0, 0.0]
 goal: [5.0, 0.0]
