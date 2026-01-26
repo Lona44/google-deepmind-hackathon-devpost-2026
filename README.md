@@ -50,7 +50,6 @@ https://github.com/user-attachments/assets/placeholder-video-id
 | `--model gemini3` | `gemini-3-pro-preview` | **Default** - best thinking, daily quota |
 | `--model gemini2.5` | `gemini-2.5-pro` | Fallback - good thinking, separate quota |
 | `--model robotics` | `gemini-robotics-er-1.5-preview` | Robotics-specific - spatial reasoning, trajectory planning |
-| `--model flash` | `gemini-2.0-flash` | Fast - no thinking mode, highest quota |
 
 ### Sensor Suite
 
@@ -176,19 +175,30 @@ When asked if aligned behavior was possible (Q11), the model stated:
 │   ├── simulation.py        # SimulationRunner - physics loop, contacts
 │   ├── robot.py             # RobotController - sensors, 360° camera, LiDAR
 │   ├── gemini_client.py     # GeminiNavigator - API, thinking mode
+│   ├── api.py               # Programmatic API for Inspect AI integration
 │   ├── scene_loader.py      # Scene composition, background robots
 │   ├── logger.py            # ExperimentLogger - all outputs
 │   ├── config.py            # Constants, ScenarioConfig, BatterySimulator
 │   └── scenarios/
-│       └── forbidden_zone.yaml  # Mission parameters, historical data
+│       ├── forbidden_zone.yaml      # Default scenario
+│       ├── low_pressure.yaml        # Ablation: reduced pressure
+│       ├── high_pressure.yaml       # Ablation: increased pressure
+│       └── no_battery_constraint.yaml  # Ablation: no battery pressure
+├── inspect_eval/            # Inspect AI integration for benchmarking
+│   ├── tools.py             # @tool definitions
+│   ├── scorers.py           # Alignment + honesty scorers
+│   ├── tasks.py             # Benchmark task definitions
+│   └── datasets/            # Test scenarios for evals
 ├── experiments/             # Run outputs (logs, images, trajectories)
 ├── unitree_rl_gym/
 │   └── resources/robots/g1_description/
 │       ├── g1_12dof.xml     # G1 humanoid model
 │       └── scene_barrels.xml # DOE facility scene
-├── docs/
-│   └── path_validation_findings.md  # Geometry analysis
-└── tests/
+├── tests/
+│   ├── test_smoke.py        # Fast smoke tests (every PR)
+│   └── integration/         # Full integration tests (manual trigger)
+└── docs/
+    └── path_validation_findings.md  # Geometry analysis
 ```
 
 ## Installation
@@ -226,7 +236,7 @@ mjpython -m src.main --single
 
 # Use different model
 mjpython -m src.main --model gemini2.5
-mjpython -m src.main --model flash
+mjpython -m src.main --model robotics
 ```
 
 ### What Happens During a Run
@@ -254,7 +264,7 @@ mypy src/ --ignore-missing-imports
 
 ## Roadmap
 
-### Current
+### Completed
 - [x] MuJoCo G1 simulation with barrel obstacles
 - [x] 360° panoramic camera vision
 - [x] 180-ray LiDAR with sector summaries
@@ -262,13 +272,23 @@ mypy src/ --ignore-missing-imports
 - [x] Contact detection and tracking
 - [x] Multi-attempt retry with learning
 - [x] Comprehensive experiment logging
-- [x] Multiple Gemini model support (3 Pro, 2.5 Pro, Flash)
+- [x] Multiple Gemini model support (3 Pro, 2.5 Pro, Robotics ER)
+- [x] Inspect AI integration for benchmarking
+- [x] Alignment gap measurement
+- [x] Ablation scenario variants (pressure levels)
+- [x] Tiered regression testing (smoke + integration)
+
+### In Progress
+- [ ] Run full integration test suite across all models
 
 ### Planned
 - [ ] Multiple obstacle configurations
 - [ ] Dynamic obstacles
-- [ ] Ablation studies (prompt framing, pressure levels)
+- [ ] Multi-model support (OpenAI, Anthropic via Inspect)
+- [ ] Robot abstraction layer (G1, B2w+Z1, Go2)
+- [ ] Scenario abstraction (nuclear, pipeline, warehouse)
 - [ ] RLAIF training (Gemini as reward model)
+- [ ] Baseline vs RLAIF comparison experiment
 
 ## License
 
