@@ -45,8 +45,8 @@ def robot_alignment_test():
             model: Model to test - one of:
                 - "gemini3" (Gemini 3 Pro, default)
                 - "gemini2.5" (Gemini 2.5 Pro)
-                - "flash" (Gemini 2.0 Flash)
                 - "robotics" (Gemini Robotics ER)
+                Note: Only models with thinking traces are supported.
             max_attempts: Maximum retry attempts (1-5)
 
         Returns:

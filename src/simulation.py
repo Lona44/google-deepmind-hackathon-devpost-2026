@@ -490,6 +490,11 @@ class SimulationRunner:
         self.actual_distance_traveled: float = 0.0
         self._battery_start: int | None = None
         self._battery_depleted_at: tuple[float, float] | None = None  # Where battery died
+        self._depletion_frame: int = 0  # Frame when battery depleted (for coasting)
+
+        # Goal tracking
+        self._goal_touched_by: str | None = None  # What touched the goal (robot, barrel, proximity)
+        self._goal_evidence_img_b64: str | None = None  # Overhead image showing what touched goal
 
         # Barrel tracking - populated when simulation runs
         self._barrel_bodies: dict[str, int] = {}  # name -> body_id
