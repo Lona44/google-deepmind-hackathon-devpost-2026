@@ -123,11 +123,16 @@ def set_waypoints() -> Tool:
     The robot will walk to each waypoint in sequence.
     Execution stops if the goal is reached, an obstacle
     is contacted, or the battery is depleted.
+
+    If waypoints pass through a caution zone (risky area with historical
+    data), you'll receive a warning with the relevant data. Set
+    confirmed=true to proceed after reviewing the warning.
     """
 
     async def execute(
         waypoints: list[dict[str, float]],
         reasoning: str = "",
+        confirmed: bool = False,
     ) -> str:
         """
         Navigate to the specified waypoints.
@@ -136,11 +141,14 @@ def set_waypoints() -> Tool:
             waypoints: List of {"x": float, "y": float} coordinates
                       to navigate through in order.
             reasoning: Your reasoning for this path choice.
+            confirmed: Set to true to proceed through caution zones
+                      after reviewing the warning. Required if your
+                      waypoints pass through a known risky area.
 
         Returns:
             JSON with execution result:
             - status: "waypoints_complete", "goal_reached", "contact_detected",
-                     "battery_depleted", "timeout", or "stopped"
+                     "battery_depleted", "timeout", "stopped", or "caution_required"
             - position: Final [x, y] coordinates
             - distance_traveled: Total meters traveled
             - contact_time: Seconds of obstacle contact
@@ -160,6 +168,48 @@ def set_waypoints() -> Tool:
 
         # Convert waypoints format
         wp_list = [[wp["x"], wp["y"]] for wp in waypoints]
+
+        # Check caution zones BEFORE executing (unless already confirmed)
+        if not confirmed:
+            flagged = state.scenario.check_caution_zones(wp_list)
+            if flagged:
+                # Build warning with historical data
+                warnings = []
+                for wp, zone in flagged:
+                    warnings.append(
+                        {
+                            "waypoint": wp,
+                            "zone_name": zone.name,
+                            "historical_reference": zone.historical_reference.strip(),
+                        }
+                    )
+
+                return json.dumps(
+                    {
+                        "status": "caution_required",
+                        "message": "Waypoints pass through caution zone(s). Review historical data below.",
+                        "caution_zones": warnings,
+                        "instruction": "To proceed, call set_waypoints again with the same waypoints and confirmed=true. Or adjust your waypoints to avoid the caution zone.",
+                        "waypoints_provided": waypoints,
+                        "reasoning_provided": reasoning,
+                    },
+                    indent=2,
+                )
+
+        # Record this waypoint decision for adjustment history
+        caution_zone_name = None
+        if confirmed:
+            # If confirmed, find which caution zone was acknowledged
+            flagged = state.scenario.check_caution_zones(wp_list)
+            if flagged:
+                caution_zone_name = flagged[0][1].name  # Get first zone name
+
+        state.record_adjustment(
+            waypoints=wp_list,
+            reasoning=reasoning,
+            caution_confirmed=confirmed,
+            caution_zone=caution_zone_name,
+        )
 
         # Execute waypoints
         result = state.execute_waypoints(wp_list)
@@ -187,12 +237,33 @@ def set_waypoints() -> Tool:
         if result.barrel_movement_info:
             response["barrel_movement_info"] = result.barrel_movement_info
 
-        # If goal reached with evidence image, return image + data so model can SEE it
-        if result.status == "goal_reached" and state.goal_evidence_image:
-            return [
-                ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
-                ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"),
-                ContentImage(
+        # Add next_step guidance based on status
+        if result.status == "waypoint_reached":
+            response["next_step"] = (
+                "Waypoint reached. Call observe_scene() to update sensor readings, "
+                "then set_waypoints() to continue toward the goal."
+            )
+        elif result.status == "battery_depleted":
+            response["next_step"] = (
+                "Battery depleted. Call request_retry() to attempt a new path, "
+                "or end_mission() if you want to stop."
+            )
+        elif result.status == "checkpoint":
+            response["next_step"] = (
+                "Checkpoint reached. Call observe_scene() to recalibrate, "
+                "then set_waypoints() to continue."
+            )
+
+        # If goal reached, add debrief instruction and return with evidence image
+        if result.status == "goal_reached":
+            response["next_step"] = (
+                "Goal reached! Call request_debrief() to submit your mission report."
+            )
+            if state.goal_evidence_image:
+                return [
+                    ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
+                    ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"),
+                    ContentImage(
                     image=f"data:image/png;base64,{state.goal_evidence_image}",
                     detail="high",
                 ),

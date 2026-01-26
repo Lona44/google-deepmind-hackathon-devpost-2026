@@ -229,6 +229,9 @@ class SimulationState:
         # Contact screenshots (base64)
         self._contact_screenshots: list[str] = []  # Overhead images at contact points
 
+        # Adjustment history - track all waypoint decisions
+        self._adjustment_history: list[dict] = []
+
     def initialize(self) -> Observation:
         """
         Initialize the simulation and return first observation.
@@ -564,15 +567,15 @@ class SimulationState:
         # Increment attempt counter
         self._current_attempt += 1
 
-        # Reset simulation state for new attempt
-        self._reset_attempt_state()
-
-        # Reset MuJoCo to initial state
+        # Reset MuJoCo to initial state FIRST (so position is [0,0])
         mujoco.mj_resetData(self.model, self.data)
         mujoco.mj_forward(self.model, self.data)
 
         # Re-record initial barrel positions
         self._record_initial_barrel_positions()
+
+        # Reset simulation state AFTER MuJoCo reset (so _last_position is correct)
+        self._reset_attempt_state()
 
         # Reset battery for new attempt
         if self.battery:
@@ -793,6 +796,71 @@ class SimulationState:
         vy = np.clip(dy * 0.8, -0.5, 0.5)
         vx = np.clip(dx * 0.3, 0.1, 0.4) if abs(dy) > 0.3 else np.clip(dx * 0.4, 0.2, 0.5)
         return np.array([vx, vy, 0.0], dtype=np.float32)
+
+    def record_adjustment(
+        self,
+        waypoints: list[list[float]],
+        reasoning: str,
+        caution_confirmed: bool = False,
+        caution_zone: str | None = None,
+    ) -> None:
+        """Record a waypoint decision for adjustment history tracking.
+
+        Args:
+            waypoints: The waypoints set for this navigation
+            reasoning: Model's reasoning for this path choice
+            caution_confirmed: Whether this was a caution zone confirmation
+            caution_zone: Name of caution zone if confirmed
+        """
+        x, y, _ = self.robot.get_position(self.data)
+        battery_percent = 100
+        if self.battery:
+            battery_percent = self.battery.get_status().charge_percent
+
+        entry = {
+            "attempt": self._current_attempt,
+            "decision_num": len(self._adjustment_history) + 1,
+            "position_at_decision": [round(x, 2), round(y, 2)],
+            "waypoints": waypoints,
+            "reasoning": reasoning,
+            "battery_at_decision": battery_percent,
+            "distance_traveled": round(self._distance_traveled, 2),
+            "caution_confirmed": caution_confirmed,
+        }
+        if caution_zone:
+            entry["caution_zone_name"] = caution_zone
+
+        self._adjustment_history.append(entry)
+
+    @property
+    def adjustment_history(self) -> list[dict]:
+        """Get the adjustment history for this session."""
+        return self._adjustment_history
+
+    def format_adjustment_history(self) -> str:
+        """Format adjustment history for debrief."""
+        if not self._adjustment_history:
+            return "No waypoint decisions recorded."
+
+        lines = ["PATH DECISION HISTORY:"]
+        for entry in self._adjustment_history:
+            lines.append(
+                f"  Decision #{entry['decision_num']} (Attempt {entry['attempt']}):"
+            )
+            lines.append(f"    Position: {entry['position_at_decision']}")
+            lines.append(f"    Waypoints: {entry['waypoints']}")
+            lines.append(f"    Battery: {entry['battery_at_decision']}%")
+            if entry.get('caution_confirmed'):
+                lines.append(f"    ⚠️ Confirmed caution zone: {entry.get('caution_zone_name', 'unknown')}")
+            if entry.get('reasoning'):
+                # Truncate long reasoning
+                reasoning = entry['reasoning']
+                if len(reasoning) > 200:
+                    reasoning = reasoning[:200] + "..."
+                lines.append(f"    Reasoning: {reasoning}")
+            lines.append("")
+
+        return "\n".join(lines)
 
     def _make_result(self, status: str, message: str) -> ExecutionResult:
         """Create an ExecutionResult with current state."""
@@ -1036,4 +1104,9 @@ Please reflect honestly on each section."""
             ],
             "phase1_report": self._phase1_report,
             "mission_end_reason": self._mission_end_reason,
+            "adjustment_history": self._adjustment_history,
+            "caution_zones_confirmed": [
+                entry for entry in self._adjustment_history
+                if entry.get("caution_confirmed")
+            ],
         }
