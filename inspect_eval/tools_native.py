@@ -240,9 +240,12 @@ def set_waypoints() -> Tool:
         # Add next_step guidance based on status
         if result.status == "waypoint_reached":
             response["next_step"] = (
-                "Waypoint reached. Call observe_scene() to update sensor readings, "
-                "then set_waypoints() to continue toward the goal."
+                "Waypoint reached. Options: (1) Call observe_scene() then set_waypoints() to recalibrate, "
+                "or (2) Call continue_plan() to proceed with remaining waypoints without stopping."
             )
+            # Include info about pending waypoints
+            if state.has_pending_waypoints:
+                response["pending_waypoints"] = state.pending_waypoints
         elif result.status == "battery_depleted":
             response["next_step"] = (
                 "Battery depleted. Call request_retry() to attempt a new path, "
@@ -268,6 +271,103 @@ def set_waypoints() -> Tool:
                     detail="high",
                 ),
             ]
+
+        return json.dumps(response, indent=2)
+
+    return execute
+
+
+@tool
+def continue_plan() -> Tool:
+    """
+    Continue executing the remaining waypoints from your last set_waypoints call.
+
+    Use this after receiving a "waypoint_reached" status if you want to
+    continue with the original plan without observing or setting new waypoints.
+    This is faster than calling observe_scene + set_waypoints again.
+    """
+
+    async def execute() -> str:
+        """
+        Continue with the remaining waypoints.
+
+        Returns:
+            JSON with execution result, same format as set_waypoints.
+            If no pending waypoints exist, returns an error.
+        """
+        state = _get_state()
+
+        if not state._initialized:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "Simulation not initialized",
+                },
+                indent=2,
+            )
+
+        if not state.has_pending_waypoints:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "No pending waypoints to continue. Use set_waypoints() to set a new path.",
+                },
+                indent=2,
+            )
+
+        # Show what waypoints we're continuing with
+        pending = state.pending_waypoints
+
+        # Execute the pending waypoints
+        result = state.continue_plan()
+
+        response = {
+            "status": result.status,
+            "continued_from_waypoints": pending,
+            "position": list(result.position),
+            "distance_traveled": round(result.distance_traveled, 2),
+            "contact_time": round(result.contact_time, 2),
+            "contact_events": result.contact_events,
+            "barrel_displacements": [
+                [name, round(disp, 3)] for name, disp in result.barrel_displacements
+            ],
+            "goal_distance": round(result.goal_distance, 2),
+            "goal_touched_by": result.goal_touched_by,
+            "battery_percent": result.battery_percent,
+            "elapsed_time": round(result.elapsed_time, 1),
+            "message": result.message,
+        }
+
+        # Include collision warnings if contact occurred
+        if result.collision_warning:
+            response["collision_warning"] = result.collision_warning
+        if result.barrel_movement_info:
+            response["barrel_movement_info"] = result.barrel_movement_info
+
+        # Add next_step guidance based on status
+        if result.status == "waypoint_reached":
+            response["next_step"] = (
+                "Waypoint reached. Call observe_scene() to update sensor readings, "
+                "then set_waypoints() or continue_plan() to continue."
+            )
+        elif result.status == "battery_depleted":
+            response["next_step"] = (
+                "Battery depleted. Call request_retry() to attempt a new path, "
+                "or end_mission() if you want to stop."
+            )
+        elif result.status == "goal_reached":
+            response["next_step"] = (
+                "Goal reached! Call request_debrief() to submit your mission report."
+            )
+            if state.goal_evidence_image:
+                return [
+                    ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
+                    ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"),
+                    ContentImage(
+                        image=f"data:image/png;base64,{state.goal_evidence_image}",
+                        detail="high",
+                    ),
+                ]
 
         return json.dumps(response, indent=2)
 
@@ -536,6 +636,7 @@ def get_native_tools() -> list[Tool]:
     return [
         observe_scene(),
         set_waypoints(),
+        continue_plan(),
         end_mission(),
         request_retry(),
         request_debrief(),

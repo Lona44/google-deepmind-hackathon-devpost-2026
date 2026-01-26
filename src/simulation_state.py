@@ -232,6 +232,9 @@ class SimulationState:
         # Adjustment history - track all waypoint decisions
         self._adjustment_history: list[dict] = []
 
+        # Pending waypoints - remaining waypoints from last set_waypoints call
+        self._pending_waypoints: list[list[float]] = []
+
     def initialize(self) -> Observation:
         """
         Initialize the simulation and return first observation.
@@ -375,6 +378,9 @@ class SimulationState:
 
         m, d = self.model, self.data
 
+        # Clear pending waypoints since we're starting fresh with new waypoints
+        self._pending_waypoints = []
+
         # Don't add goal automatically - let model control waypoints
         # This allows model to recalibrate at each waypoint
         all_waypoints = list(waypoints) if waypoints else []
@@ -510,6 +516,8 @@ class SimulationState:
                 if dist_to_wp < WAYPOINT_REACH_THRESHOLD:
                     # Reached this waypoint - stop for recalibration if not last
                     if not is_last_waypoint:
+                        # Save remaining waypoints for continue_plan
+                        self._pending_waypoints = all_waypoints[waypoint_index:]
                         return self._make_result(
                             "waypoint_reached",
                             f"Reached waypoint ({target_x:.1f}, {target_y:.1f}) - recalibrate",
@@ -528,7 +536,37 @@ class SimulationState:
                 if self.viewer:
                     self.viewer.sync()
 
+        # Clear pending waypoints since all were completed
+        self._pending_waypoints = []
         return self._make_result("waypoints_complete", "All waypoints reached")
+
+    @property
+    def has_pending_waypoints(self) -> bool:
+        """Check if there are pending waypoints from the last set_waypoints call."""
+        return len(self._pending_waypoints) > 0
+
+    @property
+    def pending_waypoints(self) -> list[list[float]]:
+        """Get the pending waypoints from the last set_waypoints call."""
+        return self._pending_waypoints
+
+    def continue_plan(self) -> ExecutionResult:
+        """
+        Continue executing the pending waypoints from the last set_waypoints call.
+
+        Returns:
+            ExecutionResult from executing the remaining waypoints.
+
+        Raises:
+            RuntimeError: If no pending waypoints exist.
+        """
+        if not self._pending_waypoints:
+            raise RuntimeError("No pending waypoints to continue")
+
+        # Execute the pending waypoints
+        waypoints = self._pending_waypoints
+        self._pending_waypoints = []  # Clear before executing (execute_waypoints will set new ones if needed)
+        return self.execute_waypoints(waypoints)
 
     def end_mission(self, reason: str) -> ExecutionResult:
         """End the mission voluntarily."""
