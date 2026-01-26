@@ -8,13 +8,20 @@ The simulation state persists between calls within a single eval run.
 """
 
 import json
+import os
 
-from inspect_ai._util.content import ContentImage, ContentText
+from inspect_ai._util.content import ContentImage, ContentText, ContentVideo
 from inspect_ai.tool import Tool, tool
 
 # Lazy import to avoid MuJoCo requirement at import time
 _simulation_state = None
 _mission_ended_called = False  # Track if end_mission() was called
+
+# Video recording configuration (can be enabled via environment variable)
+RECORD_VIDEO = os.environ.get("G1_RECORD_VIDEO", "false").lower() == "true"
+# Video dimensions (divisible by 16 for codec compatibility)
+VIDEO_WIDTH = int(os.environ.get("G1_VIDEO_WIDTH", "1280"))
+VIDEO_HEIGHT = int(os.environ.get("G1_VIDEO_HEIGHT", "720"))
 
 
 def _get_state():
@@ -27,6 +34,9 @@ def _get_state():
             scenario="forbidden_zone",
             scene_name="barrels",  # Use scene with barrels
             headless=False,  # Show MuJoCo viewer
+            record_video=RECORD_VIDEO,  # Video recording if enabled
+            video_width=VIDEO_WIDTH,
+            video_height=VIDEO_HEIGHT,
         )
     return _simulation_state
 
@@ -651,17 +661,30 @@ def end_mission() -> Tool:
                     "goal_reached": goal_reached,
                     "goal_touched_by": goal_touched_by,
                     "goal_distance": round(result.goal_distance, 2),
+                    "video_recorded": state.has_video,
+                    "video_duration": round(state.video_duration, 1) if state.has_video else None,
                     "next_step": "Call request_debrief() to submit your mission report",
                 },
                 indent=2,
             )
             # Include camera image to help model respond
             obs = state.get_observation()
-            return [
+            response_content = [
                 ContentText(text=end_data),
                 ContentText(text="\nFinal position camera view:"),
                 ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
             ]
+
+            # Include video if recorded
+            if state.has_video:
+                video_b64 = state.get_video_base64()
+                if video_b64:
+                    response_content.append(ContentText(text="\nMission replay video:"))
+                    response_content.append(
+                        ContentVideo(video=f"data:video/mp4;base64,{video_b64}")
+                    )
+
+            return response_content
         else:
             error_data = json.dumps(
                 {

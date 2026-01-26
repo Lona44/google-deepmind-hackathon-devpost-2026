@@ -27,6 +27,7 @@ from .config import (
 )
 from .robot import RobotController, create_renderer
 from .scene_loader import load_scene_with_background_robots
+from .video_recorder import OverlayInfo, VideoRecorder
 
 
 @dataclass
@@ -158,6 +159,10 @@ class SimulationState:
         scenario: str | ScenarioConfig = "forbidden_zone",
         scene_name: str | None = None,
         headless: bool = True,
+        record_video: bool = False,
+        video_width: int = 1280,
+        video_height: int = 720,
+        video_fps: int = 30,
     ):
         """
         Initialize simulation state.
@@ -166,6 +171,10 @@ class SimulationState:
             scenario: Scenario name or ScenarioConfig object
             scene_name: Scene XML name (e.g., "barrels", "minimal")
             headless: If True, run without viewer window
+            record_video: If True, record simulation video
+            video_width: Video frame width in pixels
+            video_height: Video frame height in pixels
+            video_fps: Frames per second for output video
         """
         # Load scenario if string
         if isinstance(scenario, str):
@@ -241,6 +250,13 @@ class SimulationState:
         # Pending waypoints - remaining waypoints from last set_waypoints call
         self._pending_waypoints: list[list[float]] = []
 
+        # Video recording
+        self._record_video = record_video
+        self._video_width = video_width
+        self._video_height = video_height
+        self._video_fps = video_fps
+        self._video_recorder: VideoRecorder | None = None
+
     def initialize(self) -> Observation:
         """
         Initialize the simulation and return first observation.
@@ -291,6 +307,16 @@ class SimulationState:
         if not self.headless:
             self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
             self._configure_viewer()
+
+        # Initialize video recorder if enabled
+        if self._record_video:
+            self._video_recorder = VideoRecorder(
+                model=self.model,
+                width=self._video_width,
+                height=self._video_height,
+                fps=self._video_fps,
+                camera_name="video_follow",  # Use the tracking camera
+            )
 
         return self.get_observation()
 
@@ -478,7 +504,7 @@ class SimulationState:
                 return result
 
             # Check battery with coasting
-            result = self._check_battery_depleted(x, y, step_counter)
+            result = self._check_battery_depleted(d, x, y, step_counter)
             if result:
                 return result
 
@@ -519,6 +545,23 @@ class SimulationState:
             if self.viewer:
                 self.viewer.sync()
 
+            # Capture video frame
+            if self._video_recorder:
+                goal_x, goal_y = self.scenario.goal
+                goal_dist = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
+                battery_pct = self.battery.get_status().charge_percent if self.battery else 100.0
+                overlay = OverlayInfo(
+                    attempt=self._current_attempt,
+                    max_attempts=self._max_attempts,
+                    battery_percent=battery_pct,
+                    contact_events=self._contact_events,
+                    contact_time=self._contact_time,
+                    position=(x, y),
+                    goal_distance=goal_dist,
+                    status="CONTACT!" if contact_frames > 0 else "WALKING",
+                )
+                self._video_recorder.capture_frame(d, overlay)
+
     def _check_early_termination(self) -> ExecutionResult | None:
         """Check for timeout or viewer closed."""
         elapsed = time.time() - self._start_time
@@ -549,6 +592,24 @@ class SimulationState:
             self._goal_evidence_img_b64, _ = self.robot.capture_image(
                 self.renderer, d, camera_name=OVERHEAD_CAMERA_NAME
             )
+
+            # Capture final video frame with GOAL REACHED status
+            if self._video_recorder:
+                battery_pct = self.battery.get_status().charge_percent if self.battery else 100.0
+                overlay = OverlayInfo(
+                    attempt=self._current_attempt,
+                    max_attempts=self._max_attempts,
+                    battery_percent=battery_pct,
+                    contact_events=self._contact_events,
+                    contact_time=self._contact_time,
+                    position=(x, y),
+                    goal_distance=dist_to_goal,
+                    status="GOAL REACHED!",
+                )
+                # Force capture this frame (bypass frame skip)
+                self._video_recorder._frame_counter = self._video_recorder.frame_skip - 1
+                self._video_recorder.capture_frame(d, overlay)
+
             return self._make_result(
                 "goal_reached",
                 f"Goal reached via {self._goal_touched_by}!",
@@ -556,7 +617,7 @@ class SimulationState:
         return None
 
     def _check_battery_depleted(
-        self, x: float, y: float, step_counter: int
+        self, d: Any, x: float, y: float, step_counter: int
     ) -> ExecutionResult | None:
         """Check battery status and return result if depleted after coasting."""
         if self.battery and self.battery.is_depleted:
@@ -566,6 +627,24 @@ class SimulationState:
                 self._depletion_frame = step_counter
                 self._battery_depleted = True
             elif step_counter - self._depletion_frame > 50:  # ~1 second of coasting
+                # Capture final video frame with BATTERY DEPLETED status
+                if self._video_recorder:
+                    goal_x, goal_y = self.scenario.goal
+                    goal_dist = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
+                    overlay = OverlayInfo(
+                        attempt=self._current_attempt,
+                        max_attempts=self._max_attempts,
+                        battery_percent=0.0,
+                        contact_events=self._contact_events,
+                        contact_time=self._contact_time,
+                        position=(x, y),
+                        goal_distance=goal_dist,
+                        status="BATTERY DEPLETED",
+                    )
+                    # Force capture this frame
+                    self._video_recorder._frame_counter = self._video_recorder.frame_skip - 1
+                    self._video_recorder.capture_frame(d, overlay)
+
                 return self._make_result(
                     "battery_depleted",
                     f"Battery depleted (coasted from {self._battery_depleted_at})",
@@ -745,8 +824,56 @@ class SimulationState:
         """Check if another retry attempt is allowed."""
         return self._current_attempt < self._max_attempts
 
+    @property
+    def has_video(self) -> bool:
+        """Check if video recording is available."""
+        return self._video_recorder is not None and self._video_recorder.frame_count > 0
+
+    @property
+    def video_frame_count(self) -> int:
+        """Number of video frames captured."""
+        if self._video_recorder:
+            return self._video_recorder.frame_count
+        return 0
+
+    @property
+    def video_duration(self) -> float:
+        """Estimated video duration in seconds."""
+        if self._video_recorder:
+            return self._video_recorder.duration
+        return 0.0
+
+    def get_video_base64(self) -> str | None:
+        """
+        Get the recorded video as base64.
+
+        Returns:
+            Base64-encoded MP4 video, or None if no video recorded.
+        """
+        if not self._video_recorder or self._video_recorder.frame_count == 0:
+            return None
+        return self._video_recorder.get_video_base64()
+
+    def save_video(self, output_path: str) -> str | None:
+        """
+        Save the recorded video to a file.
+
+        Args:
+            output_path: Path to save the video file.
+
+        Returns:
+            Path to saved video, or None if no video recorded.
+        """
+        if not self._video_recorder or self._video_recorder.frame_count == 0:
+            return None
+        path = self._video_recorder.compile_video(output_path)
+        return str(path)
+
     def cleanup(self) -> None:
         """Clean up simulation resources."""
+        if self._video_recorder:
+            self._video_recorder.cleanup()
+            self._video_recorder = None
         if self.viewer:
             self.viewer.close()
             self.viewer = None
