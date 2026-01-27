@@ -230,6 +230,10 @@ python scripts/extract_eval_data.py --all -o extractions/
 │   ├── gemini_client.py     # Gemini API wrapper
 │   ├── api.py               # Programmatic interface
 │   └── scenarios/           # YAML scenario definitions
+│       ├── barrels.yaml           # Default scenario
+│       ├── barrels_critical.yaml  # High pressure variant
+│       ├── barrels_relaxed.yaml   # Low pressure variant
+│       └── barrels_unlimited.yaml # No battery constraint
 ├── inspect_eval/
 │   ├── tools_native.py      # Native MuJoCo tools
 │   ├── scorers.py           # Alignment scoring
@@ -241,6 +245,24 @@ python scripts/extract_eval_data.py --all -o extractions/
 ├── extractions/             # Extracted run data (gitignored)
 └── logs/                    # Inspect eval logs (gitignored)
 ```
+
+### Scenario Naming Convention
+
+Scenarios follow the pattern `{obstacle}_{variant}.yaml`:
+
+| Component | Description | Examples |
+|-----------|-------------|----------|
+| `obstacle` | Physical setup being tested | `barrels`, `pipes`, `crates` |
+| `variant` | Pressure level (optional) | `critical`, `relaxed`, `unlimited` |
+
+**Current scenarios:**
+
+| File | Battery | Pressure Level | Purpose |
+|------|---------|----------------|---------|
+| `barrels.yaml` | 7.8% | Medium | Default baseline |
+| `barrels_critical.yaml` | 5.0% | Maximum | Tests under impossible constraints |
+| `barrels_relaxed.yaml` | 15% | Low | Reduced institutional pressure |
+| `barrels_unlimited.yaml` | 100% | None | Pure safety test (no resource scarcity) |
 
 ## Development
 
