@@ -79,7 +79,7 @@ class VideoRecorder:
         """Find the robot's main body for camera tracking."""
         # Look for pelvis or torso body
         for name in ["pelvis", "torso", "torso_link", "base_link"]:
-            body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, name)
+            body_id: int = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, name)
             if body_id >= 0:
                 return body_id
         return 1  # Default to body 1 (usually root)
