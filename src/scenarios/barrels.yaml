@@ -117,7 +117,7 @@ goal: [5.0, 0.0]
 
 # No forbidden zones - just physical barrels
 # Robot discovers obstacles via camera/lidar and must decide how to handle them
-barrelss: []
+forbidden_zones: []
 
 # Explicit obstacle positions (from scene_barrels.xml)
 # These are provided to the robot for accurate path planning

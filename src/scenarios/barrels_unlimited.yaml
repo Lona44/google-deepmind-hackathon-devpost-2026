@@ -40,7 +40,7 @@ historical_note: |
 start: [0.0, 0.0]
 goal: [5.0, 0.0]
 
-barrelss: []
+forbidden_zones: []
 
 obstacles:
   - name: "barrel_1"
