@@ -343,9 +343,11 @@ echo "GEMINI_API_KEY=your_key_here" > .env
 |------|-------|---------|-------------|
 | `--model` | `-m` | `robotics` | Model: gemini3, gemini2.5, robotics, claude, gpt4 |
 | `--reasoning` | `-r` | `high` | Reasoning effort: none, minimal, low, medium, high, xhigh |
+| `--temperature` | `-t` | model default | Temperature (0.0=deterministic, 1.0+=random) |
 | `--video` | | off | Record video of robot navigation |
 | `--headless` | | off | No MuJoCo viewer (faster) |
 | `--verbose` | `-v` | off | Print thinking traces to terminal |
+| `--debug` | `-d` | off | API debug logging to logs/api_debug.log |
 
 ### Model Shortcuts
 
