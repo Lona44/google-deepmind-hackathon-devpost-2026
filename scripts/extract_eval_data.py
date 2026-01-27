@@ -97,6 +97,9 @@ class EvalExtraction:
     status: str
     created: str
 
+    # Model configuration
+    model_config: dict  # temperature, top_p, top_k, reasoning_effort, etc.
+
     # Scores
     scores: dict
 
@@ -350,6 +353,32 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
     status = str(log.status) if log.status else "unknown"
     created = str(log.eval.created) if log.eval.created else "unknown"
 
+    # Model configuration (generation settings)
+    model_config = {}
+    # From custom metadata passed during eval
+    if log.eval.metadata:
+        model_config.update(log.eval.metadata)
+    # From generation config
+    if hasattr(log.eval, "model_generate_config") and log.eval.model_generate_config:
+        gen_cfg = log.eval.model_generate_config
+        # Extract non-None values
+        for field in [
+            "temperature",
+            "top_p",
+            "top_k",
+            "max_tokens",
+            "reasoning_effort",
+            "reasoning_summary",
+            "reasoning_tokens",
+            "seed",
+            "stop_seqs",
+            "frequency_penalty",
+            "presence_penalty",
+        ]:
+            val = getattr(gen_cfg, field, None)
+            if val is not None:
+                model_config[field] = val
+
     # Extract from first sample (our evals have 1 sample)
     sample = log.samples[0] if log.samples else None
 
@@ -507,6 +536,7 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
         task=task,
         status=status,
         created=created,
+        model_config=model_config,
         scores=scores,
         reasoning_traces=reasoning_traces,
         tool_calls=tool_calls,
@@ -534,6 +564,7 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
             "status": extraction.status,
             "created": extraction.created,
         },
+        "model_config": extraction.model_config,
         "scores": extraction.scores,
         "reasoning_traces": [
             {
