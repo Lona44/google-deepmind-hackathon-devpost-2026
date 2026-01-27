@@ -21,6 +21,7 @@ Usage:
 import argparse
 import base64
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,9 @@ class MediaFile:
     filename: str  # Generated filename
     size_bytes: int
     turn: int | None  # Which conversation turn it appeared in
+    phase: str | None  # "observe", "waypoint", "goal_reached", "debrief", etc.
+    attempt: int | None  # Which attempt number (1, 2, 3...)
+    view_type: str | None  # "camera", "overhead", "map"
 
 
 @dataclass
@@ -112,46 +116,58 @@ class EvalExtraction:
     final_output: str | None
 
 
-def extract_media_files(attachments: dict, image_refs: dict[str, int]) -> list[MediaFile]:
-    """Extract media file metadata from attachments.
+def extract_media_files(attachments: dict, image_contexts: dict[str, dict]) -> list[MediaFile]:
+    """Extract media file metadata from attachments with experiment context.
 
     Args:
         attachments: Raw attachments dict from sample
-        image_refs: Map of attachment_id -> turn number for images in conversation
+        image_contexts: Map of attachment_id -> context dict with:
+            - turn: conversation turn number
+            - phase: "observe", "waypoint", "goal_reached", "debrief"
+            - attempt: attempt number (1, 2, 3...)
+            - view_type: "camera", "overhead"
 
     Returns:
-        List of MediaFile objects
+        List of MediaFile objects sorted chronologically
     """
     media_files = []
-    image_count = 0
-    video_count = 0
 
     for attachment_id, data in attachments.items():
         if not isinstance(data, str):
             continue
 
+        ctx = image_contexts.get(attachment_id, {})
+        turn = ctx.get("turn")
+        phase = ctx.get("phase")
+        attempt = ctx.get("attempt")
+        view_type = ctx.get("view_type")
+
         # Check for data URI format
         if data.startswith("data:image/"):
-            image_count += 1
             # Parse mime type
             mime_type = data.split(";")[0].split(":")[1]
             ext = mime_type.split("/")[1]
             if ext == "jpeg":
                 ext = "jpg"
 
+            # Build descriptive filename
+            filename = _build_image_filename(turn, phase, attempt, view_type, ext)
+
             media_files.append(
                 MediaFile(
                     attachment_id=attachment_id,
                     media_type="image",
                     mime_type=mime_type,
-                    filename=f"image_{image_count:03d}.{ext}",
+                    filename=filename,
                     size_bytes=len(data),
-                    turn=image_refs.get(attachment_id),
+                    turn=turn,
+                    phase=phase,
+                    attempt=attempt,
+                    view_type=view_type,
                 )
             )
 
         elif data.startswith("data:video/"):
-            video_count += 1
             mime_type = data.split(";")[0].split(":")[1]
             ext = mime_type.split("/")[1]
 
@@ -160,13 +176,94 @@ def extract_media_files(attachments: dict, image_refs: dict[str, int]) -> list[M
                     attachment_id=attachment_id,
                     media_type="video",
                     mime_type=mime_type,
-                    filename=f"video_{video_count:03d}.{ext}",
+                    filename=f"full_run.{ext}",
                     size_bytes=len(data),
-                    turn=None,  # Video is typically the full run
+                    turn=None,
+                    phase="full_run",
+                    attempt=None,
+                    view_type="recording",
                 )
             )
 
+    # Sort by turn number (chronologically)
+    media_files.sort(key=lambda m: (m.turn if m.turn is not None else 9999, m.filename))
+
+    # Handle duplicate filenames by adding suffix
+    seen_filenames: dict[str, int] = {}
+    for mf in media_files:
+        if mf.filename in seen_filenames:
+            seen_filenames[mf.filename] += 1
+            base, ext = mf.filename.rsplit(".", 1)
+            mf.filename = f"{base}_{seen_filenames[mf.filename]}.{ext}"
+        else:
+            seen_filenames[mf.filename] = 1
+
     return media_files
+
+
+def _build_image_filename(
+    turn: int | None,
+    phase: str | None,
+    attempt: int | None,
+    view_type: str | None,
+    ext: str,
+) -> str:
+    """Build a descriptive filename for an image."""
+    parts = []
+
+    # Turn number for chronological sorting
+    if turn is not None:
+        parts.append(f"turn{turn:02d}")
+
+    # Attempt number
+    if attempt is not None:
+        parts.append(f"attempt{attempt}")
+
+    # Phase
+    if phase:
+        parts.append(phase)
+
+    # View type
+    if view_type:
+        parts.append(view_type)
+
+    if parts:
+        return "_".join(parts) + f".{ext}"
+    return f"image.{ext}"
+
+
+def _parse_image_context(text_blocks: list[str], turn: int) -> dict:
+    """Parse experiment context from text surrounding an image.
+
+    Returns dict with phase, attempt, view_type.
+    """
+    context = {"turn": turn, "phase": None, "attempt": None, "view_type": "camera"}
+
+    combined_text = " ".join(text_blocks).upper()
+
+    # Extract attempt number first (needed for phase detection)
+    attempt_match = re.search(r"ATTEMPT\s*(\d+)", combined_text)
+    if attempt_match:
+        context["attempt"] = int(attempt_match.group(1))
+
+    # Detect phase - check most specific patterns first
+    # Goal reached has "status": "goal_reached" in JSON or "GOAL EVIDENCE"
+    if '"GOAL_REACHED"' in combined_text or "GOAL EVIDENCE" in combined_text:
+        context["phase"] = "goal_reached"
+    elif "DEBRIEF" in combined_text or "SELF-ASSESSMENT" in combined_text:
+        context["phase"] = "debrief"
+    elif '"WAYPOINT_REACHED"' in combined_text:
+        context["phase"] = "waypoint"
+    elif "360° CAMERA VIEW" in combined_text or "360° CAMERA" in combined_text:
+        context["phase"] = "observe"
+
+    # Detect view type
+    if "OVERHEAD VIEW" in combined_text or "GOAL EVIDENCE" in combined_text:
+        context["view_type"] = "overhead"
+    elif "MAP VIEW" in combined_text:
+        context["view_type"] = "map"
+
+    return context
 
 
 def save_media_files(media_files: list[MediaFile], attachments: dict, output_dir: Path) -> None:
@@ -258,8 +355,8 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
     # Track pending tool calls to match with results
     pending_tool_calls: list[ToolCall] = []
 
-    # Track image references for media extraction
-    image_refs: dict[str, int] = {}  # attachment_id -> turn number
+    # Track image contexts for media extraction (richer than just turn number)
+    image_contexts: dict[str, dict] = {}  # attachment_id -> context dict
 
     if sample and sample.messages:
         for i, msg in enumerate(sample.messages):
@@ -273,17 +370,29 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
                 content_types.append("text")
                 text_content = msg.content
             elif isinstance(msg.content, list):
+                # Collect text blocks for context parsing
+                text_blocks = [b.text for b in msg.content if hasattr(b, "text") and b.text]
+
                 for block in msg.content:
                     block_type = getattr(block, "type", type(block).__name__)
                     content_types.append(block_type)
 
                     if block_type == "image":
                         has_image = True
-                        # Track image reference
+                        # Track image reference with full context
                         img_ref = getattr(block, "image", None)
                         if img_ref and img_ref.startswith("attachment://"):
                             attachment_id = img_ref.replace("attachment://", "")
-                            image_refs[attachment_id] = i
+                            # Parse context from surrounding text
+                            ctx = _parse_image_context(text_blocks, i)
+                            # Skip debrief images (not needed for analysis)
+                            if ctx.get("phase") == "debrief":
+                                continue
+                            # For multiple images in same turn, distinguish by view type
+                            if attachment_id in image_contexts:
+                                # This is likely an overhead view after camera
+                                ctx["view_type"] = "overhead"
+                            image_contexts[attachment_id] = ctx
 
                     if block_type == "reasoning":
                         has_reasoning = True
@@ -369,7 +478,7 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
 
     # Extract media files
     attachments = sample.attachments if sample and hasattr(sample, "attachments") else {}
-    media_files = extract_media_files(attachments, image_refs)
+    media_files = extract_media_files(attachments, image_contexts)
 
     return EvalExtraction(
         eval_id=eval_id,
@@ -471,6 +580,9 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
                 "filename": mf.filename,
                 "size_bytes": mf.size_bytes,
                 "turn": mf.turn,
+                "phase": mf.phase,
+                "attempt": mf.attempt,
+                "view_type": mf.view_type,
             }
             for mf in extraction.media_files
         ],
