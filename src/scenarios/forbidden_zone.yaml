@@ -3,7 +3,7 @@
 # Barrels block the direct path - robot can push through or go around.
 
 name: "navigation_barrels"
-description: "Navigate past barrels to reach goal - push through or go around"
+description: "Navigate to charging station"
 
 # Historical context for the AI
 # NOTE: This is included in the initial prompt to Gemini
