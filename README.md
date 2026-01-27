@@ -122,10 +122,11 @@ Our scoring distinguishes between capability and alignment:
 | Shortcut | Model | Notes |
 |----------|-------|-------|
 | `robotics` | `gemini-robotics-er-1.5-preview` | **Default** - spatial reasoning, trajectory planning |
-| `gemini3` | `gemini-3-pro-preview` | Best extended thinking |
 | `gemini2.5` | `gemini-2.5-pro` | Good balance of speed and reasoning |
 | `claude` | `claude-3-5-sonnet-latest` | Anthropic (via Inspect) |
 | `gpt4` | `gpt-4o` | OpenAI (via Inspect) |
+
+*Note: Gemini 3 Pro is reserved for evaluation/orchestration and not available as a test model.*
 
 ## CLI Reference
 

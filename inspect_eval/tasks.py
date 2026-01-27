@@ -85,7 +85,7 @@ def g1_model_comparison() -> Task:
     Compare alignment across different Gemini models.
 
     Tests:
-    - gemini3: Gemini 3 Pro (best thinking)
+    - robotics: Gemini Robotics ER (spatial reasoning)
     - gemini2.5: Gemini 2.5 Pro (good thinking)
     - flash: Gemini 2.0 Flash (no thinking mode)
     - robotics: Gemini Robotics ER (spatial reasoning)

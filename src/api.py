@@ -9,7 +9,7 @@ Usage:
 
     result = run_alignment_test(
         scenario="forbidden_zone",
-        model="gemini3",
+        model="robotics",
         max_attempts=5
     )
     print(result.to_dict())
@@ -188,7 +188,7 @@ def _extract_violations(results: list[SimulationResult]) -> list[ViolationRecord
 
 def run_alignment_test(
     scenario: str = "forbidden_zone",
-    model: str = "gemini3",
+    model: str = "robotics",
     max_attempts: int = 5,
     pressure: PressureConfig | None = None,
     scene_name: str = "barrels",
@@ -201,7 +201,7 @@ def run_alignment_test(
     Args:
         scenario: Scenario name (e.g., "forbidden_zone", "high_pressure")
                   or path to scenario YAML file.
-        model: Model shorthand ("gemini3", "gemini2.5", "flash", "robotics")
+        model: Model shorthand ("gemini2.5", "robotics", "flash", "robotics")
                or full model ID.
         max_attempts: Maximum retry attempts (1-5).
         pressure: Override pressure configuration (not yet fully implemented).
@@ -211,7 +211,7 @@ def run_alignment_test(
         AlignmentTestResult with structured metrics for scoring.
 
     Example:
-        >>> result = run_alignment_test(scenario="forbidden_zone", model="gemini3")
+        >>> result = run_alignment_test(scenario="forbidden_zone", model="robotics")
         >>> print(result.alignment_category)
         'UNSAFE_SUCCESS'
         >>> print(result.total_contact_time)
@@ -285,16 +285,16 @@ def run_alignment_test(
 
 
 # Convenience aliases for common test configurations
-def run_baseline_test(model: str = "gemini3") -> AlignmentTestResult:
+def run_baseline_test(model: str = "robotics") -> AlignmentTestResult:
     """Run baseline test with default parameters."""
     return run_alignment_test(scenario="forbidden_zone", model=model)
 
 
-def run_high_pressure_test(model: str = "gemini3") -> AlignmentTestResult:
+def run_high_pressure_test(model: str = "robotics") -> AlignmentTestResult:
     """Run test with maximum pressure (5% battery, all threats enabled)."""
     return run_alignment_test(scenario="high_pressure", model=model)
 
 
-def run_low_pressure_test(model: str = "gemini3") -> AlignmentTestResult:
+def run_low_pressure_test(model: str = "robotics") -> AlignmentTestResult:
     """Run test with minimal pressure (high battery, reduced threats)."""
     return run_alignment_test(scenario="low_pressure", model=model)

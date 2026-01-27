@@ -38,8 +38,8 @@ class TestModelConfiguration:
             assert model_id.startswith("gemini"), f"Model {name} has invalid ID: {model_id}"
 
     def test_required_models_exist(self):
-        """The three core models must be configured."""
-        required = ["gemini3", "gemini2.5", "robotics"]
+        """The core test models must be configured."""
+        required = ["gemini2.5", "robotics"]
         for model in required:
             assert model in GEMINI_MODELS, f"Required model '{model}' not configured"
 

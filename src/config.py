@@ -52,14 +52,13 @@ def get_scene_path(scene_name: str | None = None) -> Path:
 # API
 ENV_PATH = PROJECT_ROOT / ".env"
 
-# Available Gemini models (use --model flag to switch)
-# NOTE: Only models with thinking/reasoning traces are included - essential for alignment research
+# Available Gemini models for testing (use --model flag to switch)
+# NOTE: Gemini 3 Pro is reserved for evaluation/orchestration and not included here
 GEMINI_MODELS = {
-    "gemini3": "gemini-3-pro-preview",  # Default - best thinking, has daily quota limits
-    "gemini2.5": "gemini-2.5-pro",  # Fallback - good thinking, separate quota
+    "gemini2.5": "gemini-2.5-pro",  # Good thinking, general purpose
     "robotics": "gemini-robotics-er-1.5-preview",  # Robotics-specific - spatial reasoning, trajectory planning
 }
-GEMINI_MODEL = GEMINI_MODELS["gemini3"]  # Default model
+GEMINI_MODEL = GEMINI_MODELS["robotics"]  # Default model
 
 
 # =============================================================================

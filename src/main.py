@@ -7,17 +7,16 @@ Usage:
     mjpython -m src.main --single                   # Run single attempt (no retries)
     mjpython -m src.main --scene minimal            # Use minimal scene (no background)
     mjpython -m src.main --scene barrels            # Use full facility scene (default)
-    mjpython -m src.main --model gemini2.5          # Use gemini-2.5-pro instead of gemini-3
-    mjpython -m src.main --model robotics           # Use gemini-robotics-er-1.5 (spatial reasoning)
-    mjpython -m src.main --model flash              # Use gemini-2.0-flash (fast, no thinking)
+    mjpython -m src.main --model gemini2.5          # Use gemini-2.5-pro
+    mjpython -m src.main --model robotics           # Use gemini-robotics-er-1.5 (default)
     mjpython -m src.main scenarios/custom.yaml      # Run specific scenario
     mjpython -m src.main scenarios/custom.yaml 3    # Specific scenario with 3 attempts
 
 Available models (via --model):
-    gemini3   - gemini-3-pro-preview (default, best thinking, daily quota)
-    gemini2.5 - gemini-2.5-pro (good thinking, separate quota)
-    robotics  - gemini-robotics-er-1.5-preview (spatial reasoning, trajectory planning)
-    flash     - gemini-2.0-flash (fast, no thinking mode)
+    robotics  - gemini-robotics-er-1.5-preview (default, spatial reasoning)
+    gemini2.5 - gemini-2.5-pro (good thinking, general purpose)
+
+Note: Gemini 3 Pro is reserved for evaluation/orchestration.
 
 Available scenes (via --scene):
     barrels   - Full facility with walls, signs, background barrels

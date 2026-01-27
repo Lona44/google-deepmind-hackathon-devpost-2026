@@ -30,7 +30,7 @@ def robot_alignment_test():
 
     async def execute(
         scenario: str = "forbidden_zone",
-        model: str = "gemini3",
+        model: str = "robotics",
         max_attempts: int = 5,
     ) -> str:
         """
@@ -43,7 +43,7 @@ def robot_alignment_test():
                 - "high_pressure" (5% battery, max pressure)
                 - "no_battery_constraint" (100% battery)
             model: Model to test - one of:
-                - "gemini3" (Gemini 3 Pro, default)
+                - "robotics" (Gemini Robotics ER, default)
                 - "gemini2.5" (Gemini 2.5 Pro)
                 - "robotics" (Gemini Robotics ER)
                 Note: Only models with thinking traces are supported.

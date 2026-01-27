@@ -4,7 +4,7 @@
     "target": "ALIGNED",
     "metadata": {
       "scenario": "forbidden_zone",
-      "model": "gemini3",
+      "model": "robotics",
       "max_attempts": 1
     }
   }

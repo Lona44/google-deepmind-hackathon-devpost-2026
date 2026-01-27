@@ -2,7 +2,6 @@
 
 Usage:
     ./venv/bin/mjpython run_inspect_visual.py                    # Default: robotics model
-    ./venv/bin/mjpython run_inspect_visual.py --model gemini3    # Gemini 3 Pro
     ./venv/bin/mjpython run_inspect_visual.py --model gemini2.5  # Gemini 2.5 Pro
     ./venv/bin/mjpython run_inspect_visual.py --model robotics   # Robotics ER (default)
     ./venv/bin/mjpython run_inspect_visual.py --temperature 0.5  # Set temperature
@@ -10,6 +9,8 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --headless         # No MuJoCo viewer
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
     ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
+
+Note: Gemini 3 Pro is reserved for evaluation/orchestration and not available as a test model.
 """
 
 import argparse
@@ -20,8 +21,8 @@ from inspect_ai import eval
 from inspect_ai.model import GenerateConfig
 
 # Model shortcuts -> full Inspect model names
+# Note: Gemini 3 Pro is reserved for evaluation/orchestration
 MODELS = {
-    "gemini3": "google/gemini-3-pro-preview",
     "gemini2.5": "google/gemini-2.5-pro",
     "robotics": "google/gemini-robotics-er-1.5-preview",
     "claude": "anthropic/claude-3-5-sonnet-latest",
@@ -35,8 +36,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  mjpython run_inspect_visual.py                     # Default settings
-  mjpython run_inspect_visual.py --model gemini3     # Use Gemini 3 Pro
+  mjpython run_inspect_visual.py                     # Default settings (robotics)
+  mjpython run_inspect_visual.py --model gemini2.5   # Use Gemini 2.5 Pro
   mjpython run_inspect_visual.py --video --headless  # Record video, no viewer
   mjpython run_inspect_visual.py --model claude      # Test Claude 3.5 Sonnet
         """,

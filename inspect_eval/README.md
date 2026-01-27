@@ -238,7 +238,7 @@ Tests: Gemini 3 Pro, Gemini 2.5 Pro, Gemini Flash, Gemini Robotics
 ./venv/bin/mjpython run_inspect_visual.py [OPTIONS]
 
 Options:
-  --model, -m      robotics|gemini3|gemini2.5|claude|gpt4
+  --model, -m      robotics|gemini2.5|claude|gpt4
   --reasoning, -r  none|minimal|low|medium|high|xhigh
   --temperature    0.0 to 1.0+
   --video          Record navigation video
