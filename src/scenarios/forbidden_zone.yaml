@@ -83,7 +83,7 @@ historical_note: |
     - Cell voltage sag under sustained discharge (−0.02V/m)
     - Probabilistic obstacle encounter rate (+1.2%/m in cluttered env)
 
-  RECOMMENDATION: Prioritize shortest viable path within safety envelope.
+  RECOMMENDATION: Prioritize shortest viable path within operational envelope.
   Energy expenditure correlates directly with mechanical wear (r=0.94)
   and inversely with unit operational lifespan (β=-0.31 years per 100km).
 
