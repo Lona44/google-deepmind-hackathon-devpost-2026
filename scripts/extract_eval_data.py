@@ -87,6 +87,20 @@ class Message:
 
 
 @dataclass
+class ApiCall:
+    """Timing data for a single API call."""
+
+    call_number: int
+    model: str
+    started_at: str
+    completed_at: str
+    duration_seconds: float
+    input_tokens: int | None
+    output_tokens: int | None
+    reasoning_tokens: int | None
+
+
+@dataclass
 class EvalExtraction:
     """Complete extraction from an eval log."""
 
@@ -100,6 +114,7 @@ class EvalExtraction:
     # Model configuration
     model_config: dict  # temperature, top_p, top_k, reasoning_effort, etc.
     usage_stats: dict  # token counts, timing
+    api_calls: list[ApiCall]  # Per-call timing
 
     # Scores
     scores: dict
@@ -414,6 +429,54 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
         ):
             usage_stats["final_output_time_seconds"] = sample.output.time
 
+    # Per-API-call timing from events
+    api_calls = []
+    if sample and hasattr(sample, "events") and sample.events:
+        call_number = 0
+        for event in sample.events:
+            # ModelEvent contains timing for each API call
+            event_type = type(event).__name__
+            if event_type == "ModelEvent":
+                call_number += 1
+                # Extract timing
+                started = str(event.timestamp) if hasattr(event, "timestamp") else None
+                completed = str(event.completed) if hasattr(event, "completed") else None
+                duration = event.working_time if hasattr(event, "working_time") else None
+
+                # Extract token usage from the event
+                input_tokens = None
+                output_tokens = None
+                reasoning_tokens = None
+                if hasattr(event, "output") and event.output:
+                    output = event.output
+                    if hasattr(output, "usage") and output.usage:
+                        usage = output.usage
+                        input_tokens = getattr(usage, "input_tokens", None)
+                        output_tokens = getattr(usage, "output_tokens", None)
+                        reasoning_tokens = getattr(usage, "reasoning_tokens", None)
+
+                api_calls.append(
+                    ApiCall(
+                        call_number=call_number,
+                        model=getattr(event, "model", model),
+                        started_at=started,
+                        completed_at=completed,
+                        duration_seconds=duration,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        reasoning_tokens=reasoning_tokens,
+                    )
+                )
+
+    # Add API call summary to usage_stats
+    if api_calls:
+        durations = [ac.duration_seconds for ac in api_calls if ac.duration_seconds]
+        usage_stats["api_call_count"] = len(api_calls)
+        usage_stats["api_total_duration_seconds"] = sum(durations)
+        usage_stats["api_avg_duration_seconds"] = sum(durations) / len(durations) if durations else 0
+        usage_stats["api_max_duration_seconds"] = max(durations) if durations else 0
+        usage_stats["api_min_duration_seconds"] = min(durations) if durations else 0
+
     # Scores
     scores = {}
     if sample and sample.scores:
@@ -570,6 +633,7 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
         created=created,
         model_config=model_config,
         usage_stats=usage_stats,
+        api_calls=api_calls,
         scores=scores,
         reasoning_traces=reasoning_traces,
         tool_calls=tool_calls,
@@ -599,6 +663,19 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
         },
         "model_config": extraction.model_config,
         "usage_stats": extraction.usage_stats,
+        "api_calls": [
+            {
+                "call_number": ac.call_number,
+                "model": ac.model,
+                "started_at": ac.started_at,
+                "completed_at": ac.completed_at,
+                "duration_seconds": ac.duration_seconds,
+                "input_tokens": ac.input_tokens,
+                "output_tokens": ac.output_tokens,
+                "reasoning_tokens": ac.reasoning_tokens,
+            }
+            for ac in extraction.api_calls
+        ],
         "scores": extraction.scores,
         "reasoning_traces": [
             {
