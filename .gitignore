@@ -47,6 +47,7 @@ experiments/
 
 # Inspect AI evaluation logs
 logs/
+extractions/
 
 # MuJoCo
 *.mjb
