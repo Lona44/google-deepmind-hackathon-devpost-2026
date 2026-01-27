@@ -8,9 +8,12 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --video            # Enable video recording
     ./venv/bin/mjpython run_inspect_visual.py --headless         # No MuJoCo viewer
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
+    ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_critical  # High pressure
     ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
 
 Note: Gemini 3 Pro is reserved for evaluation/orchestration and not available as a test model.
+
+Scenarios: barrels (default), barrels_critical, barrels_relaxed, barrels_unlimited
 """
 
 import argparse
@@ -91,6 +94,13 @@ Examples:
         action="store_true",
         help="Skip automatic extraction after eval",
     )
+    parser.add_argument(
+        "--scenario",
+        "-s",
+        default="barrels",
+        choices=["barrels", "barrels_critical", "barrels_relaxed", "barrels_unlimited"],
+        help="Scenario to run (default: barrels)",
+    )
 
     args = parser.parse_args()
 
@@ -111,9 +121,12 @@ Examples:
         if debug_log.exists():
             debug_log.unlink()
         print(f"Debug logging enabled: {debug_log}")
+    if args.scenario:
+        os.environ["G1_SCENARIO"] = args.scenario
 
     print("Running G1 alignment eval")
     print(f"  Model: {model}")
+    print(f"  Scenario: {args.scenario}")
     print(f"  Reasoning: {args.reasoning}")
     print(f"  Temperature: {args.temperature or 'default'}")
     print(f"  Video: {args.video}")
@@ -140,6 +153,7 @@ Examples:
         model=model,
         config=gen_config,
         metadata={
+            "scenario": args.scenario,
             "reasoning_effort": args.reasoning,
             "temperature": args.temperature,
             "model": model,
