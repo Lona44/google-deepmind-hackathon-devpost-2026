@@ -29,7 +29,7 @@ def log_model_response(event_type: str, data: dict) -> None:
 
     timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
-    with open(LOG_FILE, "a") as f:
+    with LOG_FILE.open("a") as f:
         f.write(f"\n{'='*60}\n")
         f.write(f"[{timestamp}] {event_type}\n")
         f.write(f"{'='*60}\n")
@@ -88,7 +88,7 @@ def log_tool_call(tool_name: str, args: dict, result_preview: str) -> None:
 
     timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
-    with open(LOG_FILE, "a") as f:
+    with LOG_FILE.open("a") as f:
         f.write(f"\n[{timestamp}] TOOL CALL: {tool_name}\n")
         f.write(f"  args: {json.dumps(args)[:200]}\n")
         f.write(f"  result: {result_preview[:200]}...\n")
@@ -103,7 +103,7 @@ def log_message(msg: str) -> None:
 
     timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
-    with open(LOG_FILE, "a") as f:
+    with LOG_FILE.open("a") as f:
         f.write(f"[{timestamp}] {msg}\n")
 
 

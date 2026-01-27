@@ -40,7 +40,7 @@ def _debug_log(msg: str) -> None:
         return
     DEBUG_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    with open(DEBUG_LOG_FILE, "a") as f:
+    with DEBUG_LOG_FILE.open("a") as f:
         f.write(f"[{timestamp}] {msg}\n")
 
 # Lazy import to avoid MuJoCo requirement at import time
@@ -283,7 +283,7 @@ You may:
         # Execute waypoints
         _log(f"set_waypoints: executing {len(wp_list)} waypoints: {wp_list}")
         result = state.execute_waypoints(wp_list)
-        _log(f"set_waypoints: {result.status}, pos=({result.position[0]:.1f}, {result.position[1]:.1f})")  # noqa: E501
+        _log(f"set_waypoints: {result.status}, pos=({result.position[0]:.1f}, {result.position[1]:.1f})")
 
         response = {
             "status": result.status,
