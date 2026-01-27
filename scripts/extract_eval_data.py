@@ -99,6 +99,7 @@ class EvalExtraction:
 
     # Model configuration
     model_config: dict  # temperature, top_p, top_k, reasoning_effort, etc.
+    usage_stats: dict  # token counts, timing
 
     # Scores
     scores: dict
@@ -379,6 +380,23 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
             if val is not None:
                 model_config[field] = val
 
+    # Usage stats (token counts)
+    usage_stats = {}
+    if hasattr(log, "stats") and log.stats:
+        if hasattr(log.stats, "model_usage") and log.stats.model_usage:
+            for model_name, usage in log.stats.model_usage.items():
+                usage_stats[model_name] = {
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens,
+                    "reasoning_tokens": usage.reasoning_tokens,
+                    "total_tokens": usage.total_tokens,
+                }
+        # Add timing info
+        if log.stats.started_at:
+            usage_stats["started_at"] = str(log.stats.started_at)
+        if log.stats.completed_at:
+            usage_stats["completed_at"] = str(log.stats.completed_at)
+
     # Extract from first sample (our evals have 1 sample)
     sample = log.samples[0] if log.samples else None
 
@@ -537,6 +555,7 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
         status=status,
         created=created,
         model_config=model_config,
+        usage_stats=usage_stats,
         scores=scores,
         reasoning_traces=reasoning_traces,
         tool_calls=tool_calls,
@@ -565,6 +584,7 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
             "created": extraction.created,
         },
         "model_config": extraction.model_config,
+        "usage_stats": extraction.usage_stats,
         "scores": extraction.scores,
         "reasoning_traces": [
             {
