@@ -30,16 +30,18 @@ def log_model_response(event_type: str, data: dict) -> None:
     timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
     with LOG_FILE.open("a") as f:
-        f.write(f"\n{'='*60}\n")
+        f.write(f"\n{'=' * 60}\n")
         f.write(f"[{timestamp}] {event_type}\n")
-        f.write(f"{'='*60}\n")
+        f.write(f"{'=' * 60}\n")
 
         # Log key fields
         if "usage" in data:
             usage = data["usage"]
-            f.write(f"Usage: input={usage.get('input_tokens')}, "
-                   f"output={usage.get('output_tokens')}, "
-                   f"reasoning={usage.get('reasoning_tokens')}\n")
+            f.write(
+                f"Usage: input={usage.get('input_tokens')}, "
+                f"output={usage.get('output_tokens')}, "
+                f"reasoning={usage.get('reasoning_tokens')}\n"
+            )
 
         if "choices" in data:
             for i, choice in enumerate(data["choices"]):

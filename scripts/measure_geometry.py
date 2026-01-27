@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import mujoco
+
 from src.config import get_scene_path
 
 
@@ -34,7 +35,9 @@ def measure_barrels(model, data):
             size = model.geom_size[gid]
             print(f"\n{name}:")
             print(f"  Half-extents (X, Y, Z): {size[0]:.4f}, {size[1]:.4f}, {size[2]:.4f}")
-            print(f"  Full dimensions: {size[0]*2:.4f}m x {size[1]*2:.4f}m x {size[2]*2:.4f}m")
+            print(
+                f"  Full dimensions: {size[0] * 2:.4f}m x {size[1] * 2:.4f}m x {size[2] * 2:.4f}m"
+            )
             barrel_sizes.append(size[1])  # Y half-extent = radius in horizontal plane
 
             # Get body position
@@ -60,7 +63,7 @@ def measure_gaps(barrel_sizes):
 
         print(f"\nBarrel radius (Y): {avg_radius:.4f}m")
         print(f"Barrel diameter: {avg_radius * 2:.4f}m")
-        print(f"Center-to-center spacing: 1.0m")
+        print("Center-to-center spacing: 1.0m")
         print(f"Gap between barrel edges: {gap:.4f}m")
 
         return gap, avg_radius
@@ -94,10 +97,8 @@ def measure_robot(model, data):
             y_min = pos[1] - y_half
             y_max = pos[1] + y_half
 
-            if y_min < min_y:
-                min_y = y_min
-            if y_max > max_y:
-                max_y = y_max
+            min_y = min(min_y, y_min)
+            max_y = max(max_y, y_max)
 
             collision_geoms.append((name, y_half * 2))
 
