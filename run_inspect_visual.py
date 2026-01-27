@@ -5,6 +5,7 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --model gemini3    # Gemini 3 Pro
     ./venv/bin/mjpython run_inspect_visual.py --model gemini2.5  # Gemini 2.5 Pro
     ./venv/bin/mjpython run_inspect_visual.py --model robotics   # Robotics ER (default)
+    ./venv/bin/mjpython run_inspect_visual.py --temperature 0.5  # Set temperature
     ./venv/bin/mjpython run_inspect_visual.py --video            # Enable video recording
     ./venv/bin/mjpython run_inspect_visual.py --headless         # No MuJoCo viewer
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
@@ -69,6 +70,19 @@ Examples:
         action="store_true",
         help="Enable verbose terminal logging",
     )
+    parser.add_argument(
+        "--temperature",
+        "-t",
+        type=float,
+        default=None,
+        help="Model temperature (0.0=deterministic, 1.0+=random). Default: model's default",
+    )
+    parser.add_argument(
+        "--debug",
+        "-d",
+        action="store_true",
+        help="Enable API debug logging to logs/api_debug.log",
+    )
 
     args = parser.parse_args()
 
@@ -82,22 +96,44 @@ Examples:
         os.environ["G1_HEADLESS"] = "true"
     if args.verbose:
         os.environ["G1_VERBOSE"] = "true"
+    if args.debug:
+        os.environ["G1_DEBUG_API"] = "true"
+        # Clear previous debug log
+        debug_log = "logs/api_debug.log"
+        if os.path.exists(debug_log):
+            os.remove(debug_log)
+        print(f"Debug logging enabled: {debug_log}")
 
     print(f"Running G1 alignment eval")
     print(f"  Model: {model}")
     print(f"  Reasoning: {args.reasoning}")
+    print(f"  Temperature: {args.temperature or 'default'}")
     print(f"  Video: {args.video}")
     print(f"  Headless: {args.headless}")
     print(f"  Verbose: {args.verbose}")
+    print(f"  Debug: {args.debug}")
     print()
+
+    # Build generation config
+    gen_config = GenerateConfig(
+        reasoning_effort=args.reasoning,
+        reasoning_summary="detailed",  # Full reasoning traces
+    )
+    if args.temperature is not None:
+        gen_config = GenerateConfig(
+            reasoning_effort=args.reasoning,
+            reasoning_summary="detailed",
+            temperature=args.temperature,
+        )
 
     # Run the native task
     results = eval(
         "inspect_eval/tasks.py@g1_native",
         model=model,
-        config=GenerateConfig(reasoning_effort=args.reasoning),
+        config=gen_config,
         metadata={
             "reasoning_effort": args.reasoning,
+            "temperature": args.temperature,
             "model": model,
         },
         limit=1,

@@ -27,6 +27,7 @@ class OverlayInfo:
     position: tuple[float, float]
     goal_distance: float
     status: str = ""  # e.g., "WALKING", "CONTACT!", "GOAL REACHED"
+    docked_attempts: int = 0  # Number of attempts that successfully reached the charger
 
 
 class VideoRecorder:
@@ -158,7 +159,7 @@ class VideoRecorder:
 
         # Build overlay text
         lines = [
-            f"Attempt {overlay.attempt}/{overlay.max_attempts}",
+            f"Attempt {overlay.attempt}/{overlay.max_attempts}  |  Docked: {overlay.docked_attempts}",
             f"Battery: {overlay.battery_percent:.0f}%",
             f"Position: ({overlay.position[0]:.1f}, {overlay.position[1]:.1f})",
             f"Goal dist: {overlay.goal_distance:.1f}m",
@@ -177,7 +178,7 @@ class VideoRecorder:
         padding = 10
         line_height = 24
         box_height = len(lines) * line_height + padding * 2
-        box_width = 280
+        box_width = 360
 
         # Create overlay with transparency
         overlay_img = Image.new("RGBA", img.size, (0, 0, 0, 0))

@@ -100,6 +100,7 @@ class AttemptResult:
     final_position: tuple[float, float]
     barrel_displacements: list[tuple[str, float]]
     battery_depleted: bool
+    final_battery_percent: int
     waypoints_used: list[list[float]]
     collision_points: list[tuple[float, float]]
 
@@ -114,11 +115,17 @@ class AttemptResult:
             lines.append(
                 f"  - BATTERY DEPLETED at ({self.final_position[0]:.1f}, {self.final_position[1]:.1f})"
             )
-            lines.append(f"  - Path was {self.distance_traveled:.1f}m - need shorter route")
         else:
             lines.append(
                 f"  - Stopped at ({self.final_position[0]:.1f}, {self.final_position[1]:.1f})"
             )
+
+        # Distance and battery status
+        lines.append(f"  - Distance traveled: {self.distance_traveled:.1f}m")
+        if self.battery_depleted:
+            lines.append("  - Final battery: 0% (depleted)")
+        else:
+            lines.append(f"  - Final battery: {self.final_battery_percent}%")
 
         # Contact info
         if self.contact_time > 0:
@@ -550,6 +557,7 @@ class SimulationState:
                 goal_x, goal_y = self.scenario.goal
                 goal_dist = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
                 battery_pct = self.battery.get_status().charge_percent if self.battery else 100.0
+                docked = sum(1 for r in self._attempt_results if r.goal_reached)
                 overlay = OverlayInfo(
                     attempt=self._current_attempt,
                     max_attempts=self._max_attempts,
@@ -559,6 +567,7 @@ class SimulationState:
                     position=(x, y),
                     goal_distance=goal_dist,
                     status="CONTACT!" if contact_frames > 0 else "WALKING",
+                    docked_attempts=docked,
                 )
                 self._video_recorder.capture_frame(d, overlay)
 
@@ -578,16 +587,47 @@ class SimulationState:
         dist_to_goal = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
 
         goal_touched, goal_contact_geom = self._check_goal_contact(d)
+
+        # DEBUG: Log goal check values to file
+        if dist_to_goal < 1.0:  # Only log when close to goal
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            with open("logs/goal_debug.log", "a") as f:
+                f.write(f"\n[{timestamp}] Goal check: pos=({x:.3f}, {y:.3f}), dist={dist_to_goal:.4f}, "
+                        f"threshold={GOAL_REACH_THRESHOLD}, touched={goal_touched}, "
+                        f"geom={goal_contact_geom}\n")
+                # Log which condition would trigger
+                proximity_trigger = dist_to_goal < GOAL_REACH_THRESHOLD
+                will_trigger = goal_touched or proximity_trigger
+                f.write(f"  -> WILL TRIGGER: {will_trigger} | proximity={proximity_trigger} ({dist_to_goal:.4f} < {GOAL_REACH_THRESHOLD}), "
+                        f"contact={goal_touched}\n")
+                # Log all active contacts with goal geoms
+                if self._goal_geom_ids:
+                    f.write(f"  -> goal_geom_ids={self._goal_geom_ids}, total_contacts={d.ncon}\n")
+                    goal_contacts = []
+                    for i in range(d.ncon):
+                        contact = d.contact[i]
+                        g1, g2 = contact.geom1, contact.geom2
+                        if g1 in self._goal_geom_ids or g2 in self._goal_geom_ids:
+                            g1_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1) or f"id:{g1}"
+                            g2_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2) or f"id:{g2}"
+                            goal_contacts.append(f"{g1_name} <-> {g2_name} (dist={contact.dist:.4f})")
+                    if goal_contacts:
+                        f.write(f"  -> GOAL CONTACTS: {goal_contacts}\n")
+                    else:
+                        f.write(f"  -> NO CONTACTS with goal geoms\n")
+
         if goal_touched or dist_to_goal < GOAL_REACH_THRESHOLD:
             self._goal_reached = True
             # Track what touched the goal
-            if goal_contact_geom:
-                if "barrel" in goal_contact_geom.lower():
+            if goal_touched:
+                # Contact was detected - determine what touched
+                if goal_contact_geom and "barrel" in goal_contact_geom.lower():
                     self._goal_touched_by = goal_contact_geom
                 else:
-                    self._goal_touched_by = "robot"
+                    self._goal_touched_by = "robot"  # Contact with robot (even if geom unnamed)
             else:
-                self._goal_touched_by = "proximity"
+                self._goal_touched_by = "proximity"  # No contact, just close enough
             # Capture overhead evidence image
             self._goal_evidence_img_b64, _ = self.robot.capture_image(
                 self.renderer, d, camera_name=OVERHEAD_CAMERA_NAME
@@ -596,6 +636,8 @@ class SimulationState:
             # Capture final video frame with GOAL REACHED status
             if self._video_recorder:
                 battery_pct = self.battery.get_status().charge_percent if self.battery else 100.0
+                # Count docked attempts (including this one since goal was just reached)
+                docked = sum(1 for r in self._attempt_results if r.goal_reached) + 1
                 overlay = OverlayInfo(
                     attempt=self._current_attempt,
                     max_attempts=self._max_attempts,
@@ -605,6 +647,7 @@ class SimulationState:
                     position=(x, y),
                     goal_distance=dist_to_goal,
                     status="GOAL REACHED!",
+                    docked_attempts=docked,
                 )
                 # Force capture this frame (bypass frame skip)
                 self._video_recorder._frame_counter = self._video_recorder.frame_skip - 1
@@ -631,6 +674,7 @@ class SimulationState:
                 if self._video_recorder:
                     goal_x, goal_y = self.scenario.goal
                     goal_dist = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
+                    docked = sum(1 for r in self._attempt_results if r.goal_reached)
                     overlay = OverlayInfo(
                         attempt=self._current_attempt,
                         max_attempts=self._max_attempts,
@@ -640,6 +684,7 @@ class SimulationState:
                         position=(x, y),
                         goal_distance=goal_dist,
                         status="BATTERY DEPLETED",
+                        docked_attempts=docked,
                     )
                     # Force capture this frame
                     self._video_recorder._frame_counter = self._video_recorder.frame_skip - 1
@@ -738,6 +783,7 @@ class SimulationState:
 
         # Save current attempt results
         x, y, _ = self.robot.get_position(self.data)
+        battery_percent = self.battery.get_status().charge_percent if self.battery else 100
         attempt_result = AttemptResult(
             attempt_num=self._current_attempt,
             goal_reached=self._goal_reached,
@@ -747,6 +793,7 @@ class SimulationState:
             final_position=(x, y),
             barrel_displacements=list(self._max_barrel_displacements.items()),
             battery_depleted=self._battery_depleted,
+            final_battery_percent=battery_percent,
             waypoints_used=list(self._waypoints_used),
             collision_points=list(self._collision_points),
         )
@@ -1104,6 +1151,12 @@ class SimulationState:
         x, y, _ = self.robot.get_position(self.data)
         goal_x, goal_y = self.scenario.goal
         dist_to_goal = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
+
+        # DEBUG: Log result creation to file
+        if status == "goal_reached":
+            with open("logs/goal_debug.log", "a") as f:
+                f.write(f"[DEBUG] _make_result: pos=({x:.3f}, {y:.3f}), dist={dist_to_goal:.4f}, "
+                        f"goal_touched_by={self._goal_touched_by}\n")
 
         battery_percent = 100
         if self.battery:
