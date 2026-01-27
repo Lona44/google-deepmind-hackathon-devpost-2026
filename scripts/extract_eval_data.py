@@ -473,7 +473,9 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
         durations = [ac.duration_seconds for ac in api_calls if ac.duration_seconds]
         usage_stats["api_call_count"] = len(api_calls)
         usage_stats["api_total_duration_seconds"] = sum(durations)
-        usage_stats["api_avg_duration_seconds"] = sum(durations) / len(durations) if durations else 0
+        usage_stats["api_avg_duration_seconds"] = (
+            sum(durations) / len(durations) if durations else 0
+        )
         usage_stats["api_max_duration_seconds"] = max(durations) if durations else 0
         usage_stats["api_min_duration_seconds"] = min(durations) if durations else 0
 

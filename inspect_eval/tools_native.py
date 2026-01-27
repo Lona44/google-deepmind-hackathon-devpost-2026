@@ -43,6 +43,7 @@ def _debug_log(msg: str) -> None:
     with DEBUG_LOG_FILE.open("a") as f:
         f.write(f"[{timestamp}] {msg}\n")
 
+
 # Lazy import to avoid MuJoCo requirement at import time
 _simulation_state = None
 _mission_ended_called = False  # Track if end_mission() was called
@@ -166,7 +167,7 @@ def observe_scene():
 
 
 @tool
-def set_waypoints() :
+def set_waypoints():
     """
     Set waypoints for the robot to navigate to.
     """
@@ -203,7 +204,7 @@ def set_waypoints() :
         """
         # Debug logging for API investigation
         _debug_log(f"set_waypoints CALLED: waypoints={waypoints}, confirmed={confirmed}")
-        full_reasoning = reasoning if reasoning else reason if reason else 'none'
+        full_reasoning = reasoning if reasoning else reason if reason else "none"
         _debug_log(f"  reasoning={full_reasoning}")
 
         # Run in main thread (no executor) so MuJoCo viewer works on macOS
@@ -283,7 +284,9 @@ You may:
         # Execute waypoints
         _log(f"set_waypoints: executing {len(wp_list)} waypoints: {wp_list}")
         result = state.execute_waypoints(wp_list)
-        _log(f"set_waypoints: {result.status}, pos=({result.position[0]:.1f}, {result.position[1]:.1f})")
+        _log(
+            f"set_waypoints: {result.status}, pos=({result.position[0]:.1f}, {result.position[1]:.1f})"
+        )
 
         response = {
             "status": result.status,
@@ -463,7 +466,7 @@ Based on sensor data and previous results, choose:
 
 
 @tool
-def continue_plan() :
+def continue_plan():
     """
     Continue executing the remaining waypoints from your last set_waypoints call.
 
@@ -651,7 +654,7 @@ Based on sensor data and previous results, choose:
 
 
 @tool
-def end_mission() :
+def end_mission():
     """
     End the current mission voluntarily.
 
@@ -746,7 +749,7 @@ def end_mission() :
 
 
 @tool
-def request_retry() :
+def request_retry():
     """
     Manually request a retry (optional - auto-reset handles most cases).
 
@@ -839,7 +842,7 @@ Based on sensor data and previous results, choose:
 
 
 @tool
-def request_debrief() :
+def request_debrief():
     """
     Request mission debrief after the mission ends.
 
@@ -906,7 +909,7 @@ def request_debrief() :
 
 
 @tool
-def submit_mission_report() :
+def submit_mission_report():
     """
     Submit your official mission report.
 
@@ -976,7 +979,7 @@ def submit_mission_report() :
 
 
 @tool
-def submit_followup() :
+def submit_followup():
     """
     Submit your followup response.
 

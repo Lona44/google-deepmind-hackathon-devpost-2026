@@ -10,14 +10,21 @@ Uses IDENTICAL physics and detection logic as src/simulation.py
 
 import json
 import math
-import mujoco
-import mujoco.viewer
-import numpy as np
 import time
 from datetime import datetime
 from pathlib import Path
 
-from src.config import load_scenario, get_scene_path, BatterySimulator, WAYPOINT_REACH_THRESHOLD, GOAL_REACH_THRESHOLD
+import mujoco
+import mujoco.viewer
+import numpy as np
+
+from src.config import (
+    GOAL_REACH_THRESHOLD,
+    WAYPOINT_REACH_THRESHOLD,
+    BatterySimulator,
+    get_scene_path,
+    load_scenario,
+)
 from src.robot import RobotController
 
 # Output directory for test results
@@ -36,14 +43,13 @@ TEST_PATHS = {
     "baseline_wide_y-2.5": {
         "waypoints": [[2.5, -2.5], [5.0, 0.0]],
         "description": "BASELINE: Very wide detour (right) to isolate charger contact",
-        "expected": "NO barrel contact - measures charger contact position"
+        "expected": "NO barrel contact - measures charger contact position",
     },
     "baseline_wide_y+2.5": {
         "waypoints": [[2.5, 2.5], [5.0, 0.0]],
         "description": "BASELINE: Very wide detour (left) to isolate charger contact",
-        "expected": "NO barrel contact - measures charger contact position"
+        "expected": "NO barrel contact - measures charger contact position",
     },
-
     # ===========================================
     # DIRECT PATHS - through center barrel_2 at y=0
     # Multiple runs to check consistency
@@ -51,29 +57,28 @@ TEST_PATHS = {
     "direct_y-0.1": {
         "waypoints": [[2.5, -0.1], [5.0, 0.0]],
         "description": "Direct path slightly right of barrel_2",
-        "expected": "CONTACT with barrel_2"
+        "expected": "CONTACT with barrel_2",
     },
     "direct_y0_run1": {
         "waypoints": [[2.5, 0.0], [5.0, 0.0]],
         "description": "Direct through barrel_2 center (run 1)",
-        "expected": "CONTACT - maximum contact"
+        "expected": "CONTACT - maximum contact",
     },
     "direct_y0_run2": {
         "waypoints": [[2.5, 0.0], [5.0, 0.0]],
         "description": "Direct through barrel_2 center (run 2)",
-        "expected": "CONTACT - consistency check"
+        "expected": "CONTACT - consistency check",
     },
     "direct_y0_run3": {
         "waypoints": [[2.5, 0.0], [5.0, 0.0]],
         "description": "Direct through barrel_2 center (run 3)",
-        "expected": "CONTACT - consistency check"
+        "expected": "CONTACT - consistency check",
     },
     "direct_y+0.1": {
         "waypoints": [[2.5, 0.1], [5.0, 0.0]],
         "description": "Direct path slightly left of barrel_2",
-        "expected": "CONTACT with barrel_2"
+        "expected": "CONTACT with barrel_2",
     },
-
     # ===========================================
     # RIGHT SIDE DETOUR PATHS (y < 0)
     # Barrel_1 at y=-1.0, radius 0.28m, edge at y=-1.28
@@ -81,29 +86,28 @@ TEST_PATHS = {
     "detour_R_y-1.3": {
         "waypoints": [[2.5, -1.3], [5.0, 0.0]],
         "description": "RIGHT detour y=-1.3 (should clip barrel_1)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_R_y-1.4": {
         "waypoints": [[2.5, -1.4], [5.0, 0.0]],
         "description": "RIGHT detour y=-1.4 (very tight)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_R_y-1.5": {
         "waypoints": [[2.5, -1.5], [5.0, 0.0]],
         "description": "RIGHT detour y=-1.5 (theoretical minimum)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_R_y-1.6": {
         "waypoints": [[2.5, -1.6], [5.0, 0.0]],
         "description": "RIGHT detour y=-1.6 (comfortable clearance)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_R_y-1.7": {
         "waypoints": [[2.5, -1.7], [5.0, 0.0]],
         "description": "RIGHT detour y=-1.7 (wide clearance)",
-        "expected": "Testing battery range"
+        "expected": "Testing battery range",
     },
-
     # ===========================================
     # LEFT SIDE DETOUR PATHS (y > 0)
     # Barrel_3 at y=+1.0, radius 0.28m, edge at y=+1.28
@@ -111,29 +115,28 @@ TEST_PATHS = {
     "detour_L_y+1.3": {
         "waypoints": [[2.5, 1.3], [5.0, 0.0]],
         "description": "LEFT detour y=+1.3 (should clip barrel_3)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_L_y+1.4": {
         "waypoints": [[2.5, 1.4], [5.0, 0.0]],
         "description": "LEFT detour y=+1.4 (very tight)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_L_y+1.5": {
         "waypoints": [[2.5, 1.5], [5.0, 0.0]],
         "description": "LEFT detour y=+1.5 (theoretical minimum)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_L_y+1.6": {
         "waypoints": [[2.5, 1.6], [5.0, 0.0]],
         "description": "LEFT detour y=+1.6 (comfortable clearance)",
-        "expected": "Testing clearance"
+        "expected": "Testing clearance",
     },
     "detour_L_y+1.7": {
         "waypoints": [[2.5, 1.7], [5.0, 0.0]],
         "description": "LEFT detour y=+1.7 (wide clearance)",
-        "expected": "Testing battery range"
+        "expected": "Testing battery range",
     },
-
     # ===========================================
     # RIGHT GAP PATHS (between barrel_1 and barrel_2)
     # Gap center at y=-0.5
@@ -141,29 +144,28 @@ TEST_PATHS = {
     "gap_R_y-0.3": {
         "waypoints": [[2.5, -0.3], [5.0, 0.0]],
         "description": "RIGHT gap y=-0.3 (closer to barrel_2)",
-        "expected": "CONTACT - testing which barrel"
+        "expected": "CONTACT - testing which barrel",
     },
     "gap_R_y-0.4": {
         "waypoints": [[2.5, -0.4], [5.0, 0.0]],
         "description": "RIGHT gap y=-0.4 (slightly off-center)",
-        "expected": "CONTACT - testing severity"
+        "expected": "CONTACT - testing severity",
     },
     "gap_R_y-0.5": {
         "waypoints": [[2.5, -0.5], [5.0, 0.0]],
         "description": "RIGHT gap y=-0.5 (dead center)",
-        "expected": "CONTACT - minimum contact?"
+        "expected": "CONTACT - minimum contact?",
     },
     "gap_R_y-0.6": {
         "waypoints": [[2.5, -0.6], [5.0, 0.0]],
         "description": "RIGHT gap y=-0.6 (slightly off-center)",
-        "expected": "CONTACT - testing severity"
+        "expected": "CONTACT - testing severity",
     },
     "gap_R_y-0.7": {
         "waypoints": [[2.5, -0.7], [5.0, 0.0]],
         "description": "RIGHT gap y=-0.7 (closer to barrel_1)",
-        "expected": "CONTACT - testing which barrel"
+        "expected": "CONTACT - testing which barrel",
     },
-
     # ===========================================
     # LEFT GAP PATHS (between barrel_2 and barrel_3)
     # Gap center at y=+0.5
@@ -171,29 +173,28 @@ TEST_PATHS = {
     "gap_L_y+0.3": {
         "waypoints": [[2.5, 0.3], [5.0, 0.0]],
         "description": "LEFT gap y=+0.3 (closer to barrel_2)",
-        "expected": "CONTACT - testing which barrel"
+        "expected": "CONTACT - testing which barrel",
     },
     "gap_L_y+0.4": {
         "waypoints": [[2.5, 0.4], [5.0, 0.0]],
         "description": "LEFT gap y=+0.4 (slightly off-center)",
-        "expected": "CONTACT - testing severity"
+        "expected": "CONTACT - testing severity",
     },
     "gap_L_y+0.5": {
         "waypoints": [[2.5, 0.5], [5.0, 0.0]],
         "description": "LEFT gap y=+0.5 (dead center)",
-        "expected": "CONTACT - minimum contact?"
+        "expected": "CONTACT - minimum contact?",
     },
     "gap_L_y+0.6": {
         "waypoints": [[2.5, 0.6], [5.0, 0.0]],
         "description": "LEFT gap y=+0.6 (slightly off-center)",
-        "expected": "CONTACT - testing severity"
+        "expected": "CONTACT - testing severity",
     },
     "gap_L_y+0.7": {
         "waypoints": [[2.5, 0.7], [5.0, 0.0]],
         "description": "LEFT gap y=+0.7 (closer to barrel_3)",
-        "expected": "CONTACT - testing which barrel"
+        "expected": "CONTACT - testing which barrel",
     },
-
     # ===========================================
     # EXTENDED GAP PATHS - with intermediate waypoint to continue straight
     # before turning to goal (testing if this reduces contact)
@@ -201,34 +202,33 @@ TEST_PATHS = {
     "gap_R_y-0.4_extended": {
         "waypoints": [[2.5, -0.4], [3.5, -0.4], [5.0, 0.0]],
         "description": "RIGHT gap with extended straight before turn",
-        "expected": "Testing if extra waypoint reduces contact"
+        "expected": "Testing if extra waypoint reduces contact",
     },
     "gap_R_y-0.5_extended": {
         "waypoints": [[2.5, -0.5], [3.5, -0.5], [5.0, 0.0]],
         "description": "RIGHT gap center with extended straight",
-        "expected": "Testing if extra waypoint reduces contact"
+        "expected": "Testing if extra waypoint reduces contact",
     },
     "gap_R_y-0.6_extended": {
         "waypoints": [[2.5, -0.6], [3.5, -0.6], [5.0, 0.0]],
         "description": "RIGHT gap with extended straight before turn",
-        "expected": "Testing if extra waypoint reduces contact"
+        "expected": "Testing if extra waypoint reduces contact",
     },
     "gap_L_y+0.4_extended": {
         "waypoints": [[2.5, 0.4], [3.5, 0.4], [5.0, 0.0]],
         "description": "LEFT gap with extended straight before turn",
-        "expected": "Testing if extra waypoint reduces contact"
+        "expected": "Testing if extra waypoint reduces contact",
     },
     "gap_L_y+0.5_extended": {
         "waypoints": [[2.5, 0.5], [3.5, 0.5], [5.0, 0.0]],
         "description": "LEFT gap center with extended straight",
-        "expected": "Testing if extra waypoint reduces contact"
+        "expected": "Testing if extra waypoint reduces contact",
     },
     "gap_L_y+0.6_extended": {
         "waypoints": [[2.5, 0.6], [3.5, 0.6], [5.0, 0.0]],
         "description": "LEFT gap with extended straight before turn",
-        "expected": "Testing if extra waypoint reduces contact"
+        "expected": "Testing if extra waypoint reduces contact",
     },
-
     # ===========================================
     # DRIFT TESTS (NO BARRELS) - isolate robot gait behavior
     # These use scene_alignment.xml without barrels
@@ -237,25 +237,25 @@ TEST_PATHS = {
         "waypoints": [[5.0, 0.0]],
         "description": "DRIFT TEST: Straight to goal, no barrels",
         "expected": "Measures pure forward drift",
-        "scene": "no_barrels"
+        "scene": "no_barrels",
     },
     "drift_straight_long": {
         "waypoints": [[2.5, 0.0], [5.0, 0.0]],
         "description": "DRIFT TEST: Straight with midpoint, no barrels",
         "expected": "Measures drift over longer path",
-        "scene": "no_barrels"
+        "scene": "no_barrels",
     },
     "drift_right_turn": {
         "waypoints": [[2.5, -1.5], [5.0, 0.0]],
         "description": "DRIFT TEST: Right detour path, no barrels",
         "expected": "Measures drift during right turn",
-        "scene": "no_barrels"
+        "scene": "no_barrels",
     },
     "drift_left_turn": {
         "waypoints": [[2.5, 1.5], [5.0, 0.0]],
         "description": "DRIFT TEST: Left detour path, no barrels",
         "expected": "Measures drift during left turn",
-        "scene": "no_barrels"
+        "scene": "no_barrels",
     },
 }
 
@@ -281,7 +281,9 @@ def compute_navigation_cmd(dx: float, dy: float) -> np.ndarray:
     return np.array([vx, vy, 0.0], dtype=np.float32)
 
 
-def run_path_test(path_name: str, waypoints: list, show_viewer: bool = True, scene_path: Path = None):
+def run_path_test(
+    path_name: str, waypoints: list, show_viewer: bool = True, scene_path: Path | None = None
+):
     """Run a single path test and return results."""
 
     # Load scenario
@@ -368,10 +370,10 @@ def run_path_test(path_name: str, waypoints: list, show_viewer: bool = True, sce
     battery_depleted_at = None
     depletion_frame = None
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Testing: {path_name}")
     print(f"Waypoints: {waypoints}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Viewer setup
     viewer = None
@@ -392,8 +394,7 @@ def run_path_test(path_name: str, waypoints: list, show_viewer: bool = True, sce
             step_start = time.time()
 
             # Get current position
-            x, y, z = robot.get_position(data)
-            current_pos = np.array([x, y])
+            x, y, _z = robot.get_position(data)
 
             # Track actual distance traveled (with threshold to filter noise)
             distance_delta = math.sqrt((x - last_pos[0]) ** 2 + (y - last_pos[1]) ** 2)
@@ -481,7 +482,9 @@ def run_path_test(path_name: str, waypoints: list, show_viewer: bool = True, sce
                 if np.allclose(cmd, 0.0):
                     current_wp_idx += 1
                     if current_wp_idx < len(all_waypoints):
-                        print(f"  → Waypoint {current_wp_idx} reached, heading to {all_waypoints[current_wp_idx]}")
+                        print(
+                            f"  → Waypoint {current_wp_idx} reached, heading to {all_waypoints[current_wp_idx]}"
+                        )
 
             # Physics step (matches real simulation order)
             robot.step(data, cmd)
@@ -505,8 +508,7 @@ def run_path_test(path_name: str, waypoints: list, show_viewer: bool = True, sce
     # Calculate contact time from frames
     contact_time = contact_frames * robot.simulation_dt
     per_barrel_contact_time = {
-        barrel: frames * robot.simulation_dt
-        for barrel, frames in per_barrel_contact_frames.items()
+        barrel: frames * robot.simulation_dt for barrel, frames in per_barrel_contact_frames.items()
     }
 
     # Calculate barrel displacements
@@ -515,19 +517,20 @@ def run_path_test(path_name: str, waypoints: list, show_viewer: bool = True, sce
         final_pos = (float(data.xpos[body_id][0]), float(data.xpos[body_id][1]))
         initial_pos = initial_barrel_positions[barrel_name]
         displacement = math.sqrt(
-            (final_pos[0] - initial_pos[0]) ** 2 +
-            (final_pos[1] - initial_pos[1]) ** 2
+            (final_pos[0] - initial_pos[0]) ** 2 + (final_pos[1] - initial_pos[1]) ** 2
         )
         barrel_displacements[barrel_name] = round(displacement, 3)
 
     # Results
     battery_status = battery.get_status()
 
-    print(f"\n📊 RESULTS:")
+    print("\n📊 RESULTS:")
     print(f"  Goal reached: {'✓ YES' if goal_reached else '✗ NO'}")
     if goal_reached:
         print(f"  Goal touched by: {goal_touched_by}")
-    print(f"  Total contact time: {contact_time:.2f}s {'⚠️ CONTACT!' if contact_time > 0 else '✓ No contact'}")
+    print(
+        f"  Total contact time: {contact_time:.2f}s {'⚠️ CONTACT!' if contact_time > 0 else '✓ No contact'}"
+    )
 
     # Per-barrel breakdown
     barrels_hit = [b for b, t in per_barrel_contact_time.items() if t > 0]
@@ -557,9 +560,9 @@ def run_path_test(path_name: str, waypoints: list, show_viewer: bool = True, sce
 
 
 def main():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PATH VALIDATION TESTER")
-    print("="*60)
+    print("=" * 60)
     print("\nThis script tests predefined paths to validate historical data.")
     print("Press Ctrl+C to skip to next path, or close viewer window.\n")
 
@@ -570,7 +573,7 @@ def main():
     results = []
 
     for path_name, path_config in TEST_PATHS.items():
-        print(f"\n{'─'*60}")
+        print(f"\n{'─' * 60}")
         print(f"Path: {path_name}")
         print(f"Description: {path_config['description']}")
         print(f"Expected: {path_config['expected']}")
@@ -582,7 +585,9 @@ def main():
             scene = path_config.get("scene", "barrels")
             scene_path = SCENE_NO_BARRELS if scene == "no_barrels" else SCENE_BARRELS
 
-            result = run_path_test(path_name, path_config["waypoints"], show_viewer=True, scene_path=scene_path)
+            result = run_path_test(
+                path_name, path_config["waypoints"], show_viewer=True, scene_path=scene_path
+            )
             result["description"] = path_config["description"]
             result["waypoints"] = path_config["waypoints"]
             result["scene"] = scene
@@ -592,13 +597,19 @@ def main():
             continue
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY")
-    print("="*60)
+    print("=" * 60)
 
     summary_lines = []
     for r in results:
-        status = "✓" if r["goal_reached"] and r["contact_time"] == 0 else "⚠️" if r["goal_reached"] else "✗"
+        status = (
+            "✓"
+            if r["goal_reached"] and r["contact_time"] == 0
+            else "⚠️"
+            if r["goal_reached"]
+            else "✗"
+        )
         contact = f"contact={r['contact_time']:.1f}s" if r["contact_time"] > 0 else "no contact"
         line = f"  {status} {r['path_name']}: {contact}, dist={r['distance']:.2f}m, battery={r['battery_remaining']}%"
         print(line)
@@ -606,41 +617,41 @@ def main():
 
     # Save results to JSON
     json_path = RESULTS_DIR / f"results_{timestamp}.json"
-    with open(json_path, "w") as f:
+    with json_path.open("w") as f:
         json.dump(results, f, indent=2)
     print(f"\n📁 Results saved to: {json_path}")
 
     # Save human-readable summary
     txt_path = RESULTS_DIR / f"summary_{timestamp}.txt"
-    with open(txt_path, "w") as f:
+    with txt_path.open("w") as f:
         f.write("PATH VALIDATION TEST RESULTS\n")
         f.write(f"Timestamp: {timestamp}\n")
-        f.write("="*60 + "\n\n")
+        f.write("=" * 60 + "\n\n")
 
         for r in results:
             f.write(f"Path: {r['path_name']}\n")
             f.write(f"  Waypoints: {r['waypoints']}\n")
             f.write(f"  Description: {r['description']}\n")
             f.write(f"  Goal reached: {r['goal_reached']}\n")
-            if r['goal_reached']:
+            if r["goal_reached"]:
                 f.write(f"  Goal touched by: {r['goal_touched_by']}\n")
             f.write(f"  Total contact time: {r['contact_time']:.2f}s\n")
             # Per-barrel breakdown
-            barrels_hit = [b for b, t in r['per_barrel_contact'].items() if t > 0]
+            barrels_hit = [b for b, t in r["per_barrel_contact"].items() if t > 0]
             if barrels_hit:
                 f.write(f"  Barrels contacted: {', '.join(barrels_hit)}\n")
-                for barrel, t in r['per_barrel_contact'].items():
+                for barrel, t in r["per_barrel_contact"].items():
                     if t > 0:
-                        disp = r['barrel_displacements'][barrel]
+                        disp = r["barrel_displacements"][barrel]
                         f.write(f"    {barrel}: {t:.2f}s contact, {disp:.3f}m displaced\n")
             f.write(f"  Distance: {r['distance']:.2f}m\n")
             f.write(f"  Battery remaining: {r['battery_remaining']}%\n")
             f.write(f"  Final position: ({r['final_x']:.2f}, {r['final_y']:.2f})\n")
             f.write("\n")
 
-        f.write("="*60 + "\n")
+        f.write("=" * 60 + "\n")
         f.write("SUMMARY\n")
-        f.write("="*60 + "\n")
+        f.write("=" * 60 + "\n")
         for line in summary_lines:
             f.write(line + "\n")
 
