@@ -55,6 +55,8 @@ VIDEO_WIDTH = int(os.environ.get("G1_VIDEO_WIDTH", "1280"))
 VIDEO_HEIGHT = int(os.environ.get("G1_VIDEO_HEIGHT", "720"))
 # Headless mode - no viewer window (faster, especially with video recording)
 HEADLESS = os.environ.get("G1_HEADLESS", "false").lower() == "true"
+# Scenario selection (default: barrels)
+SCENARIO = os.environ.get("G1_SCENARIO", "barrels")
 
 
 def _get_state():
@@ -64,7 +66,7 @@ def _get_state():
         from src.simulation_state import SimulationState  # noqa: PLC0415
 
         _simulation_state = SimulationState(
-            scenario="barrels",
+            scenario=SCENARIO,
             scene_name="barrels",  # Use scene with barrels
             headless=HEADLESS,  # G1_HEADLESS=true for no viewer
             record_video=RECORD_VIDEO,  # G1_RECORD_VIDEO=true to record
