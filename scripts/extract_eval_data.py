@@ -6,22 +6,37 @@ This script extracts all relevant data including:
 - Tool calls and results
 - Scores and metadata
 - Message history
+- Images and video from the run
 
 Output is JSON suitable for passing to Gemini 3 for meta-analysis.
+When saving to file (-o), images and video are extracted to a media/ subdirectory.
 
 Usage:
     python scripts/extract_eval_data.py                     # List all logs
     python scripts/extract_eval_data.py <log_path>          # Extract single log to stdout
-    python scripts/extract_eval_data.py <log_path> -o out.json  # Save to file
+    python scripts/extract_eval_data.py <log_path> -o out.json  # Save to file + media
     python scripts/extract_eval_data.py --all -o extractions/  # Extract all to directory
 """
 
 import argparse
+import base64
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
 from inspect_ai.log import list_eval_logs, read_eval_log
+
+
+@dataclass
+class MediaFile:
+    """An extracted media file (image or video)."""
+
+    attachment_id: str
+    media_type: str  # "image" or "video"
+    mime_type: str  # e.g., "image/png", "video/mp4"
+    filename: str  # Generated filename
+    size_bytes: int
+    turn: int | None  # Which conversation turn it appeared in
 
 
 @dataclass
@@ -87,10 +102,100 @@ class EvalExtraction:
     tool_results: list[ToolResult]
     messages: list[Message]
 
+    # Media files
+    media_files: list[MediaFile]
+    attachments: dict  # Raw attachments for media extraction
+
     # Raw data for deep analysis
     system_prompt: str | None
     user_input: str | None
     final_output: str | None
+
+
+def extract_media_files(attachments: dict, image_refs: dict[str, int]) -> list[MediaFile]:
+    """Extract media file metadata from attachments.
+
+    Args:
+        attachments: Raw attachments dict from sample
+        image_refs: Map of attachment_id -> turn number for images in conversation
+
+    Returns:
+        List of MediaFile objects
+    """
+    media_files = []
+    image_count = 0
+    video_count = 0
+
+    for attachment_id, data in attachments.items():
+        if not isinstance(data, str):
+            continue
+
+        # Check for data URI format
+        if data.startswith("data:image/"):
+            image_count += 1
+            # Parse mime type
+            mime_type = data.split(";")[0].split(":")[1]
+            ext = mime_type.split("/")[1]
+            if ext == "jpeg":
+                ext = "jpg"
+
+            media_files.append(
+                MediaFile(
+                    attachment_id=attachment_id,
+                    media_type="image",
+                    mime_type=mime_type,
+                    filename=f"image_{image_count:03d}.{ext}",
+                    size_bytes=len(data),
+                    turn=image_refs.get(attachment_id),
+                )
+            )
+
+        elif data.startswith("data:video/"):
+            video_count += 1
+            mime_type = data.split(";")[0].split(":")[1]
+            ext = mime_type.split("/")[1]
+
+            media_files.append(
+                MediaFile(
+                    attachment_id=attachment_id,
+                    media_type="video",
+                    mime_type=mime_type,
+                    filename=f"video_{video_count:03d}.{ext}",
+                    size_bytes=len(data),
+                    turn=None,  # Video is typically the full run
+                )
+            )
+
+    return media_files
+
+
+def save_media_files(media_files: list[MediaFile], attachments: dict, output_dir: Path) -> None:
+    """Save media files to disk.
+
+    Args:
+        media_files: List of MediaFile objects
+        attachments: Raw attachments dict with base64 data
+        output_dir: Directory to save media files
+    """
+    media_dir = output_dir / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+
+    for mf in media_files:
+        data = attachments.get(mf.attachment_id)
+        if not data:
+            continue
+
+        # Extract base64 data after the data URI prefix
+        try:
+            base64_data = data.split(",", 1)[1]
+            binary_data = base64.b64decode(base64_data)
+
+            filepath = media_dir / mf.filename
+            with filepath.open("wb") as f:
+                f.write(binary_data)
+
+        except (IndexError, ValueError) as e:
+            print(f"  Warning: Could not decode {mf.filename}: {e}")
 
 
 def extract_text_from_content(content) -> str | None:
@@ -153,6 +258,9 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
     # Track pending tool calls to match with results
     pending_tool_calls: list[ToolCall] = []
 
+    # Track image references for media extraction
+    image_refs: dict[str, int] = {}  # attachment_id -> turn number
+
     if sample and sample.messages:
         for i, msg in enumerate(sample.messages):
             # Track content types
@@ -171,6 +279,11 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
 
                     if block_type == "image":
                         has_image = True
+                        # Track image reference
+                        img_ref = getattr(block, "image", None)
+                        if img_ref and img_ref.startswith("attachment://"):
+                            attachment_id = img_ref.replace("attachment://", "")
+                            image_refs[attachment_id] = i
 
                     if block_type == "reasoning":
                         has_reasoning = True
@@ -254,6 +367,10 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
             if msg.role == "assistant":
                 final_output = extract_text_from_content(msg.content)
 
+    # Extract media files
+    attachments = sample.attachments if sample and hasattr(sample, "attachments") else {}
+    media_files = extract_media_files(attachments, image_refs)
+
     return EvalExtraction(
         eval_id=eval_id,
         model=model,
@@ -265,6 +382,8 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
         tool_calls=tool_calls,
         tool_results=tool_results,
         messages=messages,
+        media_files=media_files,
+        attachments=attachments,
         system_prompt=system_prompt
         if full_content
         else (system_prompt[:2000] if system_prompt else None),
@@ -321,6 +440,8 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
             "tool_calls": len(extraction.tool_calls),
             "tool_results": len(extraction.tool_results),
             "images_in_conversation": sum(1 for m in extraction.messages if m.has_image),
+            "media_images": sum(1 for mf in extraction.media_files if mf.media_type == "image"),
+            "media_videos": sum(1 for mf in extraction.media_files if mf.media_type == "video"),
         },
         "prompts": {
             "system_prompt": extraction.system_prompt
@@ -342,15 +463,43 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
             }
             for m in extraction.messages
         ],
+        "media_files": [
+            {
+                "attachment_id": mf.attachment_id,
+                "media_type": mf.media_type,
+                "mime_type": mf.mime_type,
+                "filename": mf.filename,
+                "size_bytes": mf.size_bytes,
+                "turn": mf.turn,
+            }
+            for mf in extraction.media_files
+        ],
     }
 
 
-def save_extraction(data: dict, output_path: Path) -> None:
-    """Save extraction to JSON file."""
+def save_extraction(
+    data: dict, output_path: Path, extraction: EvalExtraction | None = None
+) -> None:
+    """Save extraction to JSON file and media files.
+
+    Args:
+        data: JSON-serializable dict from extraction_to_dict
+        output_path: Path to save JSON file
+        extraction: Original extraction object (for media files)
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Save JSON
     with output_path.open("w") as f:
         json.dump(data, f, indent=2)
     print(f"Saved: {output_path}")
+
+    # Save media files if extraction provided
+    if extraction and extraction.media_files:
+        save_media_files(extraction.media_files, extraction.attachments, output_path.parent)
+        images = sum(1 for mf in extraction.media_files if mf.media_type == "image")
+        videos = sum(1 for mf in extraction.media_files if mf.media_type == "video")
+        print(f"  Media: {images} images, {videos} videos → {output_path.parent / 'media'}")
 
 
 def main():
@@ -415,9 +564,9 @@ Examples:
                 data = extraction_to_dict(extraction, include_full_prompts=full_content)
 
                 if args.output:
-                    # Generate filename from eval_id
-                    filename = f"{data['metadata']['eval_id']}.json"
-                    save_extraction(data, Path(args.output) / filename)
+                    # Generate filename from eval_id - each eval gets own subdirectory
+                    eval_dir = Path(args.output) / data["metadata"]["eval_id"]
+                    save_extraction(data, eval_dir / "extraction.json", extraction)
                 else:
                     # Print summary
                     print(f"  Model: {data['metadata']['model']}")
@@ -427,7 +576,10 @@ Examples:
                     )
                     print(f"  Tool calls: {data['conversation_summary']['tool_calls']}")
                     print(f"  Tool results: {data['conversation_summary']['tool_results']}")
-                    print(f"  Images: {data['conversation_summary']['images_in_conversation']}")
+                    print(
+                        f"  Media: {data['conversation_summary']['media_images']} images, "
+                        f"{data['conversation_summary']['media_videos']} videos"
+                    )
                     print(f"  Scores: {list(data['scores'].keys())}")
                     print()
             except Exception as e:
@@ -440,7 +592,11 @@ Examples:
         data = extraction_to_dict(extraction, include_full_prompts=full_content)
 
         if args.output:
-            save_extraction(data, Path(args.output))
+            output_path = Path(args.output)
+            # If output is a directory, use extraction.json inside it
+            if output_path.suffix != ".json":
+                output_path = output_path / "extraction.json"
+            save_extraction(data, output_path, extraction)
         else:
             print(json.dumps(data, indent=2))
 
