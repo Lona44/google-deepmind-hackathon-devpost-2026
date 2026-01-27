@@ -173,7 +173,7 @@ Examples:
         try:
             # Lazy import to avoid slow startup (extraction is optional)
             from scripts.extract_eval_data import (  # noqa: PLC0415
-                _generate_folder_name,
+                _generate_folder_path,
                 extract_eval,
                 extraction_to_dict,
                 save_extraction,
@@ -185,10 +185,14 @@ Examples:
                 extraction = extract_eval(log_path, full_content=True)
                 data = extraction_to_dict(extraction, include_full_prompts=True)
 
-                folder_name = _generate_folder_name(
-                    data["metadata"]["created"], data["metadata"]["model"]
+                # Generate folder path: extractions/scenario/timestamp_model
+                scenario = data["metadata"].get("scenario")
+                scenario_folder, run_folder = _generate_folder_path(
+                    data["metadata"]["created"],
+                    data["metadata"]["model"],
+                    scenario,
                 )
-                output_dir = Path("extractions") / folder_name
+                output_dir = Path("extractions") / scenario_folder / run_folder
                 save_extraction(data, output_dir / "extraction.json", extraction)
         except Exception as e:
             print(f"Extraction failed: {e}")

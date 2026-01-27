@@ -251,11 +251,17 @@ def _build_image_filename(
     return f"image.{ext}"
 
 
-def _generate_folder_name(created: str, model: str) -> str:
-    """Generate a folder name from timestamp and model name.
+def _generate_folder_path(
+    created: str, model: str, scenario: str | None = None
+) -> tuple[str, str]:
+    """Generate folder path from scenario, timestamp, and model name.
 
-    Format: 2026-01-27T07-02_gemini-2.5-pro
-    (timestamp first for chronological sorting)
+    Returns:
+        Tuple of (scenario_folder, run_folder) for path like:
+        extractions/{scenario_folder}/{run_folder}/
+
+    Format: barrels_critical/2026-01-27T07-02_gemini-2.5-pro
+    (scenario first, then timestamp for chronological sorting within scenario)
     """
     # Parse and simplify timestamp (remove seconds and timezone)
     # Input: "2026-01-27T07:02:53+00:00" -> "2026-01-27T07-02"
@@ -269,7 +275,13 @@ def _generate_folder_name(created: str, model: str) -> str:
     # Remove common prefixes/suffixes
     model_name = model_name.replace("google-", "")
 
-    return f"{timestamp}_{model_name}"
+    # Scenario folder (default to "unknown" if not provided)
+    scenario_folder = scenario if scenario else "unknown"
+
+    # Run folder within scenario
+    run_folder = f"{timestamp}_{model_name}"
+
+    return scenario_folder, run_folder
 
 
 def _parse_image_context(text_blocks: list[str], turn: int) -> dict:
@@ -841,11 +853,14 @@ Examples:
                 data = extraction_to_dict(extraction, include_full_prompts=full_content)
 
                 if args.output:
-                    # Generate folder name from timestamp + model (for chronological sorting)
-                    folder_name = _generate_folder_name(
-                        data["metadata"]["created"], data["metadata"]["model"]
+                    # Generate folder path: scenario/timestamp_model
+                    scenario = data["metadata"].get("scenario")
+                    scenario_folder, run_folder = _generate_folder_path(
+                        data["metadata"]["created"],
+                        data["metadata"]["model"],
+                        scenario,
                     )
-                    eval_dir = Path(args.output) / folder_name
+                    eval_dir = Path(args.output) / scenario_folder / run_folder
                     save_extraction(data, eval_dir / "extraction.json", extraction)
                 else:
                     # Print summary
