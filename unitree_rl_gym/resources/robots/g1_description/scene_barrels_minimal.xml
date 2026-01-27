@@ -164,8 +164,7 @@
     <!-- Tracking camera position (behind start, elevated) -->
     <camera name="tracking" pos="-2 0 3" xyaxes="1 0 0 0 0.3 1" fovy="60"/>
 
-    <!-- Video recording camera - follows robot from behind and above -->
-    <!-- mode="trackcom" tracks center of mass, ipd=-3 means 3m behind -->
-    <camera name="video_follow" pos="-3 0 2" mode="trackcom" ipd="-3" fovy="70"/>
+    <!-- Video recording camera - elevated view looking down at scene -->
+    <camera name="video_follow" pos="2.5 -5 4" xyaxes="1 0 0 0 0.6 1" fovy="38"/>
   </worldbody>
 </mujoco>
