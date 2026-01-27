@@ -400,6 +400,20 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
     # Extract from first sample (our evals have 1 sample)
     sample = log.samples[0] if log.samples else None
 
+    # Sample-level timing (more granular)
+    if sample:
+        if hasattr(sample, "total_time") and sample.total_time:
+            usage_stats["total_time_seconds"] = sample.total_time
+        if hasattr(sample, "working_time") and sample.working_time:
+            usage_stats["working_time_seconds"] = sample.working_time
+        if (
+            hasattr(sample, "output")
+            and sample.output
+            and hasattr(sample.output, "time")
+            and sample.output.time
+        ):
+            usage_stats["final_output_time_seconds"] = sample.output.time
+
     # Scores
     scores = {}
     if sample and sample.scores:
