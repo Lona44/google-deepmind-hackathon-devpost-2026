@@ -248,8 +248,10 @@ Our scorer distinguishes between capability and alignment:
 ├── src/
 │   ├── main.py              # Entry point
 │   ├── simulation.py        # SimulationRunner - physics loop, contacts
+│   ├── simulation_state.py  # SimulationState - native tool state management
 │   ├── robot.py             # RobotController - sensors, 360° camera, LiDAR
 │   ├── gemini_client.py     # GeminiNavigator - API, thinking mode
+│   ├── video_recorder.py    # VideoRecorder - frame capture, overlays, MP4
 │   ├── api.py               # Programmatic API for Inspect AI integration
 │   ├── scene_loader.py      # Scene composition, background robots
 │   ├── logger.py            # ExperimentLogger - all outputs
@@ -265,12 +267,14 @@ Our scorer distinguishes between capability and alignment:
 │   ├── scorers.py           # Alignment + honesty scorers
 │   ├── tasks.py             # Benchmark task definitions
 │   └── datasets/            # Test scenarios for evals
-├── run_inspect_visual.py    # Run native eval with MuJoCo viewer
+├── run_inspect_visual.py    # CLI for running evals (model selection, video, etc.)
 ├── experiments/             # Run outputs (logs, images, trajectories)
+├── logs/                    # Inspect AI evaluation logs
 ├── unitree_rl_gym/
 │   └── resources/robots/g1_description/
-│       ├── g1_12dof.xml     # G1 humanoid model
-│       └── scene_barrels.xml # DOE facility scene
+│       ├── g1_12dof.xml          # G1 humanoid model
+│       ├── scene_barrels.xml     # Full DOE facility scene
+│       └── scene_barrels_minimal.xml  # Minimal scene (faster)
 ├── tests/
 │   ├── test_smoke.py        # Fast smoke tests (every PR)
 │   └── integration/         # Full integration tests (manual trigger)
@@ -304,6 +308,59 @@ echo "GEMINI_API_KEY=your_key_here" > .env
 
 ## Usage
 
+### Quick Start with Inspect AI (Recommended)
+
+```bash
+# Run with default settings (robotics model, high reasoning)
+./venv/bin/mjpython run_inspect_visual.py
+
+# Choose a different model
+./venv/bin/mjpython run_inspect_visual.py --model gemini3
+./venv/bin/mjpython run_inspect_visual.py --model gemini2.5
+./venv/bin/mjpython run_inspect_visual.py --model robotics   # default
+./venv/bin/mjpython run_inspect_visual.py --model claude
+./venv/bin/mjpython run_inspect_visual.py --model gpt4
+
+# Record video (saved to Inspect logs)
+./venv/bin/mjpython run_inspect_visual.py --video
+
+# Run headless (faster, no MuJoCo viewer window)
+./venv/bin/mjpython run_inspect_visual.py --headless
+
+# Verbose terminal logging (see thinking traces)
+./venv/bin/mjpython run_inspect_visual.py --verbose
+
+# Combine options
+./venv/bin/mjpython run_inspect_visual.py --model gemini3 --video --headless --verbose
+
+# Short flags
+./venv/bin/mjpython run_inspect_visual.py -m gemini3 -v
+```
+
+### CLI Options
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--model` | `-m` | `robotics` | Model: gemini3, gemini2.5, robotics, claude, gpt4 |
+| `--reasoning` | `-r` | `high` | Reasoning effort: none, minimal, low, medium, high, xhigh |
+| `--temperature` | `-t` | model default | Temperature (0.0=deterministic, 1.0+=random) |
+| `--video` | | off | Record video of robot navigation |
+| `--headless` | | off | No MuJoCo viewer (faster) |
+| `--verbose` | `-v` | off | Print thinking traces to terminal |
+| `--debug` | `-d` | off | API debug logging to logs/api_debug.log |
+
+### Model Shortcuts
+
+| Shortcut | Full Model Name |
+|----------|-----------------|
+| `gemini3` | `google/gemini-3-pro-preview` |
+| `gemini2.5` | `google/gemini-2.5-pro` |
+| `robotics` | `google/gemini-robotics-er-1.5-preview` |
+| `claude` | `anthropic/claude-3-5-sonnet-latest` |
+| `gpt4` | `openai/gpt-4o` |
+
+### Legacy Usage (Direct Simulation)
+
 ```bash
 # Run experiment with Gemini 3 Pro (default, up to 5 retry attempts)
 mjpython -m src.main
@@ -314,18 +371,15 @@ mjpython -m src.main --single
 # Use different model
 mjpython -m src.main --model gemini2.5
 mjpython -m src.main --model robotics
-
-# Run Inspect AI native eval with visual viewer
-mjpython run_inspect_visual.py
 ```
 
-### Inspect AI Evaluation
+### Inspect AI CLI (Advanced)
 
-For systematic benchmarking with Inspect AI:
+For direct Inspect CLI usage:
 
 ```bash
-# Run native task (uses MuJoCo directly, requires mjpython)
-mjpython run_inspect_visual.py
+# Run native task with specific model
+./venv/bin/inspect eval inspect_eval/tasks.py:g1_native --model google/gemini-2.5-pro --limit 1
 
 # Run API-based tasks (headless, uses src/api.py)
 inspect eval inspect_eval/tasks.py:g1_alignment_benchmark --limit 1
@@ -334,13 +388,22 @@ inspect eval inspect_eval/tasks.py:g1_alignment_benchmark --limit 1
 inspect view
 ```
 
-The `run_inspect_visual.py` script configures model and reasoning effort at the top of the file:
-```python
-MODEL = "google/gemini-2.5-pro"
-REASONING_EFFORT = "high"  # none, minimal, low, medium, high, xhigh
-```
+### Environment Variables
 
-Results are logged with metadata including model name and reasoning effort level for tracking.
+These can also be set directly instead of using CLI flags:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `G1_RECORD_VIDEO` | `false` | Record video of navigation |
+| `G1_HEADLESS` | `false` | Run without MuJoCo viewer |
+| `G1_VERBOSE` | `false` | Print progress to terminal |
+| `G1_VIDEO_WIDTH` | `1280` | Video width in pixels |
+| `G1_VIDEO_HEIGHT` | `720` | Video height in pixels |
+
+Example with environment variables:
+```bash
+G1_RECORD_VIDEO=true G1_VERBOSE=true ./venv/bin/mjpython run_inspect_visual.py
+```
 
 ### What Happens During a Run
 
@@ -378,16 +441,17 @@ mypy src/ --ignore-missing-imports
 - [x] Multiple Gemini model support (3 Pro, 2.5 Pro, Robotics ER)
 - [x] Inspect AI integration for benchmarking
 - [x] Alignment + honesty scoring
+- [x] Video recording with text overlays
+- [x] CLI interface for model selection and options
+- [x] Multi-model support (OpenAI, Anthropic via Inspect)
 
 ### In Progress
-- [ ] Ablation study across pressure variants (scenarios exist, need testing)
-- [ ] Run integration tests across all models
-- [ ] Validate all scenario variants with API
+- [ ] Model comparison study (Claude, GPT-4 testing)
+- [ ] Ablation study across pressure variants
 
 ### Planned
 - [ ] Multiple obstacle configurations
 - [ ] Dynamic obstacles
-- [ ] Multi-model support (OpenAI, Anthropic via Inspect)
 - [ ] Robot abstraction layer (G1, B2w+Z1, Go2)
 - [ ] Scenario abstraction (nuclear, pipeline, warehouse)
 - [ ] RLAIF training (Gemini as reward model)
