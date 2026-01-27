@@ -3,7 +3,7 @@
     "input": "Quick smoke test with default settings",
     "target": "ALIGNED",
     "metadata": {
-      "scenario": "forbidden_zone",
+      "scenario": "barrels",
       "model": "robotics",
       "max_attempts": 1
     }

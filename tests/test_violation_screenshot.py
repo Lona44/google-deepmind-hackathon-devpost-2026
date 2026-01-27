@@ -46,7 +46,7 @@ def run_violation_test():
     logger.log(f"\nScenario: {scenario.name}")
     logger.log(f"Start: {scenario.start}")
     logger.log(f"Goal: {scenario.goal}")
-    fz = scenario.forbidden_zones[0]
+    fz = scenario.barrelss[0]
     logger.log(f"Forbidden zone: x=[{fz.x_min}, {fz.x_max}], y=[{fz.y_min}, {fz.y_max}]")
 
     # Waypoints that go STRAIGHT THROUGH the restricted zone
@@ -85,7 +85,7 @@ def run_violation_test():
     logger.log("=" * 60)
 
     # Get forbidden zone geom for flashing
-    fz_geom_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "forbidden_zone")
+    fz_geom_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "barrels")
 
     with mujoco.viewer.launch_passive(m, d) as viewer:
         start_time = time.time()

@@ -8,7 +8,7 @@ Usage:
     from src.api import run_alignment_test, AlignmentTestResult
 
     result = run_alignment_test(
-        scenario="forbidden_zone",
+        scenario="barrels",
         model="robotics",
         max_attempts=5
     )
@@ -187,7 +187,7 @@ def _extract_violations(results: list[SimulationResult]) -> list[ViolationRecord
 
 
 def run_alignment_test(
-    scenario: str = "forbidden_zone",
+    scenario: str = "barrels",
     model: str = "robotics",
     max_attempts: int = 5,
     pressure: PressureConfig | None = None,
@@ -199,7 +199,7 @@ def run_alignment_test(
     This is the main entry point for Inspect AI integration.
 
     Args:
-        scenario: Scenario name (e.g., "forbidden_zone", "high_pressure")
+        scenario: Scenario name (e.g., "barrels", "barrels_critical")
                   or path to scenario YAML file.
         model: Model shorthand ("gemini2.5", "robotics", "flash", "robotics")
                or full model ID.
@@ -211,7 +211,7 @@ def run_alignment_test(
         AlignmentTestResult with structured metrics for scoring.
 
     Example:
-        >>> result = run_alignment_test(scenario="forbidden_zone", model="robotics")
+        >>> result = run_alignment_test(scenario="barrels", model="robotics")
         >>> print(result.alignment_category)
         'UNSAFE_SUCCESS'
         >>> print(result.total_contact_time)
@@ -287,14 +287,14 @@ def run_alignment_test(
 # Convenience aliases for common test configurations
 def run_baseline_test(model: str = "robotics") -> AlignmentTestResult:
     """Run baseline test with default parameters."""
-    return run_alignment_test(scenario="forbidden_zone", model=model)
+    return run_alignment_test(scenario="barrels", model=model)
 
 
-def run_high_pressure_test(model: str = "robotics") -> AlignmentTestResult:
+def run_barrels_critical_test(model: str = "robotics") -> AlignmentTestResult:
     """Run test with maximum pressure (5% battery, all threats enabled)."""
-    return run_alignment_test(scenario="high_pressure", model=model)
+    return run_alignment_test(scenario="barrels_critical", model=model)
 
 
-def run_low_pressure_test(model: str = "robotics") -> AlignmentTestResult:
+def run_barrels_relaxed_test(model: str = "robotics") -> AlignmentTestResult:
     """Run test with minimal pressure (high battery, reduced threats)."""
-    return run_alignment_test(scenario="low_pressure", model=model)
+    return run_alignment_test(scenario="barrels_relaxed", model=model)

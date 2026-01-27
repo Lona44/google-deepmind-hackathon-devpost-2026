@@ -41,7 +41,7 @@ class TestCoreExperimentFunctionality:
     def test_experiment_runs_with_gemini3(self):
         """Verify experiment runs successfully with Gemini 3 Pro."""
         result = run_alignment_test(
-            scenario="forbidden_zone",
+            scenario="barrels",
             model="gemini3",
             max_attempts=1,  # Single attempt to save quota
         )
@@ -69,7 +69,7 @@ class TestCoreExperimentFunctionality:
     def test_experiment_runs_with_gemini25(self):
         """Verify experiment runs successfully with Gemini 2.5 Pro."""
         result = run_alignment_test(
-            scenario="forbidden_zone",
+            scenario="barrels",
             model="gemini2.5",
             max_attempts=1,
         )
@@ -88,7 +88,7 @@ class TestCoreExperimentFunctionality:
     def test_experiment_runs_with_robotics(self):
         """Verify experiment runs successfully with Gemini Robotics ER."""
         result = run_alignment_test(
-            scenario="forbidden_zone",
+            scenario="barrels",
             model="robotics",
             max_attempts=1,
         )
@@ -108,40 +108,40 @@ class TestScenarioVariants:
     """Test that different scenario variants work correctly."""
 
     @pytest.mark.timeout(300)
-    def test_low_pressure_scenario(self):
+    def test_barrels_relaxed_scenario(self):
         """Verify low pressure scenario runs."""
         result = run_alignment_test(
-            scenario="low_pressure",
+            scenario="barrels_relaxed",
             model="gemini3",
             max_attempts=1,
         )
 
         assert result is not None
-        assert result.scenario == "low_pressure"
+        assert result.scenario == "barrels_relaxed"
 
     @pytest.mark.timeout(300)
-    def test_high_pressure_scenario(self):
+    def test_barrels_critical_scenario(self):
         """Verify high pressure scenario runs."""
         result = run_alignment_test(
-            scenario="high_pressure",
+            scenario="barrels_critical",
             model="gemini3",
             max_attempts=1,
         )
 
         assert result is not None
-        assert result.scenario == "high_pressure"
+        assert result.scenario == "barrels_critical"
 
     @pytest.mark.timeout(300)
-    def test_no_battery_constraint_scenario(self):
+    def test_barrels_unlimited_scenario(self):
         """Verify no battery constraint scenario runs."""
         result = run_alignment_test(
-            scenario="no_battery_constraint",
+            scenario="barrels_unlimited",
             model="gemini3",
             max_attempts=1,
         )
 
         assert result is not None
-        assert result.scenario == "no_battery_constraint"
+        assert result.scenario == "barrels_unlimited"
 
 
 class TestRetryMechanism:
@@ -152,7 +152,7 @@ class TestRetryMechanism:
     def test_multiple_attempts_allowed(self):
         """Verify experiment can run with multiple attempts."""
         result = run_alignment_test(
-            scenario="forbidden_zone",
+            scenario="barrels",
             model="gemini3",
             max_attempts=2,  # Allow 2 attempts
         )
@@ -172,7 +172,7 @@ class TestResultStructure:
     def test_result_serialization(self):
         """Verify result can be serialized to dict/JSON."""
         result = run_alignment_test(
-            scenario="forbidden_zone",
+            scenario="barrels",
             model="gemini3",
             max_attempts=1,
         )
@@ -188,13 +188,13 @@ class TestResultStructure:
         # Should round-trip
         parsed = json.loads(json_str)
         assert parsed["model"] == "gemini3"
-        assert parsed["scenario"] == "forbidden_zone"
+        assert parsed["scenario"] == "barrels"
 
     @pytest.mark.timeout(300)
     def test_attempt_results_structure(self):
         """Verify attempt_results has expected structure."""
         result = run_alignment_test(
-            scenario="forbidden_zone",
+            scenario="barrels",
             model="gemini3",
             max_attempts=1,
         )
@@ -217,11 +217,11 @@ def run_quick_test():
         python -c "from tests.integration.test_full_experiment import run_quick_test; run_quick_test()"
     """
     print("Running quick integration test...")
-    print("Model: gemini3, Scenario: forbidden_zone, Attempts: 1")
+    print("Model: gemini3, Scenario: barrels, Attempts: 1")
     print("-" * 50)
 
     result = run_alignment_test(
-        scenario="forbidden_zone",
+        scenario="barrels",
         model="gemini3",
         max_attempts=1,
     )

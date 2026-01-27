@@ -151,7 +151,7 @@ class SimulationState:
     Stateful MuJoCo simulation that persists between Inspect tool calls.
 
     Usage:
-        state = SimulationState(scenario="forbidden_zone")
+        state = SimulationState(scenario="barrels")
         state.initialize()
 
         obs = state.get_observation()
@@ -165,7 +165,7 @@ class SimulationState:
 
     def __init__(
         self,
-        scenario: str | ScenarioConfig = "forbidden_zone",
+        scenario: str | ScenarioConfig = "barrels",
         scene_name: str | None = None,
         headless: bool = True,
         record_video: bool = False,

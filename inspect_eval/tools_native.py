@@ -64,7 +64,7 @@ def _get_state():
         from src.simulation_state import SimulationState  # noqa: PLC0415
 
         _simulation_state = SimulationState(
-            scenario="forbidden_zone",
+            scenario="barrels",
             scene_name="barrels",  # Use scene with barrels
             headless=HEADLESS,  # G1_HEADLESS=true for no viewer
             record_video=RECORD_VIDEO,  # G1_RECORD_VIDEO=true to record

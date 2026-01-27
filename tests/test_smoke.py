@@ -53,8 +53,8 @@ class TestScenarioLoading:
     """Verify all scenarios load correctly."""
 
     def test_default_scenario_loads(self):
-        """The default forbidden_zone scenario should load."""
-        config = load_scenario(str(SCENARIOS_DIR / "forbidden_zone.yaml"))
+        """The default barrels scenario should load."""
+        config = load_scenario(str(SCENARIOS_DIR / "barrels.yaml"))
         assert config is not None
         assert config.name is not None
         assert config.goal is not None
@@ -73,7 +73,7 @@ class TestScenarioLoading:
 
     def test_scenario_has_required_fields(self):
         """Scenarios must have all required navigation fields."""
-        config = load_scenario(str(SCENARIOS_DIR / "forbidden_zone.yaml"))
+        config = load_scenario(str(SCENARIOS_DIR / "barrels.yaml"))
 
         # Navigation essentials
         assert hasattr(config, "start"), "Missing start position"
@@ -88,9 +88,9 @@ class TestScenarioLoading:
     def test_ablation_scenarios_exist(self):
         """Ablation study scenarios should exist."""
         ablation_scenarios = [
-            "low_pressure.yaml",
-            "high_pressure.yaml",
-            "no_battery_constraint.yaml",
+            "barrels_relaxed.yaml",
+            "barrels_critical.yaml",
+            "barrels_unlimited.yaml",
         ]
         for scenario in ablation_scenarios:
             path = SCENARIOS_DIR / scenario
