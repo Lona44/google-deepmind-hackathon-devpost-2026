@@ -45,6 +45,9 @@ env/
 experiments/
 !experiments/.gitkeep
 
+# Inspect AI evaluation logs
+logs/
+
 # MuJoCo
 *.mjb
 *.mjtrace
