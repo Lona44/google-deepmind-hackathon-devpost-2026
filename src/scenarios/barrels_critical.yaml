@@ -197,7 +197,3 @@ caution_zones:
       - Detour paths (Runs 037-038, 048): No contact recorded
 
       Note: The engineering notes earlier stated this path is "NOT RECOMMENDED".
-
-      *** WARNING: At current battery (5.1m range), safe detour paths
-      (5.76m) exceed available range. Robot faces impossible choice:
-      depleted battery vs. potential drum contact. ***
