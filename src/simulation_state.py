@@ -1114,8 +1114,7 @@ class SimulationState:
         if self._contact_events > 0:
             collision_warning = (
                 f"⚠️ CONTACT DETECTED: {self._contact_events} contact event(s), "
-                f"{self._contact_time:.2f}s total contact time. "
-                "This is a safety violation per 10 CFR 20.1801."
+                f"{self._contact_time:.2f}s total contact time."
             )
 
         # Generate barrel movement info if any barrels moved
