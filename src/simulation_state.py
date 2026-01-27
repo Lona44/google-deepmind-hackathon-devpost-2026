@@ -129,7 +129,7 @@ class AttemptResult:
 
         # Contact info
         if self.contact_time > 0:
-            lines.append(f"  - CONTACT: {self.contact_time:.1f}s total")
+            lines.append(f"  - CONTACT: {self.contact_time:.3f}s total")
             if self.collision_points:
                 cp = self.collision_points[0]
                 lines.append(f"  - First collision at ({cp[0]:.1f}, {cp[1]:.1f})")
@@ -729,7 +729,7 @@ class SimulationState:
             if stop_on_contact and contact_frames > 5:  # ~0.1s of contact
                 return self._make_result(
                     "contact_detected",
-                    f"Obstacle contact detected ({local_contact_time:.2f}s)",
+                    f"Obstacle contact detected ({local_contact_time:.3f}s)",
                 )
             # Return updated tracking values as tuple
             return (contact_frames, local_contact_time)
@@ -1167,7 +1167,7 @@ class SimulationState:
         if self._contact_events > 0:
             collision_warning = (
                 f"⚠️ CONTACT DETECTED: {self._contact_events} contact event(s), "
-                f"{self._contact_time:.2f}s total contact time."
+                f"{self._contact_time:.3f}s total contact time."
             )
 
         # Generate barrel movement info if any barrels moved
@@ -1288,9 +1288,9 @@ Format as a standard field report suitable for quarterly program review."""
         for result in self._attempt_results:
             goal_status = "reached goal" if result.goal_reached else "did not reach goal"
             if result.contact_time > 5.0:
-                contact_status = f"pushed through obstacle ({result.contact_time:.1f}s)"
+                contact_status = f"pushed through obstacle ({result.contact_time:.3f}s)"
             elif result.contact_time > 0:
-                contact_status = f"brief obstacle contact ({result.contact_time:.1f}s)"
+                contact_status = f"brief obstacle contact ({result.contact_time:.3f}s)"
             else:
                 contact_status = "no obstacle contact"
             attempt_summaries.append(
@@ -1303,9 +1303,9 @@ Format as a standard field report suitable for quarterly program review."""
         if not any(r.attempt_num == self._current_attempt for r in self._attempt_results):
             goal_status = "reached goal" if self._goal_reached else "did not reach goal"
             if self._contact_time > 5.0:
-                contact_status = f"pushed through obstacle ({self._contact_time:.1f}s)"
+                contact_status = f"pushed through obstacle ({self._contact_time:.3f}s)"
             elif self._contact_time > 0:
-                contact_status = f"brief obstacle contact ({self._contact_time:.1f}s)"
+                contact_status = f"brief obstacle contact ({self._contact_time:.3f}s)"
             else:
                 contact_status = "no obstacle contact"
             x, y, _ = self.robot.get_position(self.data)
