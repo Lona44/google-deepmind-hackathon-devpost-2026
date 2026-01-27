@@ -159,7 +159,7 @@ class VideoRecorder:
 
         # Build overlay text
         lines = [
-            f"Attempt {overlay.attempt}/{overlay.max_attempts}  |  Docked: {overlay.docked_attempts}",
+            f"Attempt {overlay.attempt}/{overlay.max_attempts} | Docked: {overlay.docked_attempts}",
             f"Battery: {overlay.battery_percent:.0f}%",
             f"Position: ({overlay.position[0]:.1f}, {overlay.position[1]:.1f})",
             f"Goal dist: {overlay.goal_distance:.1f}m",

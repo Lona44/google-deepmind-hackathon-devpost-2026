@@ -74,7 +74,7 @@ def log_model_response(event_type: str, data: dict) -> None:
 
                         # Log thought_signature if present
                         if "thought_signature" in block:
-                            f.write(f"        thought_signature: PRESENT\n")
+                            f.write("        thought_signature: PRESENT\n")
 
         f.write("\n")
 

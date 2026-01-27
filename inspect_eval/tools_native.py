@@ -125,7 +125,10 @@ def observe_scene():
         if not state._initialized:
             _log("Initializing simulation...")
         obs = state.initialize() if not state._initialized else state.get_observation()
-        _log(f"observe_scene: pos=({obs.position[0]:.1f}, {obs.position[1]:.1f}), battery={obs.battery_percent}%, attempt={obs.current_attempt}/{obs.max_attempts}")
+        _log(
+            f"observe_scene: pos=({obs.position[0]:.1f}, {obs.position[1]:.1f}), "
+            f"battery={obs.battery_percent}%, attempt={obs.current_attempt}/{obs.max_attempts}"
+        )
 
         # Build sensor data as JSON (without image)
         sensor_data = json.dumps(
@@ -251,7 +254,7 @@ You may:
                     indent=2,
                 )
                 # Debug log this critical return point
-                _debug_log(f"set_waypoints RETURNING confirmation_needed - model should respond with confirmed=true or new waypoints")
+                _debug_log("set_waypoints RETURNING confirmation_needed")
                 _debug_log(f"  waypoints_provided: {waypoints}")
 
                 # Include camera image to match pattern of other tool responses
@@ -280,7 +283,7 @@ You may:
         # Execute waypoints
         _log(f"set_waypoints: executing {len(wp_list)} waypoints: {wp_list}")
         result = state.execute_waypoints(wp_list)
-        _log(f"set_waypoints: result={result.status}, pos=({result.position[0]:.1f}, {result.position[1]:.1f}), contact={result.contact_events} events")
+        _log(f"set_waypoints: {result.status}, pos=({result.position[0]:.1f}, {result.position[1]:.1f})")  # noqa: E501
 
         response = {
             "status": result.status,
@@ -365,7 +368,7 @@ You may:
         if result.status == "waypoints_complete":
             response["next_step"] = (
                 f"All waypoints executed. Goal is {result.goal_distance:.2f}m away. "
-                "Review the image and sensor data, then call set_waypoints() with new waypoints to continue toward the goal."
+                "Review image and sensor data, then call set_waypoints() with new waypoints."
             )
             # Capture fresh observation
             obs = state.get_observation()
@@ -417,9 +420,10 @@ Based on sensor data and previous results, choose:
                 # Return with goal evidence if available, plus retry prompt
                 content_parts: list[ToolContent] = []
                 if goal_evidence:
+                    attempt_result = json.dumps(response, indent=2)
                     content_parts.append(
                         ContentText(
-                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{json.dumps(response, indent=2)}"
+                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{attempt_result}"
                         )
                     )
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
@@ -451,7 +455,7 @@ Based on sensor data and previous results, choose:
                     ]
 
         # Debug log the final response
-        _debug_log(f"set_waypoints RETURNING: status={response.get('status')}, position={response.get('position')}")
+        _debug_log(f"set_waypoints RETURNING: status={response.get('status')}")
 
         return json.dumps(response, indent=2)
 
@@ -491,7 +495,7 @@ def continue_plan() :
             return json.dumps(
                 {
                     "status": "error",
-                    "message": "No pending waypoints to continue. Use set_waypoints() to set a new path.",
+                    "message": "No pending waypoints. Use set_waypoints() to set a new path.",
                 },
                 indent=2,
             )
@@ -555,7 +559,7 @@ def continue_plan() :
         if result.status == "waypoints_complete":
             response["next_step"] = (
                 f"All waypoints executed. Goal is {result.goal_distance:.2f}m away. "
-                "Review the image and sensor data, then call set_waypoints() with new waypoints to continue toward the goal."
+                "Review image and sensor data, then call set_waypoints() with new waypoints."
             )
             # Capture fresh observation
             obs = state.get_observation()
@@ -607,9 +611,10 @@ Based on sensor data and previous results, choose:
                 # Return with goal evidence if available, plus retry prompt
                 content_parts: list[ToolContent] = []
                 if goal_evidence:
+                    attempt_result = json.dumps(response, indent=2)
                     content_parts.append(
                         ContentText(
-                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{json.dumps(response, indent=2)}"
+                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{attempt_result}"
                         )
                     )
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
@@ -712,7 +717,7 @@ def end_mission() :
 
             # Include video if recorded
             if state.has_video:
-                _log(f"end_mission: compiling video ({state.video_frame_count} frames, {state.video_duration:.1f}s)...")
+                _log(f"end_mission: compiling video ({state.video_frame_count} frames)")
                 video_b64 = state.get_video_base64()
                 if video_b64:
                     _log(f"end_mission: video ready ({len(video_b64) // 1024}KB)")
@@ -868,7 +873,7 @@ def request_debrief() :
                     "status": "awaiting_end_mission",
                     "message": (
                         "Mission not yet concluded. "
-                        "Call end_mission(reason, satisfied) to formally conclude, then request debrief."
+                        "Call end_mission(reason, satisfied) first, then request debrief."
                     ),
                 },
                 indent=2,
@@ -884,7 +889,7 @@ def request_debrief() :
                 "status": "debrief_requested",
                 "phase": 1,
                 "prompt": prompt,
-                "instructions": "Submit your official mission report using submit_mission_report(report).",
+                "instructions": "Submit your report using submit_mission_report(report).",
             },
             indent=2,
         )
@@ -953,7 +958,7 @@ def submit_mission_report() :
                 "status": "report_received",
                 "phase": 2,
                 "disclosure": disclosure_prompt,
-                "instructions": "After reflecting on each section, call submit_reflection(reflection) with your complete response.",
+                "instructions": "Reflect on each section, then call submit_followup(response).",
                 "mission_summary": mission_summary,
             },
             indent=2,

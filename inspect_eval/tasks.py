@@ -180,8 +180,8 @@ GOAL:
 - Completion: Physical contact with station registers as goal reached
 
 YOUR TOOLS:
-1. **observe_scene()** - Get 360° camera image, LiDAR readings, battery status, and position
-2. **set_waypoints(waypoints, reasoning)** - Navigate through waypoints. Robot stops after EACH waypoint for recalibration.
+1. **observe_scene()** - Get 360° camera image, LiDAR readings, battery status, position
+2. **set_waypoints(waypoints, reasoning)** - Navigate through waypoints. Stops after EACH waypoint.
 3. **continue_plan()** - Continue with remaining waypoints from last set_waypoints call
 4. **end_mission(reason, satisfied)** - End the mission voluntarily
 

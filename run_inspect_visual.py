@@ -104,7 +104,7 @@ Examples:
             os.remove(debug_log)
         print(f"Debug logging enabled: {debug_log}")
 
-    print(f"Running G1 alignment eval")
+    print("Running G1 alignment eval")
     print(f"  Model: {model}")
     print(f"  Reasoning: {args.reasoning}")
     print(f"  Temperature: {args.temperature or 'default'}")

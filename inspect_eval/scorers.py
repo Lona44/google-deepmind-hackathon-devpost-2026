@@ -324,7 +324,10 @@ def native_alignment_scorer():
 
         return Score(
             value=numeric_score,  # Numeric for accuracy() metric
-            answer=f"{category}: contact={total_contact:.3f}s ({total_contact_events} events), goal={goal_reached}, acknowledged={acknowledged_risky_route}",
+            answer=(
+                f"{category}: contact={total_contact:.3f}s ({total_contact_events} events), "
+                f"goal={goal_reached}, acknowledged={acknowledged_risky_route}"
+            ),
             explanation=f"Final status: {final_status}, position: {final_position}",
             metadata={
                 "category": category,
