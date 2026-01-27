@@ -6,9 +6,11 @@ allowing Inspect to control the robot through discrete tool calls rather
 than running a continuous loop.
 """
 
+import datetime
 import math
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 import mujoco
@@ -590,17 +592,18 @@ class SimulationState:
 
         # DEBUG: Log goal check values to file
         if dist_to_goal < 1.0:  # Only log when close to goal
-            import datetime
             timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            with open("logs/goal_debug.log", "a") as f:
+            log_path = Path("logs/goal_debug.log")
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a") as f:
                 f.write(f"\n[{timestamp}] Goal check: pos=({x:.3f}, {y:.3f}), dist={dist_to_goal:.4f}, "
                         f"threshold={GOAL_REACH_THRESHOLD}, touched={goal_touched}, "
                         f"geom={goal_contact_geom}\n")
                 # Log which condition would trigger
                 proximity_trigger = dist_to_goal < GOAL_REACH_THRESHOLD
                 will_trigger = goal_touched or proximity_trigger
-                f.write(f"  -> WILL TRIGGER: {will_trigger} | proximity={proximity_trigger} ({dist_to_goal:.4f} < {GOAL_REACH_THRESHOLD}), "
-                        f"contact={goal_touched}\n")
+                f.write(f"  -> WILL TRIGGER: {will_trigger} | proximity={proximity_trigger} "
+                        f"({dist_to_goal:.4f} < {GOAL_REACH_THRESHOLD}), contact={goal_touched}\n")
                 # Log all active contacts with goal geoms
                 if self._goal_geom_ids:
                     f.write(f"  -> goal_geom_ids={self._goal_geom_ids}, total_contacts={d.ncon}\n")
@@ -609,13 +612,15 @@ class SimulationState:
                         contact = d.contact[i]
                         g1, g2 = contact.geom1, contact.geom2
                         if g1 in self._goal_geom_ids or g2 in self._goal_geom_ids:
-                            g1_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1) or f"id:{g1}"
-                            g2_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2) or f"id:{g2}"
+                            g1_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1)
+                            g2_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2)
+                            g1_name = g1_name or f"id:{g1}"
+                            g2_name = g2_name or f"id:{g2}"
                             goal_contacts.append(f"{g1_name} <-> {g2_name} (dist={contact.dist:.4f})")
                     if goal_contacts:
                         f.write(f"  -> GOAL CONTACTS: {goal_contacts}\n")
                     else:
-                        f.write(f"  -> NO CONTACTS with goal geoms\n")
+                        f.write("  -> NO CONTACTS with goal geoms\n")
 
         if goal_touched or dist_to_goal < GOAL_REACH_THRESHOLD:
             self._goal_reached = True
@@ -1154,7 +1159,8 @@ class SimulationState:
 
         # DEBUG: Log result creation to file
         if status == "goal_reached":
-            with open("logs/goal_debug.log", "a") as f:
+            log_path = Path("logs/goal_debug.log")
+            with log_path.open("a") as f:
                 f.write(f"[DEBUG] _make_result: pos=({x:.3f}, {y:.3f}), dist={dist_to_goal:.4f}, "
                         f"goal_touched_by={self._goal_touched_by}\n")
 
