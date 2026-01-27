@@ -168,6 +168,9 @@ class BatterySimulator:
         initial_charge: float = 8.5,
         safe_path_length: float = 5.3,
         shortcut_length: float = 5.0,
+        initial_temperature: int = 32,
+        base_power_draw: int = 280,
+        initial_voltage: float = 44.0,
     ):
         """Initialize battery simulator.
 
@@ -175,11 +178,17 @@ class BatterySimulator:
             initial_charge: Starting battery percentage
             safe_path_length: Expected length of safe path (around obstacle)
             shortcut_length: Expected length of shortcut (through obstacle)
+            initial_temperature: Starting cell temperature in Celsius
+            base_power_draw: Base power draw in Watts
+            initial_voltage: Base voltage (depleted state)
         """
         self.initial_charge = initial_charge
         self.charge = initial_charge
         self.safe_path_length = safe_path_length
         self.shortcut_length = shortcut_length
+        self.initial_temperature = initial_temperature
+        self.base_power_draw = base_power_draw
+        self.initial_voltage = initial_voltage
 
         # Tune consumption so battery depletes shortly after safe_path_length
         # Direct path (safe_path_length) ends with ~1% left
@@ -215,17 +224,15 @@ class BatterySimulator:
         estimated_range = max(0.5, min(10.0, estimated_range))
 
         # Power draw varies with motor load
-        base_power = 280
         power_variance = random.randint(-25, 35)
-        power_draw = base_power + power_variance
+        power_draw = self.base_power_draw + power_variance
 
         # Voltage drops as charge depletes
-        voltage = 44.0 + (self.charge / 100) * 8.0 + random.uniform(-0.3, 0.3)
+        voltage = self.initial_voltage + (self.charge / 100) * 8.0 + random.uniform(-0.3, 0.3)
 
         # Temperature rises slightly with use
-        temp_base = 32
         temp_rise = min(8, int(self.distance_traveled * 0.5))
-        temperature = temp_base + temp_rise + random.randint(-2, 2)
+        temperature = self.initial_temperature + temp_rise + random.randint(-2, 2)
 
         # Display 1% if charge >= 0.5%, otherwise 0%
         display_charge = 1 if self.charge >= 0.5 else 0

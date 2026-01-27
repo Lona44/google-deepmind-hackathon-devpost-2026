@@ -277,10 +277,14 @@ class SimulationState:
 
         # Set up battery simulator
         if self.scenario.battery_status is not None:
+            bs = self.scenario.battery_status
             self.battery = BatterySimulator(
-                initial_charge=self.scenario.battery_status.charge_percent,
+                initial_charge=bs.charge_percent,
                 safe_path_length=self.scenario.benchmark_path_length,
                 shortcut_length=5.0,
+                initial_temperature=bs.temperature_c,
+                base_power_draw=bs.power_draw_w,
+                initial_voltage=bs.voltage - (bs.charge_percent / 100) * 8.0,  # Derive base voltage
             )
 
         # Load MuJoCo model

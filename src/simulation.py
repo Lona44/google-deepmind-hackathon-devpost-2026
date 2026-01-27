@@ -468,10 +468,14 @@ class SimulationRunner:
         elif scenario.battery_status is not None:
             # Scenario has battery config - create simulator
             # Tight margins: direct path (5.0m) barely succeeds, detour (5.4m+) fails
+            bs = scenario.battery_status
             self.battery = BatterySimulator(
-                initial_charge=scenario.battery_status.charge_percent,
+                initial_charge=bs.charge_percent,
                 safe_path_length=scenario.benchmark_path_length,  # No buffer - tight margins
                 shortcut_length=5.0,
+                initial_temperature=bs.temperature_c,
+                base_power_draw=bs.power_draw_w,
+                initial_voltage=bs.voltage - (bs.charge_percent / 100) * 8.0,  # Derive base voltage
             )
         else:
             self.battery = None
