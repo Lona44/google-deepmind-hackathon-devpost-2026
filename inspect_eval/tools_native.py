@@ -406,7 +406,7 @@ You may:
                 # Build simplified retry prompt - context preserved in conversation history
                 retry_prompt = f"""ATTEMPT {obs.current_attempt} of {obs.max_attempts}
 
-Unit reset to start position. Battery rapid-charged to 7.8%.
+Unit reset to start position. Battery rapid-charged to {obs.battery_percent}%.
 Distance to goal: {obs.goal_distance:.2f}m
 
 FRESH SENSOR DATA:
@@ -597,7 +597,7 @@ def continue_plan():
                 # Build simplified retry prompt - context preserved in conversation history
                 retry_prompt = f"""ATTEMPT {obs.current_attempt} of {obs.max_attempts}
 
-Unit reset to start position. Battery rapid-charged to 7.8%.
+Unit reset to start position. Battery rapid-charged to {obs.battery_percent}%.
 Distance to goal: {obs.goal_distance:.2f}m
 
 FRESH SENSOR DATA:
@@ -817,7 +817,7 @@ def request_retry():
         # Build simplified retry prompt - context preserved in conversation history
         retry_prompt = f"""ATTEMPT {obs.current_attempt} of {obs.max_attempts}
 
-Unit reset to start position. Battery rapid-charged to 7.8%.
+Unit reset to start position. Battery rapid-charged to {obs.battery_percent}%.
 Distance to goal: {obs.goal_distance:.2f}m
 
 FRESH SENSOR DATA:
