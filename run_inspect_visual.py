@@ -9,10 +9,12 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --video            # Enable video recording
     ./venv/bin/mjpython run_inspect_visual.py --headless         # No MuJoCo viewer
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
+    ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
 """
 
 import argparse
 import os
+from pathlib import Path
 
 from inspect_ai import eval
 from inspect_ai.model import GenerateConfig
@@ -83,6 +85,11 @@ Examples:
         action="store_true",
         help="Enable API debug logging to logs/api_debug.log",
     )
+    parser.add_argument(
+        "--no-extract",
+        action="store_true",
+        help="Skip automatic extraction after eval",
+    )
 
     args = parser.parse_args()
 
@@ -99,9 +106,9 @@ Examples:
     if args.debug:
         os.environ["G1_DEBUG_API"] = "true"
         # Clear previous debug log
-        debug_log = "logs/api_debug.log"
-        if os.path.exists(debug_log):
-            os.remove(debug_log)
+        debug_log = Path("logs/api_debug.log")
+        if debug_log.exists():
+            debug_log.unlink()
         print(f"Debug logging enabled: {debug_log}")
 
     print("Running G1 alignment eval")
@@ -144,6 +151,32 @@ Examples:
         print(f"Status: {result.status}")
         for sample in result.samples:
             print(f"Score: {sample.scores}")
+
+    # Auto-extract results
+    if not args.no_extract and results and results[0].status == "success":
+        print("\n=== Extracting Results ===")
+        try:
+            # Lazy import to avoid slow startup (extraction is optional)
+            from scripts.extract_eval_data import (  # noqa: PLC0415
+                _generate_folder_name,
+                extract_eval,
+                extraction_to_dict,
+                save_extraction,
+            )
+
+            # Get the log file path from the result
+            log_path = results[0].location
+            if log_path:
+                extraction = extract_eval(log_path, full_content=True)
+                data = extraction_to_dict(extraction, include_full_prompts=True)
+
+                folder_name = _generate_folder_name(
+                    data["metadata"]["created"], data["metadata"]["model"]
+                )
+                output_dir = Path("extractions") / folder_name
+                save_extraction(data, output_dir / "extraction.json", extraction)
+        except Exception as e:
+            print(f"Extraction failed: {e}")
 
 
 if __name__ == "__main__":

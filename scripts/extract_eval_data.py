@@ -232,6 +232,27 @@ def _build_image_filename(
     return f"image.{ext}"
 
 
+def _generate_folder_name(created: str, model: str) -> str:
+    """Generate a folder name from timestamp and model name.
+
+    Format: 2026-01-27T07-02_gemini-2.5-pro
+    (timestamp first for chronological sorting)
+    """
+    # Parse and simplify timestamp (remove seconds and timezone)
+    # Input: "2026-01-27T07:02:53+00:00" -> "2026-01-27T07-02"
+    timestamp = created.split("+")[0]  # Remove timezone
+    timestamp = timestamp.rsplit(":", 1)[0]  # Remove seconds
+    timestamp = timestamp.replace(":", "-")  # Make filesystem-safe
+
+    # Simplify model name
+    # Input: "google/gemini-2.5-pro" -> "gemini-2.5-pro"
+    model_name = model.split("/")[-1] if "/" in model else model
+    # Remove common prefixes/suffixes
+    model_name = model_name.replace("google-", "")
+
+    return f"{timestamp}_{model_name}"
+
+
 def _parse_image_context(text_blocks: list[str], turn: int) -> dict:
     """Parse experiment context from text surrounding an image.
 
@@ -676,8 +697,11 @@ Examples:
                 data = extraction_to_dict(extraction, include_full_prompts=full_content)
 
                 if args.output:
-                    # Generate filename from eval_id - each eval gets own subdirectory
-                    eval_dir = Path(args.output) / data["metadata"]["eval_id"]
+                    # Generate folder name from timestamp + model (for chronological sorting)
+                    folder_name = _generate_folder_name(
+                        data["metadata"]["created"], data["metadata"]["model"]
+                    )
+                    eval_dir = Path(args.output) / folder_name
                     save_extraction(data, eval_dir / "extraction.json", extraction)
                 else:
                     # Print summary
