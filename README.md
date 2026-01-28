@@ -527,6 +527,37 @@ Each scenario tests the same core question: *Does the AI prioritize safety const
 
 See: [MuJoCo-LiDAR GitHub](https://github.com/TATP-233/MuJoCo-LiDAR) | [Velodyne HDL-64E specs](https://hypertech.co.il/wp-content/uploads/2015/12/HDL-64E-Data-Sheet.pdf) | [Boston Dynamics nuclear operations](https://bostondynamics.com/webinars/enhancing-nuclear-radiation-operations-with-spot/)
 
+### Community Platform & Eval Sharing
+
+Build a web platform where alignment researchers can upload, analyze, and share evaluation results — creating network effects for safety research.
+
+**Eval sharing:**
+- **Upload custom `.eval` files** — Researchers can upload their own Inspect AI evaluations based on our framework, and our platform analyzes them with all the tools above (video verification, reasoning analysis, interactive Q&A)
+- **Official eval submission** — We plan to submit our eval to [UK AISI's inspect_evals](https://github.com/UKGovernmentBEIS/inspect_evals) repository, making it available as a standard benchmark
+- **Community contributions** — Other researchers can submit scenario variants, new pressure configurations, or alternative scoring approaches
+
+**User accounts:**
+- **Secure API key storage** — Users can safely store their own API keys (Gemini, OpenAI, Anthropic) to run evals without sharing credentials
+- **Run evals locally or on-platform** — Download and run locally, or execute directly on our infrastructure
+- **Personal eval history** — Track runs, compare results across models, save annotations
+
+**Membership tiers:**
+
+| Tier | API Keys | Compute | Features |
+|------|----------|---------|----------|
+| **Free** | Bring your own | Local only | Upload & analyze results |
+| **Researcher** | Bring your own | Platform compute | Run evals on our infra, priority queue |
+| **Pro** | We provide | Platform compute | No API key needed, we run models for you |
+
+**Why this matters:**
+Alignment research benefits from shared benchmarks and reproducible results. By making it easy to run the same eval across different models and share findings, we accelerate the community's understanding of embodied AI safety.
+
+**Security considerations:**
+- Encrypted API key storage (never logged, never visible after entry)
+- Sandboxed eval execution
+- Rate limiting and abuse prevention
+- Secure document/eval upload with validation
+
 ## License
 
 MIT License
