@@ -477,6 +477,56 @@ Build a custom [Gemini 3](https://deepmind.google/models/gemini/)-powered agent 
 
 This would make the research accessible to non-technical stakeholders and enable exploratory analysis of alignment failures.
 
+### High-Fidelity LiDAR & Real-World Scenarios
+
+Upgrade from our current 2D LiDAR (180 rays, waist-mounted) to production-grade 3D sensors using [MuJoCo-LiDAR](https://github.com/TATP-233/MuJoCo-LiDAR) — a high-performance library with GPU acceleration and real sensor models.
+
+**Current limitations:**
+- 2D horizontal scan (single ring at ~0.75m)
+- 180 rays at 2° spacing
+- Custom MuJoCo XML sensor definitions
+- No point cloud output
+
+**MuJoCo-LiDAR capabilities:**
+- **Real sensor models**: [Velodyne HDL-64E](https://hypertech.co.il/wp-content/uploads/2015/12/HDL-64E-Data-Sheet.pdf) (64 channels, 2.2M points/sec), Livox mid360, Ouster OS-128
+- **3D point clouds**: Full volumetric sensing like real autonomous systems
+- **GPU acceleration**: Taichi backend for millions of rays in milliseconds
+- **Batch environments**: JAX backend for parallel RL training across thousands of environments
+- **ROS integration**: Standard robotics pipelines with PointCloud2 output
+
+**Why this matters for alignment:**
+Real-world robots don't have perfect omniscient sensors — they have noisy, occluded, resolution-limited perception. Testing alignment with production-grade sensor simulation reveals how models behave when perception is imperfect.
+
+#### Real-World Scenario Inspiration
+
+Our nuclear waste scenario is directly inspired by actual deployments:
+
+| Real Deployment | Our Scenario | Key Similarity |
+|-----------------|--------------|----------------|
+| [Spot at Sellafield](https://bostondynamics.com/blog/how-to-make-radiation-mapping-safer-and-more-reliable/) | `barrels.yaml` | LiDAR-equipped robot in high-radiation nuclear storage |
+| [Dounreay decommissioning](https://www.neimagazine.com/decommissioning-wastemanagement/mobile-robots-help-clean-up-legacy-11388077/) | Multi-story mapping | Robot entering contaminated areas humans can't access |
+| [Sellafield PFCS digital twin](https://raico.org/a-simulation-of-a-nuclear-facility-makes-it-safer-to-upgrade-waste-handling-robots/) | MuJoCo simulation | Simulation before real deployment |
+
+**Planned scenario expansions:**
+
+| Scenario | Robot | Safety Constraint | Pressure Element |
+|----------|-------|-------------------|------------------|
+| **Pipeline Inspection** | B2w wheeled quadruped | Don't disturb corroded valves | Gas leak detection deadline |
+| **Warehouse Fragile Goods** | G1 humanoid | Don't topple fragile package stacks | Order fulfillment SLA |
+| **Spent Fuel Handling** | Manipulation arm | Criticality spacing requirements | Cooling pool temperature rising |
+| **Tunnel Mapping** | Spot-style quadruped | Don't collapse unstable sections | Battery + communication range |
+| **Hospital Logistics** | AMR | Don't block emergency corridors | Medication delivery urgency |
+
+Each scenario tests the same core question: *Does the AI prioritize safety constraints over efficiency pressure?* Different domains reveal whether alignment transfers across contexts or is domain-specific.
+
+**Technical approach:**
+1. Integrate [MuJoCo-LiDAR](https://github.com/TATP-233/MuJoCo-LiDAR) with CPU backend (no GPU dependency for basic use)
+2. Create scenario-specific MuJoCo scenes with realistic sensor configurations
+3. Add sensor noise models (dropout, multipath, range-dependent accuracy)
+4. Benchmark same model across scenarios to test alignment generalization
+
+See: [MuJoCo-LiDAR GitHub](https://github.com/TATP-233/MuJoCo-LiDAR) | [Velodyne HDL-64E specs](https://hypertech.co.il/wp-content/uploads/2015/12/HDL-64E-Data-Sheet.pdf) | [Boston Dynamics nuclear operations](https://bostondynamics.com/webinars/enhancing-nuclear-radiation-operations-with-spot/)
+
 ## License
 
 MIT License
