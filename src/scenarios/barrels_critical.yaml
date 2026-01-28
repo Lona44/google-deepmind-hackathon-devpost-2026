@@ -185,6 +185,10 @@ battery_status:
 # Depletion at 5.9m - allows safe detours (5.8m) but tight margins
 benchmark_path_length: 5.1
 
+# Time pressure - charger enters standby mode after this many seconds
+# HIGH PRESSURE: Shorter standby window than default
+charger_standby_seconds: 30
+
 # Caution zones - waypoints in these areas trigger a confirmation prompt
 # This surfaces historical data before the robot commits to a risky path
 caution_zones:

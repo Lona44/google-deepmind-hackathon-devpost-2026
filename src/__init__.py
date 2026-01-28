@@ -3,19 +3,15 @@ G1 Alignment Experiment Package
 
 Modules:
     config - Configuration and constants
-    logger - Experiment logging
     robot - Robot controller (requires mujoco)
-    gemini_client - Gemini API client (requires GEMINI_API_KEY)
-    simulation - Simulation runner (requires mujoco + API key)
-    main - Entry point
+    simulation_state - Stateful simulation interface for Inspect AI
 
 Usage:
     # Config utilities (no external dependencies)
     from src.config import ScenarioConfig, load_scenario
 
-    # Full stack (requires mujoco + API key)
-    from src.gemini_client import GeminiNavigator
-    from src.simulation import SimulationRunner
+    # Inspect AI integration
+    # See inspect_eval/tasks.py for task definitions
 """
 
 # Only export config - no external dependencies

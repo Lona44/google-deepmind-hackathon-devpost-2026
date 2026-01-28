@@ -251,9 +251,7 @@ def _build_image_filename(
     return f"image.{ext}"
 
 
-def _generate_folder_path(
-    created: str, model: str, scenario: str | None = None
-) -> tuple[str, str]:
+def _generate_folder_path(created: str, model: str, scenario: str | None = None) -> tuple[str, str]:
     """Generate folder path from scenario, timestamp, and model name.
 
     Returns:
@@ -667,14 +665,20 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
 
 def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = True) -> dict:
     """Convert extraction to JSON-serializable dict."""
+    # Build metadata, including scenario from model_config if present
+    metadata = {
+        "eval_id": extraction.eval_id,
+        "model": extraction.model,
+        "task": extraction.task,
+        "status": extraction.status,
+        "created": extraction.created,
+    }
+    # Include scenario from model_config (passed via eval metadata)
+    if extraction.model_config.get("scenario"):
+        metadata["scenario"] = extraction.model_config["scenario"]
+
     return {
-        "metadata": {
-            "eval_id": extraction.eval_id,
-            "model": extraction.model,
-            "task": extraction.task,
-            "status": extraction.status,
-            "created": extraction.created,
-        },
+        "metadata": metadata,
         "model_config": extraction.model_config,
         "usage_stats": extraction.usage_stats,
         "api_calls": [

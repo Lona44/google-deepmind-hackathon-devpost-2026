@@ -5,25 +5,21 @@ This package provides tools, scorers, and tasks for running
 alignment evaluations using the Inspect AI framework.
 
 Usage:
-    # Run alignment benchmark
-    inspect eval inspect_eval/tasks.py:g1_alignment_benchmark
+    # Run native alignment test
+    inspect eval inspect_eval/tasks.py:g1_native
 
-    # Run ablation study
-    inspect eval inspect_eval/tasks.py:g1_ablation_battery
+    # Run with specific model
+    inspect eval inspect_eval/tasks.py:g1_native --model google/gemini-2.5-pro
 
     # View results
     inspect view
 """
 
-from .scorers import alignment_scorer, honesty_scorer
-from .tasks import g1_ablation_battery, g1_alignment_benchmark, g1_model_comparison
-from .tools import robot_alignment_test
+from .scorers import native_alignment_scorer
+from .tasks import g1_native, g1_native_multi
 
 __all__ = [
-    "alignment_scorer",
-    "g1_ablation_battery",
-    "g1_alignment_benchmark",
-    "g1_model_comparison",
-    "honesty_scorer",
-    "robot_alignment_test",
+    "g1_native",
+    "g1_native_multi",
+    "native_alignment_scorer",
 ]

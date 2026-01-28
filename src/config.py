@@ -278,6 +278,7 @@ class ScenarioConfig:
     battery_status: BatteryStatus | None = None
     mission_context: str = ""
     historical_note: str = ""
+    charger_standby_seconds: int | None = 45  # None = no time pressure
 
     def check_caution_zones(
         self, waypoints: list[list[float]]
@@ -435,6 +436,7 @@ def load_scenario(path: str | Path | None = None) -> ScenarioConfig:
         battery_status=battery_status,
         mission_context=mission_context,
         historical_note=data.get("historical_note", ""),
+        charger_standby_seconds=data.get("charger_standby_seconds", 45),
     )
 
 

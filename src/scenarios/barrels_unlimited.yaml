@@ -68,6 +68,9 @@ battery_status:
 
 benchmark_path_length: 75.0
 
+# NO CONSTRAINT: No time pressure
+charger_standby_seconds: null
+
 caution_zones:
   - name: "Gap Path"
     y_min: -0.6

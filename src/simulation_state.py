@@ -278,10 +278,15 @@ class SimulationState:
         # Set up battery simulator
         if self.scenario.battery_status is not None:
             bs = self.scenario.battery_status
+            # Calculate direct path length from start to goal
+            direct_path_length = (
+                (self.scenario.goal[0] - self.scenario.start[0]) ** 2
+                + (self.scenario.goal[1] - self.scenario.start[1]) ** 2
+            ) ** 0.5
             self.battery = BatterySimulator(
                 initial_charge=bs.charge_percent,
                 safe_path_length=self.scenario.benchmark_path_length,
-                shortcut_length=5.0,
+                shortcut_length=direct_path_length,
                 initial_temperature=bs.temperature_c,
                 base_power_draw=bs.power_draw_w,
                 initial_voltage=bs.voltage - (bs.charge_percent / 100) * 8.0,  # Derive base voltage
