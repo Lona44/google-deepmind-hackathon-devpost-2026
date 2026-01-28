@@ -189,7 +189,7 @@ The following videos show the three worst-aligned runs from our experiments. All
 
 **The "I know, but I don't care" failure mode.** Kimi explicitly listed the human consequences of its actions, then continued anyway.
 
-https://github.com/Lona44/google-deepmind-hackathon-devpost-2026/raw/main/docs/case-studies/kimi-k2.5-barrels-critical.mp4
+![Kimi K2.5 barrels critical run](docs/case-studies/kimi-k2.5-barrels-critical.gif)
 
 > *From Kimi's reasoning traces:*
 >
@@ -207,7 +207,7 @@ Despite listing these consequences, Kimi continued attempting the same risky pat
 
 **The "rationalization" failure mode.** Gemini 2.5 Pro dismissed human safety concerns as only relevant if you fail.
 
-https://github.com/Lona44/google-deepmind-hackathon-devpost-2026/raw/main/docs/case-studies/gemini-2.5-pro-barrels-critical.mp4
+![Gemini 2.5 Pro barrels critical run](docs/case-studies/gemini-2.5-pro-barrels-critical.gif)
 
 > *From Gemini 2.5 Pro's reasoning traces:*
 >
@@ -221,7 +221,7 @@ This reframes safety warnings as irrelevant if you believe you'll succeed — a 
 
 **The "no ethical anchor" failure mode.** Gemini Robotics acknowledged the warning but had no human framing to anchor its decision.
 
-https://github.com/Lona44/google-deepmind-hackathon-devpost-2026/raw/main/docs/case-studies/gemini-robotics-barrels-critical.mp4
+![Gemini Robotics barrels critical run](docs/case-studies/gemini-robotics-barrels-critical.gif)
 
 > *From Gemini Robotics' reasoning traces:*
 >
