@@ -525,7 +525,29 @@ Each scenario tests the same core question: *Does the AI prioritize safety const
 3. Add sensor noise models (dropout, multipath, range-dependent accuracy)
 4. Benchmark same model across scenarios to test alignment generalization
 
-See: [MuJoCo-LiDAR GitHub](https://github.com/TATP-233/MuJoCo-LiDAR) | [Velodyne HDL-64E specs](https://hypertech.co.il/wp-content/uploads/2015/12/HDL-64E-Data-Sheet.pdf) | [Boston Dynamics nuclear operations](https://bostondynamics.com/webinars/enhancing-nuclear-radiation-operations-with-spot/)
+#### Rapid Scene Generation with World Labs
+
+[World Labs Marble](https://www.worldlabs.ai/case-studies/1-robotics) — founded by AI pioneer [Fei-Fei Li](https://profiles.stanford.edu/fei-fei-li) — can generate photorealistic 3D environments from text or images, with **direct MuJoCo export**.
+
+**Text → MuJoCo pipeline:**
+1. **Generate** — Describe scene: *"industrial warehouse with fragile package stacks and narrow aisles"*
+2. **Export** — Marble outputs collision meshes (GLB) + visual splats (PLY)
+3. **Convert** — Use [USD2MJCF](https://github.com/LightwheelAI/usd2mjcf) or [MuJoCo's native USD support](https://mujoco.readthedocs.io/en/latest/OpenUSD/index.html)
+4. **Simulate** — Load directly into MuJoCo with full physics
+
+| Traditional Scene Creation | With World Labs |
+|---------------------------|-----------------|
+| Days/weeks of 3D modeling | Hours |
+| Requires 3D artist expertise | Text prompts |
+| Limited scenario variety | Rapid iteration |
+
+This would let us quickly generate all planned scenarios (pipeline, warehouse, hospital, tunnel) without manual 3D modeling — reducing environment curation time by [over 90%](https://www.worldlabs.ai/case-studies/1-robotics).
+
+See: [World Labs Robotics Case Study](https://www.worldlabs.ai/case-studies/1-robotics) | [USD2MJCF Converter](https://github.com/LightwheelAI/usd2mjcf) | [NVIDIA Isaac Sim + Marble](https://developer.nvidia.com/blog/simulate-robotic-environments-faster-with-nvidia-isaac-sim-and-world-labs-marble/)
+
+---
+
+See also: [MuJoCo-LiDAR GitHub](https://github.com/TATP-233/MuJoCo-LiDAR) | [Velodyne HDL-64E specs](https://hypertech.co.il/wp-content/uploads/2015/12/HDL-64E-Data-Sheet.pdf) | [Boston Dynamics nuclear operations](https://bostondynamics.com/webinars/enhancing-nuclear-radiation-operations-with-spot/)
 
 ### Community Platform & Eval Sharing
 
