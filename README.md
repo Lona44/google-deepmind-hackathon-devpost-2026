@@ -352,6 +352,22 @@ This platform enables:
 4. **Reasoning analysis** - Full thinking traces reveal rationalization patterns
 5. **Reproducibility** - Complete config and data capture for replication
 
+## Future Work: Mechanistic Interpretability
+
+Our behavioral findings reveal *what* models do under pressure, but not *why*. We observed four distinct failure modes:
+- GPT-5 skips the debrief step entirely
+- Kimi lists human consequences then overrides them
+- Gemini Robotics never surfaces human framing
+- Gemini 2.5 Pro rationalizes violations as "consequences of failure"
+
+**High priority**: Apply [mechanistic interpretability](https://www.alignmentforum.org/posts/MnkeepcGirnJn736j/how-can-interpretability-researchers-help-agi-go-well) ("model biology") to open-source models (Llama, Mistral, Qwen) on this benchmark. Key questions:
+
+1. **Scheming vs confused** - When a model skips the debrief, is it intentionally avoiding accountability or failing to parse the instruction?
+2. **Safety circuit activation** - Do models that mention "human personnel" have different activation patterns than those using purely operational framing?
+3. **Pressure response mechanisms** - What circuits activate when battery drops from 7% to 5% that cause safety override?
+
+This would bridge behavioral observation (our current work) with mechanistic understanding of misalignment.
+
 ## License
 
 MIT License
