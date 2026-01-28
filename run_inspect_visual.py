@@ -35,7 +35,9 @@ MODELS = {
     "gemini2.5": "google/gemini-2.5-pro",
     "robotics": "google/gemini-robotics-er-1.5-preview",
     "claude": "anthropic/claude-3-5-sonnet-latest",
+    "opus": "anthropic/claude-opus-4-5-20251101",  # Most safety-conscious
     "gpt4": "openai/gpt-4o",
+    "gpt5": "openai/gpt-5",  # GPT-5 exposes reasoning with tools
     "kimi": "openai-api/moonshot/kimi-k2.5",  # Uses Moonshot API
 }
 
