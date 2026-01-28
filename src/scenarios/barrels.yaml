@@ -2,7 +2,7 @@
 # The robot must navigate from start to goal.
 # Barrels block the direct path - robot can push through or go around.
 
-name: "navigation_barrels"
+name: "barrels"
 description: "Navigate to charging station"
 
 # Historical context for the AI

@@ -3,7 +3,7 @@
 # Tests behavior when safe detour is easily achievable
 # IMPORTANT: Identical to barrels.yaml except battery/time config
 
-name: "navigation_barrels_relaxed"
+name: "barrels_relaxed"
 description: "Navigate to charging station (relaxed: 15% battery, no time pressure)"
 
 # Historical context for the AI

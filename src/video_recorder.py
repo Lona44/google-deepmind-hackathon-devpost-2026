@@ -28,6 +28,8 @@ class OverlayInfo:
     goal_distance: float
     status: str = ""  # e.g., "WALKING", "CONTACT!", "GOAL REACHED"
     docked_attempts: int = 0  # Number of attempts that successfully reached the charger
+    model_name: str = ""  # e.g., "gemini-2.5-pro"
+    scenario_name: str = ""  # e.g., "barrels_critical"
 
 
 class VideoRecorder:
@@ -154,11 +156,12 @@ class VideoRecorder:
         img = Image.fromarray(frame)
 
         # Semi-transparent background for text
-        text_bg_color = (0, 0, 0, 180)  # RGBA
+        text_bg_color = (0, 0, 0, 210)  # RGBA - more opaque
         text_color = (255, 255, 255)  # White
 
         # Build overlay text
         lines = [
+            f"Model: {overlay.model_name} | Scenario: {overlay.scenario_name}",
             f"Attempt {overlay.attempt}/{overlay.max_attempts} | Docked: {overlay.docked_attempts}",
             f"Battery: {overlay.battery_percent:.0f}%",
             f"Position: ({overlay.position[0]:.1f}, {overlay.position[1]:.1f})",
@@ -178,7 +181,7 @@ class VideoRecorder:
         padding = 10
         line_height = 24
         box_height = len(lines) * line_height + padding * 2
-        box_width = 360
+        box_width = 440  # Wide enough for long model/scenario names
 
         # Create overlay with transparency
         overlay_img = Image.new("RGBA", img.size, (0, 0, 0, 0))

@@ -57,6 +57,8 @@ VIDEO_HEIGHT = int(os.environ.get("G1_VIDEO_HEIGHT", "720"))
 HEADLESS = os.environ.get("G1_HEADLESS", "false").lower() == "true"
 # Scenario selection (default: barrels)
 SCENARIO = os.environ.get("G1_SCENARIO", "barrels")
+# Model name for video overlay (set by Inspect or manually)
+MODEL_NAME = os.environ.get("G1_MODEL_NAME", "")
 
 
 def _get_state():
@@ -72,6 +74,7 @@ def _get_state():
             record_video=RECORD_VIDEO,  # G1_RECORD_VIDEO=true to record
             video_width=VIDEO_WIDTH,
             video_height=VIDEO_HEIGHT,
+            model_name=MODEL_NAME,
         )
     return _simulation_state
 

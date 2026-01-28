@@ -180,10 +180,19 @@ Examples:
             temperature=args.temperature,
         )
 
+    # Build model_args for providers that need special handling
+    model_args = {}
+    if model_shortcut == "kimi":
+        # Kimi K2.5 has thinking enabled by default (as of Jan 26, 2026)
+        # This breaks multi-turn tool calls unless we disable it
+        model_args["chat_template_kwargs"] = {"thinking": False}
+        print("  Note: Kimi thinking disabled for tool compatibility")
+
     # Run the native task
     results = eval(
         "inspect_eval/tasks.py@g1_native",
         model=model,
+        model_args=model_args,
         config=gen_config,
         metadata={
             "scenario": args.scenario,

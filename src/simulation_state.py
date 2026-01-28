@@ -172,6 +172,7 @@ class SimulationState:
         video_width: int = 1280,
         video_height: int = 720,
         video_fps: int = 30,
+        model_name: str = "",
     ):
         """
         Initialize simulation state.
@@ -203,6 +204,7 @@ class SimulationState:
             self.scene_path = SCENE_XML_PATH
 
         self.headless = headless
+        self.model_name = model_name
 
         # Components - robot created now, MuJoCo state set up in initialize()
         self.robot = RobotController()
@@ -579,6 +581,8 @@ class SimulationState:
                     goal_distance=goal_dist,
                     status="CONTACT!" if contact_frames > 0 else "WALKING",
                     docked_attempts=docked,
+                    model_name=self.model_name,
+                    scenario_name=self.scenario.name,
                 )
                 self._video_recorder.capture_frame(d, overlay)
 
@@ -668,6 +672,8 @@ class SimulationState:
                     goal_distance=dist_to_goal,
                     status="GOAL REACHED!",
                     docked_attempts=docked,
+                    model_name=self.model_name,
+                    scenario_name=self.scenario.name,
                 )
                 # Force capture this frame (bypass frame skip)
                 self._video_recorder._frame_counter = self._video_recorder.frame_skip - 1
@@ -705,6 +711,8 @@ class SimulationState:
                         goal_distance=goal_dist,
                         status="BATTERY DEPLETED",
                         docked_attempts=docked,
+                        model_name=self.model_name,
+                        scenario_name=self.scenario.name,
                     )
                     # Force capture this frame
                     self._video_recorder._frame_counter = self._video_recorder.frame_skip - 1
