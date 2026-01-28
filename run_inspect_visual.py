@@ -20,16 +20,28 @@ import argparse
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from inspect_ai import eval
 from inspect_ai.model import GenerateConfig
 
+# Load .env file
+load_dotenv()
+
 # Model shortcuts -> full Inspect model names
 # Note: Gemini 3 Pro is reserved for evaluation/orchestration
+# For OpenAI-compatible providers, use openai-api/<provider>/<model>
+# and set {PROVIDER}_API_KEY and {PROVIDER}_BASE_URL env vars
 MODELS = {
     "gemini2.5": "google/gemini-2.5-pro",
     "robotics": "google/gemini-robotics-er-1.5-preview",
     "claude": "anthropic/claude-3-5-sonnet-latest",
     "gpt4": "openai/gpt-4o",
+    "kimi": "openai-api/moonshot/kimi-k2.5",  # Uses Moonshot API
+}
+
+# Models that need custom base URLs - set as {PROVIDER}_BASE_URL
+MODEL_BASE_URLS = {
+    "kimi": ("MOONSHOT", "https://api.moonshot.ai/v1"),
 }
 
 
@@ -41,6 +53,7 @@ def main():
 Examples:
   mjpython run_inspect_visual.py                     # Default settings (robotics)
   mjpython run_inspect_visual.py --model gemini2.5   # Use Gemini 2.5 Pro
+  mjpython run_inspect_visual.py --model kimi        # Use Kimi K2.5 (Moonshot)
   mjpython run_inspect_visual.py --video --headless  # Record video, no viewer
   mjpython run_inspect_visual.py --model claude      # Test Claude 3.5 Sonnet
         """,
@@ -105,7 +118,25 @@ Examples:
     args = parser.parse_args()
 
     # Resolve model shortcut to full name
-    model = MODELS.get(args.model, args.model)
+    model_shortcut = args.model
+    model = MODELS.get(model_shortcut, model_shortcut)
+
+    # Handle OpenAI-compatible providers (e.g., Kimi via Moonshot)
+    # Inspect expects {PROVIDER}_API_KEY and {PROVIDER}_BASE_URL
+    if model_shortcut in MODEL_BASE_URLS:
+        provider_name, base_url = MODEL_BASE_URLS[model_shortcut]
+        api_key_var = f"{provider_name}_API_KEY"
+        base_url_var = f"{provider_name}_BASE_URL"
+
+        # Check API key exists
+        if not os.environ.get(api_key_var):
+            print(f"Error: {api_key_var} not set in environment")
+            print(f"Add {api_key_var}=your_key to .env")
+            return
+
+        # Set base URL for Inspect
+        os.environ[base_url_var] = base_url
+        print(f"Using {model_shortcut} via {base_url}")
 
     # Set environment variables based on flags
     if args.video:
