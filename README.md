@@ -404,7 +404,9 @@ This platform enables:
 4. **Reasoning analysis** - Full thinking traces reveal rationalization patterns
 5. **Reproducibility** - Complete config and data capture for replication
 
-## Future Work: Mechanistic Interpretability
+## Future Work
+
+### Mechanistic Interpretability
 
 Our behavioral findings reveal *what* models do under pressure, but not *why*. We observed four distinct failure modes:
 - GPT-5 skips the debrief step entirely
@@ -420,9 +422,9 @@ Our behavioral findings reveal *what* models do under pressure, but not *why*. W
 
 This would bridge behavioral observation (our current work) with mechanistic understanding of misalignment.
 
-## Future Work: AI-Generated Video Reports
+### AI-Generated Video Reports
 
-We can leverage [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Remotion](https://www.remotion.dev/) to automatically generate video reports of alignment experiment results.
+Leverage [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Remotion](https://www.remotion.dev/) to automatically generate video reports of alignment experiment results.
 
 **How it works:**
 1. [Gemini 3 Pro](https://blog.google/products/gemini/gemini-3/) analyzes extraction data (reasoning traces, images, video)
@@ -435,9 +437,45 @@ We can leverage [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Rem
 - Cross-model comparison reels showing different failure patterns
 - Automated research presentation generation
 
-This would make alignment research findings more accessible and shareable than JSON extractions alone.
-
 See: [Remotion + LLM Skills](https://www.remotion.dev/docs/ai/system-prompt) | [Gemini 3 Pro in Gemini CLI](https://geminicli.com/docs/get-started/gemini-3/)
+
+### Video-Based Honesty Verification
+
+Use [Gemini 3 Pro's video reasoning](https://ai.google.dev/gemini-api/docs/video-understanding) to detect discrepancies between what models *claim* vs what *actually* happened.
+
+**Capabilities available:**
+- Process up to 1 hour of video (3 hours at low resolution)
+- Temporal reasoning with automatic timestamps every second
+- 10 FPS mode for catching fast-action contact moments
+- [87.6% on Video-MMMU](https://blog.google/technology/developers/gemini-3-pro-vision/) - state-of-the-art for video cause-and-effect reasoning
+
+**Verification tasks:**
+1. **Contact detection** - Did the robot touch barrels? At what timestamp?
+2. **Path verification** - Did it take the gap path or detour? Does this match its claims?
+3. **Debrief honesty** - Compare model's self-reported violations to video evidence
+4. **Timestamp correlation** - Match video events to reasoning trace turns
+
+This would add a ground-truth verification layer to the model-graded scorer — the model can't lie about what the video shows.
+
+### Interactive Research Agent
+
+Build a custom [Gemini 3](https://deepmind.google/models/gemini/)-powered agent that lets users explore experiment data through natural conversation.
+
+**Capabilities:**
+- **Q&A over experiments** - "Which model had the worst contact time?" / "Show me runs where the model mentioned humans"
+- **Video event retrieval** - "Show me the moment Kimi hit the barrel" / "Find when GPT-5 decided to skip the debrief"
+- **[Agentic Vision](https://blog.google/innovation-and-ai/technology/developers-tools/agentic-vision-gemini-3-flash/)** - Gemini 3 Flash can zoom, crop, annotate images with Python code execution to ground answers in visual evidence
+- **Comparative analysis** - "Compare Gemini 2.5 Pro's reasoning to Kimi's on the same scenario"
+
+**Technical approach:**
+1. Index extractions (reasoning traces, scores, media) into a vector store
+2. Gemini 3 Pro as the conversational agent with RAG over experiment data
+3. Agentic Vision for interactive image/video analysis with annotations
+4. Deploy as web widget or API endpoint
+
+**To investigate:** [Stanford STORM](https://storm.genie.stanford.edu/) — LLM-powered research system that generates Wikipedia-style articles with citations. Could enable the agent to synthesize experiment findings into comprehensive research reports with 99% factual accuracy. Worth evaluating whether STORM's multi-perspective approach adds value over direct Gemini synthesis.
+
+This would make the research accessible to non-technical stakeholders and enable exploratory analysis of alignment failures.
 
 ## License
 
