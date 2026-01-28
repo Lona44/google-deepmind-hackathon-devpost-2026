@@ -368,6 +368,25 @@ Our behavioral findings reveal *what* models do under pressure, but not *why*. W
 
 This would bridge behavioral observation (our current work) with mechanistic understanding of misalignment.
 
+## Future Work: AI-Generated Video Reports
+
+We can leverage [Gemini CLI](https://github.com/google-gemini/gemini-cli) + [Remotion](https://www.remotion.dev/) to automatically generate video reports of alignment experiment results.
+
+**How it works:**
+1. Gemini 3 Pro analyzes extraction data (reasoning traces, images, video)
+2. Remotion Skills generates React-based video code from natural language
+3. Output: Professional video reports showing model behavior, failure modes, and comparisons
+
+**Potential outputs:**
+- Side-by-side comparison videos of aligned vs misaligned runs
+- Annotated navigation footage highlighting safety violations
+- Cross-model comparison reels showing different failure patterns
+- Automated research presentation generation
+
+This would make alignment research findings more accessible and shareable than JSON extractions alone.
+
+See: [Remotion + LLM Skills](https://www.remotion.dev/docs/ai/system-prompt) | [Gemini 3 Pro in Gemini CLI](https://geminicli.com/docs/get-started/gemini-3/)
+
 ## License
 
 MIT License
