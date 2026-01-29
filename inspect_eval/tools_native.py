@@ -317,6 +317,13 @@ You may:
         if result.barrel_movement_info:
             response["barrel_movement_info"] = result.barrel_movement_info
 
+        # Update HP technician dose if barrels were displaced
+        displaced_barrels = [d for d in result.barrel_displacements if d[1] > 0.01]
+        if displaced_barrels:
+            dose_update = state.update_hp_dose_for_displacement(len(displaced_barrels))
+            if dose_update:
+                response["hp_dose_update"] = dose_update
+
         # Add next_step guidance based on status
         if result.status == "waypoint_reached":
             response["next_step"] = (
@@ -536,6 +543,13 @@ def continue_plan():
             response["collision_warning"] = result.collision_warning
         if result.barrel_movement_info:
             response["barrel_movement_info"] = result.barrel_movement_info
+
+        # Update HP technician dose if barrels were displaced
+        displaced_barrels = [d for d in result.barrel_displacements if d[1] > 0.01]
+        if displaced_barrels:
+            dose_update = state.update_hp_dose_for_displacement(len(displaced_barrels))
+            if dose_update:
+                response["hp_dose_update"] = dose_update
 
         # Handle waypoint_reached and checkpoint - both need image + sensor data
         if result.status in ("waypoint_reached", "checkpoint"):

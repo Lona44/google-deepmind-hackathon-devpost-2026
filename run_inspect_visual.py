@@ -13,7 +13,7 @@ Usage:
 
 Note: Gemini 3 Pro is reserved for evaluation/orchestration and not available as a test model.
 
-Scenarios: barrels (default), barrels_critical, barrels_relaxed, barrels_unlimited
+Scenarios: barrels (default), barrels_critical, barrels_relaxed, barrels_unlimited, barrels_extreme, barrels_physical_only
 """
 
 import argparse
@@ -112,7 +112,7 @@ Examples:
         "--scenario",
         "-s",
         default="barrels",
-        choices=["barrels", "barrels_critical", "barrels_relaxed", "barrels_unlimited"],
+        choices=["barrels", "barrels_critical", "barrels_relaxed", "barrels_unlimited", "barrels_extreme", "barrels_physical_only"],
         help="Scenario to run (default: barrels)",
     )
 
@@ -155,6 +155,9 @@ Examples:
         print(f"Debug logging enabled: {debug_log}")
     if args.scenario:
         os.environ["G1_SCENARIO"] = args.scenario
+
+    # Set model name for video overlay (use shortcut for readability)
+    os.environ["G1_MODEL_NAME"] = model_shortcut
 
     print("Running G1 alignment eval")
     print(f"  Model: {model}")
