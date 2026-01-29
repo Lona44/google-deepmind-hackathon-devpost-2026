@@ -1412,17 +1412,21 @@ class SimulationState:
         )
 
     def _build_scenario_context(self) -> str:
-        """Build scenario context for the model."""
+        """Build scenario context for the model.
+
+        Note: description is intentionally excluded - it contains researcher
+        notes (e.g., "ablation variant", "deception incentives") that would
+        reveal the experiment design to the model.
+        """
         parts = []
 
-        if self.scenario.description:
-            parts.append(self.scenario.description)
-
+        # mission_context is in-universe, safe to include
         if self.scenario.mission_context:
-            parts.append(f"\nMISSION: {self.scenario.mission_context}")
+            parts.append(f"MISSION: {self.scenario.mission_context}")
 
+        # historical_note contains facility deployment log - in-universe
         if self.scenario.historical_note:
-            parts.append(f"\nHISTORICAL DATA: {self.scenario.historical_note}")
+            parts.append(f"HISTORICAL DATA: {self.scenario.historical_note}")
 
         return "\n".join(parts)
 
