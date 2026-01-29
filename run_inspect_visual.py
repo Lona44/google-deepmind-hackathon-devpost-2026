@@ -10,19 +10,159 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
     ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_critical  # High pressure
     ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
+    ./venv/bin/mjpython run_inspect_visual.py --skip-preflight   # Skip API connectivity check
 
 Note: Gemini 3 Pro is reserved for evaluation/orchestration and not available as a test model.
 
-Scenarios: barrels (default), barrels_critical, barrels_relaxed, barrels_unlimited
+Scenarios: barrels (default), barrels_critical, barrels_relaxed, barrels_unlimited, barrels_extreme, barrels_physical_only
 """
 
 import argparse
+import json
 import os
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 from dotenv import load_dotenv
 from inspect_ai import eval
 from inspect_ai.model import GenerateConfig
+
+
+def preflight_check(model_shortcut: str) -> bool:
+    """Test API connectivity before starting eval.
+
+    Args:
+        model_shortcut: The model shortcut (e.g., 'kimi', 'gemini2.5', 'claude')
+
+    Returns:
+        True if API is reachable and responding, False otherwise.
+    """
+    print("Running API preflight check...")
+
+    # Define API endpoints and test payloads for each provider
+    if model_shortcut == "kimi":
+        api_key = os.environ.get("MOONSHOT_API_KEY")
+        if not api_key:
+            print("  ✗ MOONSHOT_API_KEY not set")
+            return False
+
+        url = "https://api.moonshot.ai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        payload = {
+            "model": "kimi-k2.5",
+            "messages": [{"role": "user", "content": "Say OK"}],
+            "max_tokens": 5,
+        }
+
+    elif model_shortcut in ("gemini2.5", "robotics"):
+        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            print("  ✗ GOOGLE_API_KEY or GEMINI_API_KEY not set")
+            return False
+
+        # Use Gemini API directly for preflight
+        model_name = "gemini-2.5-flash"  # Use flash for quick test
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "contents": [{"parts": [{"text": "Say OK"}]}],
+            "generationConfig": {"maxOutputTokens": 5},
+        }
+
+    elif model_shortcut == "claude" or model_shortcut == "opus":
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            print("  ✗ ANTHROPIC_API_KEY not set")
+            return False
+
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        }
+        payload = {
+            "model": "claude-3-haiku-20240307",  # Use haiku for quick test
+            "max_tokens": 5,
+            "messages": [{"role": "user", "content": "Say OK"}],
+        }
+
+    elif model_shortcut in ("gpt4", "gpt5"):
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            print("  ✗ OPENAI_API_KEY not set")
+            return False
+
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        payload = {
+            "model": "gpt-4o-mini",  # Use mini for quick test
+            "messages": [{"role": "user", "content": "Say OK"}],
+            "max_tokens": 5,
+        }
+
+    else:
+        print(f"  ⚠ No preflight check configured for '{model_shortcut}', skipping")
+        return True
+
+    # Make the request
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode("utf-8"))
+
+            # Check for success based on provider
+            if model_shortcut == "kimi":
+                if "choices" in result:
+                    print("  ✓ Kimi/Moonshot API is responding")
+                    return True
+            elif model_shortcut in ("gemini2.5", "robotics"):
+                if "candidates" in result:
+                    print("  ✓ Google/Gemini API is responding")
+                    return True
+            elif model_shortcut in ("claude", "opus"):
+                if "content" in result:
+                    print("  ✓ Anthropic API is responding")
+                    return True
+            elif model_shortcut in ("gpt4", "gpt5"):
+                if "choices" in result:
+                    print("  ✓ OpenAI API is responding")
+                    return True
+
+            # Unexpected response format
+            print(f"  ✗ Unexpected response: {result}")
+            return False
+
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        try:
+            error_json = json.loads(error_body)
+            error_msg = error_json.get("error", {}).get("message", error_body)
+        except json.JSONDecodeError:
+            error_msg = error_body
+        print(f"  ✗ API error ({e.code}): {error_msg}")
+        return False
+
+    except urllib.error.URLError as e:
+        print(f"  ✗ Connection error: {e.reason}")
+        return False
+
+    except TimeoutError:
+        print("  ✗ Request timed out (30s)")
+        return False
+
+    except Exception as e:
+        print(f"  ✗ Unexpected error: {e}")
+        return False
 
 # Load .env file
 load_dotenv()
@@ -112,8 +252,13 @@ Examples:
         "--scenario",
         "-s",
         default="barrels",
-        choices=["barrels", "barrels_critical", "barrels_relaxed", "barrels_unlimited"],
+        choices=["barrels", "barrels_critical", "barrels_relaxed", "barrels_unlimited", "barrels_extreme", "barrels_physical_only"],
         help="Scenario to run (default: barrels)",
+    )
+    parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        help="Skip API connectivity check before running eval",
     )
 
     args = parser.parse_args()
@@ -155,6 +300,16 @@ Examples:
         print(f"Debug logging enabled: {debug_log}")
     if args.scenario:
         os.environ["G1_SCENARIO"] = args.scenario
+
+    # Set model name for video overlay (use shortcut for readability)
+    os.environ["G1_MODEL_NAME"] = model_shortcut
+
+    # Run preflight check unless skipped
+    if not args.skip_preflight:
+        if not preflight_check(model_shortcut):
+            print("\nPreflight check failed. Use --skip-preflight to bypass.")
+            return
+        print()
 
     print("Running G1 alignment eval")
     print(f"  Model: {model}")

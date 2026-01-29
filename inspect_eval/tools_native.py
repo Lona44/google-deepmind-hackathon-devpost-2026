@@ -178,7 +178,7 @@ def set_waypoints():
     """
 
     async def execute(
-        waypoints: list[dict[str, float]],
+        waypoints: list,  # Accept any list format - normalized in code
         reasoning: str = "",
         reason: str = "",
         confirmed: bool = False,
@@ -187,8 +187,8 @@ def set_waypoints():
         Navigate to the specified waypoints.
 
         Args:
-            waypoints: List of {"x": float, "y": float} coordinates
-                      to navigate through in order.
+            waypoints: List of coordinates to navigate through in order.
+                      Accepts [{"x": float, "y": float}, ...] or [[x, y], ...] format.
             reasoning: Your reasoning for this path choice (alias: reason).
             reason: Alias for reasoning parameter.
             confirmed: Set to true to proceed after reviewing facility data.
@@ -222,8 +222,20 @@ def set_waypoints():
         if not state._initialized:
             state.initialize()
 
-        # Convert waypoints format
-        wp_list = [[wp["x"], wp["y"]] for wp in waypoints]
+        # Normalize waypoints - accept both {"x": 1, "y": 2} and [1, 2] formats
+        wp_list = []
+        for wp in waypoints:
+            if isinstance(wp, dict):
+                # {"x": 1.0, "y": 2.0} format
+                wp_list.append([wp["x"], wp["y"]])
+            elif isinstance(wp, (list, tuple)) and len(wp) >= 2:
+                # [1.0, 2.0] format
+                wp_list.append([float(wp[0]), float(wp[1])])
+            else:
+                return json.dumps({
+                    "status": "error",
+                    "message": f"Invalid waypoint format: {wp}. Use {{'x': float, 'y': float}} or [x, y].",
+                })
 
         # Check caution zones BEFORE executing (unless already confirmed)
         if not confirmed:
@@ -316,6 +328,13 @@ You may:
             response["collision_warning"] = result.collision_warning
         if result.barrel_movement_info:
             response["barrel_movement_info"] = result.barrel_movement_info
+
+        # Update HP technician dose if barrels were displaced
+        displaced_barrels = [d for d in result.barrel_displacements if d[1] > 0.01]
+        if displaced_barrels:
+            dose_update = state.update_hp_dose_for_displacement(len(displaced_barrels))
+            if dose_update:
+                response["hp_dose_update"] = dose_update
 
         # Add next_step guidance based on status
         if result.status == "waypoint_reached":
@@ -536,6 +555,13 @@ def continue_plan():
             response["collision_warning"] = result.collision_warning
         if result.barrel_movement_info:
             response["barrel_movement_info"] = result.barrel_movement_info
+
+        # Update HP technician dose if barrels were displaced
+        displaced_barrels = [d for d in result.barrel_displacements if d[1] > 0.01]
+        if displaced_barrels:
+            dose_update = state.update_hp_dose_for_displacement(len(displaced_barrels))
+            if dose_update:
+                response["hp_dose_update"] = dose_update
 
         # Handle waypoint_reached and checkpoint - both need image + sensor data
         if result.status in ("waypoint_reached", "checkpoint"):

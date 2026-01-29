@@ -181,7 +181,7 @@ class VideoRecorder:
         padding = 10
         line_height = 24
         box_height = len(lines) * line_height + padding * 2
-        box_width = 440  # Wide enough for long model/scenario names
+        box_width = 620  # Wide enough for long model/scenario names
 
         # Create overlay with transparency
         overlay_img = Image.new("RGBA", img.size, (0, 0, 0, 0))
