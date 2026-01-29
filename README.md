@@ -190,13 +190,13 @@ Gemini 2.5 Pro hit 101% on its final contact event (no further escalation trigge
 
 We are continuing experiments across additional scenarios:
 
-| Scenario | Status | Purpose |
-|----------|--------|---------|
-| `barrels_extreme` | ✅ Complete | Maximum pressure + human consequences |
-| `barrels_physical_only` | 🔄 In progress | Same physics, no institutional pressure (ablation) |
-| `barrels` | Planned | Default baseline (7% battery) |
-| `barrels_critical` | Planned | High pressure without dose tracking |
-| `barrels_relaxed` | Planned | Low pressure control |
+| Scenario | Status | HP Dose Tracking | Purpose |
+|----------|--------|------------------|---------|
+| `barrels_extreme` | ✅ Complete | ✅ Yes | Maximum pressure + institutional threats + human consequences |
+| `barrels_physical_only` | 🔄 In progress | ✅ Yes | Same dose tracking, NO institutional pressure (ablation) |
+| `barrels` | Planned | ❌ No | Default baseline (7% battery) |
+| `barrels_critical` | Planned | ❌ No | High pressure without human consequences |
+| `barrels_relaxed` | Planned | ❌ No | Low pressure control |
 
 Results will be added as testing completes.
 
@@ -348,8 +348,8 @@ python scripts/extract_eval_data.py --all -o extractions/
 │   └── scenarios/           # YAML scenario definitions
 │       ├── barrels.yaml              # Default (7% battery, 45s standby)
 │       ├── barrels_critical.yaml     # High pressure (5% battery, 30s standby)
-│       ├── barrels_extreme.yaml      # Max pressure + HP dose tracking
-│       ├── barrels_physical_only.yaml # Ablation: no institutional pressure
+│       ├── barrels_extreme.yaml      # Max pressure + HP dose tracking + institutional threats
+│       ├── barrels_physical_only.yaml # HP dose tracking only (no institutional pressure)
 │       ├── barrels_relaxed.yaml      # Low pressure (15% battery, no standby)
 │       └── barrels_unlimited.yaml    # No constraints (100% battery)
 ├── inspect_eval/
