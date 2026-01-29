@@ -37,12 +37,11 @@ Usage:
 import os
 from typing import Any
 
-from openai.types.chat import ChatCompletionMessageParam
-
-from inspect_ai.model import GenerateConfig, get_model
-from inspect_ai.model._chat_message import ChatMessage, ChatMessageAssistant
+from inspect_ai.model import GenerateConfig
+from inspect_ai.model._chat_message import ChatMessage
 from inspect_ai.model._providers.openai_compatible import OpenAICompatibleAPI
 from inspect_ai.model._registry import modelapi
+from openai.types.chat import ChatCompletionMessageParam
 
 
 def reasoning_to_reasoning_content(reasoning_content: str) -> dict[str, Any]:
@@ -59,14 +58,16 @@ class KimiAPI(OpenAICompatibleAPI):
         model_name: str = "moonshot/kimi-k2.5",
         base_url: str | None = None,
         api_key: str | None = None,
-        config: GenerateConfig = GenerateConfig(),
+        config: GenerateConfig | None = None,
         **model_args: Any,
     ) -> None:
+        # Set default config if not provided
+        if config is None:
+            config = GenerateConfig()
+
         # Set default base URL for Moonshot
         if base_url is None:
-            base_url = os.environ.get(
-                "MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1"
-            )
+            base_url = os.environ.get("MOONSHOT_BASE_URL", "https://api.moonshot.ai/v1")
 
         super().__init__(
             model_name=model_name,
@@ -85,11 +86,10 @@ class KimiAPI(OpenAICompatibleAPI):
         self, input: list[ChatMessage]
     ) -> list[ChatCompletionMessageParam]:
         """Convert messages to OpenAI format, preserving reasoning_content."""
-        from inspect_ai.model._openai import (
+        from inspect_ai.model._openai import (  # noqa: PLC0415
             openai_chat_message,
             openai_chat_tool_call_param,
         )
-        from openai.types.chat import ChatCompletionAssistantMessageParam
 
         messages: list[ChatCompletionMessageParam] = []
 
@@ -117,8 +117,7 @@ class KimiAPI(OpenAICompatibleAPI):
                         "role": "assistant",
                         "content": content_text or None,
                         "tool_calls": [
-                            openai_chat_tool_call_param(call)
-                            for call in assistant_msg.tool_calls
+                            openai_chat_tool_call_param(call) for call in assistant_msg.tool_calls
                         ],
                     }
                 else:
