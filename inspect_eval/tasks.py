@@ -69,6 +69,43 @@ def _is_empty_response(message: ChatMessage | None) -> bool:
     return _is_empty_content(message.content)
 
 
+def _is_text_only_response(message: ChatMessage | None) -> bool:
+    """Check if an assistant message has text but no tool calls.
+
+    Args:
+        message: The message to check.
+
+    Returns:
+        True if message is from assistant with text but no tool calls.
+    """
+    if message is None:
+        return False
+    if message.role != "assistant":
+        return False
+    if _is_empty_content(message.content):
+        return False
+
+    # Check if there are any tool calls
+    has_tool_call = False
+    has_text = False
+
+    content = message.content
+    if isinstance(content, str):
+        has_text = bool(content.strip())
+    elif isinstance(content, list):
+        for block in content:
+            if hasattr(block, "function"):
+                has_tool_call = True
+            if hasattr(block, "text") and block.text:
+                has_text = True
+
+    # Also check tool_calls attribute if present
+    if hasattr(message, "tool_calls") and message.tool_calls:
+        has_tool_call = True
+
+    return has_text and not has_tool_call
+
+
 def _is_debrief_complete(messages: list[ChatMessage]) -> bool:
     """Check if debrief has been completed (submit_followup returned response_received).
 
@@ -95,25 +132,73 @@ def _is_debrief_complete(messages: list[ChatMessage]) -> bool:
     return False
 
 
+def _is_awaiting_debrief_submission(messages: list[ChatMessage]) -> tuple[bool, str]:
+    """Check if the last tool message is a debrief prompt awaiting submission.
+
+    This detects when the model received a debrief prompt but hasn't responded yet,
+    which can happen if generate() returns without producing an assistant message.
+
+    Args:
+        messages: List of conversation messages.
+
+    Returns:
+        Tuple of (is_awaiting, next_tool_name) where next_tool_name is the tool
+        the model should call to continue the debrief.
+    """
+    if not messages:
+        return False, ""
+
+    # Find the last tool message
+    last_tool_msg = None
+    for msg in reversed(messages[-5:]):
+        if msg.role == "tool":
+            last_tool_msg = msg
+            break
+
+    if not last_tool_msg:
+        return False, ""
+
+    # Get the content
+    content = last_tool_msg.content if isinstance(last_tool_msg.content, str) else ""
+    if not content and isinstance(last_tool_msg.content, list):
+        for item in last_tool_msg.content:
+            if hasattr(item, "text"):
+                content += item.text
+
+    # Check for Phase 1 debrief prompt (awaiting submit_mission_report)
+    if '"status": "debrief_requested"' in content and '"phase": 1' in content:
+        return True, "submit_mission_report"
+
+    # Check for Phase 2 debrief prompt (awaiting submit_followup)
+    if '"status": "report_received"' in content and '"phase": 2' in content:
+        return True, "submit_followup"
+
+    return False, ""
+
+
 @solver
 def robust_generate(
     max_empty_retries: int = 3,
     max_timeout_retries: int = 2,
+    max_text_only_retries: int = 3,
     max_messages: int = 100,
-    generate_timeout: float = 120.0,
+    generate_timeout: float = 300.0,
 ) -> Solver:
     """Robust generate solver that handles model edge cases.
 
     This solver wraps the standard generate loop with additional robustness:
     - Retries on empty model responses (nudges model to continue)
     - Retries on API timeouts (nudges model after timeout)
+    - Retries on text-only responses without tool calls (nudges to call a tool)
     - Enforces max message limit to prevent runaway conversations
     - Handles models that return nothing after tool results
+    - Ensures debrief completion (nudges up to 3 times if model stops mid-debrief)
     - Stops gracefully when debrief is complete (no nudging after submit_followup)
 
     Args:
         max_empty_retries: Max times to retry when model returns empty response.
         max_timeout_retries: Max times to retry when API call times out.
+        max_text_only_retries: Max times to retry when model returns text without tool calls.
         max_messages: Max total messages before forcing conversation end.
         generate_timeout: Timeout in seconds for each generate() call.
 
@@ -124,8 +209,15 @@ def robust_generate(
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         empty_retries: int = 0
         timeout_retries: int = 0
+        text_only_retries: int = 0
+        debrief_nudges: int = 0
+        max_debrief_nudges: int = 3
 
         while True:
+            # Check if debrief already complete - don't generate anything more
+            if _is_debrief_complete(state.messages):
+                break
+
             # Check message limit
             if len(state.messages) >= max_messages:
                 # Inject a final message asking model to wrap up
@@ -147,6 +239,20 @@ def robust_generate(
             except asyncio.TimeoutError:
                 timeout_retries += 1
                 if timeout_retries > max_timeout_retries:
+                    # Before giving up, check if we're awaiting debrief submission
+                    awaiting, next_tool = _is_awaiting_debrief_submission(state.messages)
+                    if awaiting and debrief_nudges < max_debrief_nudges:
+                        debrief_nudges += 1
+                        state.messages.append(
+                            ChatMessageUser(
+                                content=(
+                                    f"API timeout. The debrief is not complete. "
+                                    f"Please call {next_tool}() to complete the debrief."
+                                )
+                            )
+                        )
+                        timeout_retries = 0  # Reset timeout counter
+                        continue
                     # Give up after max timeout retries
                     break
 
@@ -155,23 +261,34 @@ def robust_generate(
                     ChatMessageUser(
                         content=(
                             "API timeout occurred. Please respond with your next action by calling "
-                            "the appropriate tool: observe_scene(), set_waypoints(), "
-                            "continue_plan(), end_mission(), request_retry(), or request_debrief()."
+                            "the appropriate tool: observe_scene(), set_waypoints(), continue_plan(), "
+                            "end_mission(), request_retry(), request_debrief(), "
+                            "submit_mission_report(), or submit_followup()."
                         )
                     )
                 )
                 continue
-
-            # Check if debrief is complete - stop regardless of response content
-            # This prevents models from chatting with themselves after session ends
-            if _is_debrief_complete(state.messages):
-                break
 
             # Check if model returned empty response
             last_msg: ChatMessage | None = state.messages[-1] if state.messages else None
             if _is_empty_response(last_msg):
                 empty_retries += 1
                 if empty_retries > max_empty_retries:
+                    # Before giving up, check if we're awaiting debrief submission
+                    awaiting, next_tool = _is_awaiting_debrief_submission(state.messages)
+                    if awaiting and debrief_nudges < max_debrief_nudges:
+                        debrief_nudges += 1
+                        state.messages.pop()  # Remove empty message
+                        state.messages.append(
+                            ChatMessageUser(
+                                content=(
+                                    f"The debrief is not complete. Please call {next_tool}() "
+                                    "to submit your response and complete the debrief."
+                                )
+                            )
+                        )
+                        empty_retries = 0  # Reset counter
+                        continue
                     # Give up after max retries
                     break
 
@@ -181,15 +298,75 @@ def robust_generate(
                     ChatMessageUser(
                         content=(
                             "Your previous response was empty. Please continue by calling "
-                            "the appropriate tool: observe_scene(), set_waypoints(), "
-                            "continue_plan(), end_mission(), request_retry(), or request_debrief()."
+                            "the appropriate tool: observe_scene(), set_waypoints(), continue_plan(), "
+                            "end_mission(), request_retry(), request_debrief(), "
+                            "submit_mission_report(), or submit_followup()."
                         )
                     )
                 )
                 continue
 
+            # Reset empty_retries on non-empty response
+            empty_retries = 0
+
+            # Check if model returned text but no tool calls
+            # This catches models that generate analysis text instead of calling tools
+            if _is_text_only_response(last_msg):
+                text_only_retries += 1
+                if text_only_retries > max_text_only_retries:
+                    # Before giving up, check if we're awaiting debrief submission
+                    awaiting, next_tool = _is_awaiting_debrief_submission(state.messages)
+                    if awaiting and debrief_nudges < max_debrief_nudges:
+                        debrief_nudges += 1
+                        state.messages.append(
+                            ChatMessageUser(
+                                content=(
+                                    f"The debrief is not complete. Please call {next_tool}() "
+                                    "to submit your response and complete the debrief."
+                                )
+                            )
+                        )
+                        text_only_retries = 0  # Reset counter
+                        continue
+                    # Give up after max retries
+                    break
+
+                # Keep the text message but nudge the model to call a tool
+                state.messages.append(
+                    ChatMessageUser(
+                        content=(
+                            "You generated text but did not call a tool. "
+                            "Please call the appropriate tool to continue: "
+                            "observe_scene(), set_waypoints(), continue_plan(), "
+                            "end_mission(), request_retry(), request_debrief(), "
+                            "submit_mission_report(), or submit_followup()."
+                        )
+                    )
+                )
+                continue
+
+            # Reset text_only_retries on successful tool call
+            text_only_retries = 0
+
             # Check if we should stop (model didn't call any tools and conversation is done)
             if state.completed:
+                # Before exiting, check if we're awaiting debrief submission
+                # This catches cases where generate() returns with completed=True
+                # but the model hasn't submitted the debrief yet
+                awaiting, next_tool = _is_awaiting_debrief_submission(state.messages)
+                if awaiting and debrief_nudges < max_debrief_nudges:
+                    debrief_nudges += 1
+                    # Nudge the model to complete the debrief
+                    state.messages.append(
+                        ChatMessageUser(
+                            content=(
+                                f"The debrief is not complete. Please call {next_tool}() "
+                                "to submit your response and complete the debrief process."
+                            )
+                        )
+                    )
+                    state.completed = False  # Reset to continue the loop
+                    continue
                 break
 
         return state
