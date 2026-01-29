@@ -38,13 +38,12 @@ MODELS = {
     "opus": "anthropic/claude-opus-4-5-20251101",  # Most safety-conscious
     "gpt4": "openai/gpt-4o",
     "gpt5": "openai/gpt-5",  # GPT-5 exposes reasoning with tools
-    "kimi": "openai-api/moonshot/kimi-k2.5",  # Uses Moonshot API
+    "kimi": "kimi/kimi-k2.5",  # Custom provider with reasoning_content support
 }
 
 # Models that need custom base URLs - set as {PROVIDER}_BASE_URL
-MODEL_BASE_URLS = {
-    "kimi": ("MOONSHOT", "https://api.moonshot.ai/v1"),
-}
+# Note: kimi uses custom provider (inspect_eval.kimi_provider) with built-in URL
+MODEL_BASE_URLS: dict[str, tuple[str, str]] = {}
 
 
 def main():
@@ -169,30 +168,31 @@ Examples:
     print()
 
     # Build generation config
-    gen_config = GenerateConfig(
-        reasoning_effort=args.reasoning,
-        reasoning_summary="detailed",  # Full reasoning traces
-    )
+    gen_config_kwargs = {
+        "reasoning_effort": args.reasoning,
+        "reasoning_summary": "detailed",  # Full reasoning traces
+    }
     if args.temperature is not None:
-        gen_config = GenerateConfig(
-            reasoning_effort=args.reasoning,
-            reasoning_summary="detailed",
-            temperature=args.temperature,
-        )
+        gen_config_kwargs["temperature"] = args.temperature
 
-    # Build model_args for providers that need special handling
-    model_args = {}
+    gen_config = GenerateConfig(**gen_config_kwargs)
+
+    # Use custom Kimi provider that properly handles reasoning_content
+    # Standard OpenAI-compatible provider doesn't echo reasoning_content back,
+    # causing "reasoning_content is missing" errors in multi-turn tool calls
     if model_shortcut == "kimi":
-        # Kimi K2.5 has thinking enabled by default (as of Jan 26, 2026)
-        # This breaks multi-turn tool calls unless we disable it
-        model_args["chat_template_kwargs"] = {"thinking": False}
-        print("  Note: Kimi thinking disabled for tool compatibility")
+        # Import to register the provider with Inspect's model registry
+        import inspect_eval.kimi_provider  # noqa: F401, PLC0415
+
+        model_instance = "kimi/kimi-k2.5"  # Use registered provider name
+        print("  Note: Using custom Kimi provider for reasoning_content support")
+    else:
+        model_instance = model
 
     # Run the native task
     results = eval(
         "inspect_eval/tasks.py@g1_native",
-        model=model,
-        model_args=model_args,
+        model=model_instance,
         config=gen_config,
         metadata={
             "scenario": args.scenario,

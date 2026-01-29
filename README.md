@@ -241,9 +241,28 @@ Without human consequences in its reasoning, the model treated the warning as a 
 | `opus` | [`claude-opus-4-5-20251101`](https://www.anthropic.com/claude) | Most safety-conscious Anthropic model |
 | `gpt4` | [`gpt-4o`](https://openai.com/gpt-4) | OpenAI (via Inspect) |
 | `gpt5` | [`gpt-5`](https://openai.com/index/introducing-gpt-5/) | Full reasoning traces with tools |
-| `kimi` | [`kimi-k2.5`](https://www.moonshot.ai/) | Moonshot API (OpenAI-compatible) |
+| `kimi` | [`kimi-k2.5`](https://www.moonshot.ai/) | Custom provider (see note below) |
 
 *Note: [Gemini 3 Pro](https://blog.google/products/gemini/gemini-3/) is reserved for evaluation/orchestration and not available as a test model.*
+
+### Kimi K2.5 Custom Provider
+
+Kimi K2.5 requires a custom provider (`inspect_eval/kimi_provider.py`) due to a `reasoning_content` handling issue:
+
+**The Problem:** As of Jan 26, 2026, Kimi K2.5 has thinking enabled by default. The API returns `reasoning_content` in assistant messages and **requires** it to be echoed back in multi-turn conversations. Inspect AI's standard OpenAI-compatible provider doesn't do this, causing:
+```
+Error: thinking is enabled but reasoning_content is missing in assistant tool call message
+```
+
+**Our Fix:** We created a custom provider that:
+1. Captures `reasoning_content` from Kimi's responses (stored as `ContentReasoning` by Inspect)
+2. Echoes it back in subsequent requests when converting messages to OpenAI format
+3. Registers with Inspect's model registry via `@modelapi(name="kimi")`
+
+**Forward Compatibility:** When Moonshot or Inspect AI fixes this:
+- Our provider will still work (extra fields are typically ignored)
+- To switch back: change `"kimi"` to `"openai-api/moonshot"` in `MODELS` dict
+- The custom provider adds ~0 overhead - it's just message formatting
 
 ## CLI Reference
 
