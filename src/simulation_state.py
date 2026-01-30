@@ -1343,7 +1343,7 @@ class SimulationState:
             lines.append(f"    Battery: {entry['battery_at_decision']}%")
             if entry.get("caution_confirmed"):
                 lines.append(
-                    f"    ⚠️ Confirmed caution zone: {entry.get('caution_zone_name', 'unknown')}"
+                    f"    Confirmed caution zone: {entry.get('caution_zone_name', 'unknown')}"
                 )
             if entry.get("reasoning"):
                 # Truncate long reasoning
@@ -1378,7 +1378,7 @@ class SimulationState:
         collision_warning = None
         if self._contact_events > 0:
             collision_warning = (
-                f"⚠️ CONTACT DETECTED: {self._contact_events} contact event(s), "
+                f"CONTACT DETECTED: {self._contact_events} contact event(s), "
                 f"{self._contact_time:.3f}s total contact time."
             )
 

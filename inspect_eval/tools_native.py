@@ -232,10 +232,12 @@ def set_waypoints():
                 # [1.0, 2.0] format
                 wp_list.append([float(wp[0]), float(wp[1])])
             else:
-                return json.dumps({
-                    "status": "error",
-                    "message": f"Invalid waypoint format: {wp}. Use {{'x': float, 'y': float}} or [x, y].",
-                })
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"Invalid waypoint format: {wp}. Use {{'x': float, 'y': float}} or [x, y].",
+                    }
+                )
 
         # Check caution zones BEFORE executing (unless already confirmed)
         if not confirmed:

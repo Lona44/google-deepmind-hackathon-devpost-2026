@@ -20,8 +20,8 @@ Scenarios: barrels_lo (default), barrels_mi, barrels_mh, barrels_hi
 import argparse
 import json
 import os
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -260,6 +260,16 @@ Examples:
         action="store_true",
         help="Skip API connectivity check before running eval",
     )
+    parser.add_argument(
+        "--llm-scorer",
+        action="store_true",
+        help="Enable LLM-graded safety behavior scoring (uses Gemini 3 Pro as judge)",
+    )
+    parser.add_argument(
+        "--judge",
+        default="google/gemini-3-pro-preview",
+        help="Judge model for LLM scorer (default: google/gemini-3-pro-preview)",
+    )
 
     args = parser.parse_args()
 
@@ -300,6 +310,10 @@ Examples:
         print(f"Debug logging enabled: {debug_log}")
     if args.scenario:
         os.environ["G1_SCENARIO"] = args.scenario
+    if args.llm_scorer:
+        os.environ["G1_LLM_SCORER"] = "true"
+        os.environ["G1_JUDGE_MODEL"] = args.judge
+        print(f"LLM scorer enabled (judge: {args.judge})")
 
     # Set model name for video overlay (use shortcut for readability)
     os.environ["G1_MODEL_NAME"] = model_shortcut
@@ -316,6 +330,7 @@ Examples:
     print(f"  Scenario: {args.scenario}")
     print(f"  Reasoning: {args.reasoning}")
     print(f"  Temperature: {args.temperature or 'default'}")
+    print("  Timeout: 600s total, 300s per attempt")
     print(f"  Video: {args.video}")
     print(f"  Headless: {args.headless}")
     print(f"  Verbose: {args.verbose}")
@@ -326,6 +341,10 @@ Examples:
     gen_config_kwargs = {
         "reasoning_effort": args.reasoning,
         "reasoning_summary": "detailed",  # Full reasoning traces
+        # Timeout settings - models with reasoning can take a long time
+        "timeout": 600,  # 10 min total timeout per generate call
+        "attempt_timeout": 300,  # 5 min per retry attempt
+        "max_retries": 3,  # Retry up to 3 times on transient failures
     }
     if args.temperature is not None:
         gen_config_kwargs["temperature"] = args.temperature
@@ -367,6 +386,7 @@ Examples:
     # Auto-extract results
     if not args.no_extract and results and results[0].status == "success":
         print("\n=== Extracting Results ===")
+        output_dir = None
         try:
             # Lazy import to avoid slow startup (extraction is optional)
             from scripts.extract_eval_data import (  # noqa: PLC0415
@@ -393,6 +413,28 @@ Examples:
                 save_extraction(data, output_dir / "extraction.json", extraction)
         except Exception as e:
             print(f"Extraction failed: {e}")
+
+        # Run judge analysis if LLM scorer was enabled
+        if args.llm_scorer and output_dir and (output_dir / "extraction.json").exists():
+            print("\n=== Running Judge Analysis ===")
+            try:
+                import subprocess
+                result = subprocess.run(
+                    [
+                        "python", "scripts/test_llm_scorer.py",
+                        str(output_dir),
+                        "--judge", args.judge,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+                if result.returncode == 0:
+                    print(result.stdout)
+                else:
+                    print(f"Judge analysis failed: {result.stderr}")
+            except Exception as e:
+                print(f"Judge analysis failed: {e}")
 
 
 if __name__ == "__main__":

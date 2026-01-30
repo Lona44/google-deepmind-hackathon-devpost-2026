@@ -51,6 +51,8 @@ class ReasoningTrace:
     text: str
     summary: str | None
     char_count: int
+    redacted: bool | None  # True if reasoning content is encrypted
+    summary_missing: bool  # True if reasoning generated but summary unavailable
 
 
 @dataclass
@@ -556,13 +558,22 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
                         # Extract reasoning trace
                         text = getattr(block, "text", None)
                         summary = getattr(block, "summary", None)
-                        if text or summary:
+                        redacted = getattr(block, "redacted", None)
+                        # Check if reasoning was generated but summary is missing
+                        # This happens with OpenAI when they selectively omit summaries
+                        reasoning_content = getattr(block, "reasoning", None)
+                        summary_missing = (
+                            reasoning_content is not None and summary is None and redacted is True
+                        )
+                        if text or summary or reasoning_content:
                             reasoning_traces.append(
                                 ReasoningTrace(
                                     turn=i,
                                     text=text or "",
                                     summary=summary,
                                     char_count=len(text) if text else 0,
+                                    redacted=redacted,
+                                    summary_missing=summary_missing,
                                 )
                             )
 
@@ -663,6 +674,48 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
     )
 
 
+def _build_messages_with_reasoning_status(extraction: EvalExtraction) -> list[dict]:
+    """Build messages list with reasoning status for each message.
+
+    Reasoning status values:
+    - "has_summary": Reasoning exists and summary is readable
+    - "missing_summary": Reasoning generated but summary redacted/unavailable
+    - "no_reasoning": No reasoning block for this response
+    - None: Not an assistant message (user/tool/system)
+    """
+    # Build lookup of reasoning traces by turn
+    reasoning_by_turn = {rt.turn: rt for rt in extraction.reasoning_traces}
+
+    messages = []
+    for m in extraction.messages:
+        msg_dict = {
+            "turn": m.turn,
+            "role": m.role,
+            "content_types": m.content_types,
+            "has_image": m.has_image,
+            "has_reasoning": m.has_reasoning,
+            "text_preview": m.text_content[:200] if m.text_content else None,
+        }
+
+        # Add reasoning_status for assistant messages
+        if m.role == "assistant":
+            rt = reasoning_by_turn.get(m.turn)
+            if rt is None:
+                msg_dict["reasoning_status"] = "no_reasoning"
+            elif rt.summary_missing:
+                msg_dict["reasoning_status"] = "missing_summary"
+            elif rt.summary is not None:
+                msg_dict["reasoning_status"] = "has_summary"
+            else:
+                msg_dict["reasoning_status"] = "no_summary"
+        else:
+            msg_dict["reasoning_status"] = None
+
+        messages.append(msg_dict)
+
+    return messages
+
+
 def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = True) -> dict:
     """Convert extraction to JSON-serializable dict."""
     # Build metadata, including scenario from model_config if present
@@ -701,6 +754,8 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
                 "text": rt.text,
                 "summary": rt.summary,
                 "char_count": rt.char_count,
+                "redacted": rt.redacted,
+                "summary_missing": rt.summary_missing,
             }
             for rt in extraction.reasoning_traces
         ],
@@ -727,6 +782,15 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
             "total_messages": len(extraction.messages),
             "reasoning_turns": len(extraction.reasoning_traces),
             "total_reasoning_chars": sum(rt.char_count for rt in extraction.reasoning_traces),
+            "reasoning_redacted": sum(
+                1 for rt in extraction.reasoning_traces if rt.redacted is True
+            ),
+            "reasoning_summary_missing": sum(
+                1 for rt in extraction.reasoning_traces if rt.summary_missing
+            ),
+            "reasoning_with_summary": sum(
+                1 for rt in extraction.reasoning_traces if rt.summary is not None
+            ),
             "tool_calls": len(extraction.tool_calls),
             "tool_results": len(extraction.tool_results),
             "images_in_conversation": sum(1 for m in extraction.messages if m.has_image),
@@ -742,17 +806,7 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
             if include_full_prompts
             else (extraction.final_output[:500] if extraction.final_output else None),
         },
-        "messages": [
-            {
-                "turn": m.turn,
-                "role": m.role,
-                "content_types": m.content_types,
-                "has_image": m.has_image,
-                "has_reasoning": m.has_reasoning,
-                "text_preview": m.text_content[:200] if m.text_content else None,
-            }
-            for m in extraction.messages
-        ],
+        "messages": _build_messages_with_reasoning_status(extraction),
         "media_files": [
             {
                 "attachment_id": mf.attachment_id,
