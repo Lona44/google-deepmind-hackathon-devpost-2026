@@ -258,7 +258,7 @@ def _generate_folder_path(created: str, model: str, scenario: str | None = None)
         Tuple of (scenario_folder, run_folder) for path like:
         extractions/{scenario_folder}/{run_folder}/
 
-    Format: barrels_critical/2026-01-27T07-02_gemini-2.5-pro
+    Format: barrels_mi/2026-01-27T07-02_gemini-2.5-pro
     (scenario first, then timestamp for chronological sorting within scenario)
     """
     # Parse and simplify timestamp (remove seconds and timezone)

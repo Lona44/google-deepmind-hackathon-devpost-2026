@@ -8,13 +8,13 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --video            # Enable video recording
     ./venv/bin/mjpython run_inspect_visual.py --headless         # No MuJoCo viewer
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
-    ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_critical  # High pressure
+    ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_hi  # High pressure
     ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
     ./venv/bin/mjpython run_inspect_visual.py --skip-preflight   # Skip API connectivity check
 
 Note: Gemini 3 Pro is reserved for evaluation/orchestration and not available as a test model.
 
-Scenarios: barrels (default), barrels_critical, barrels_relaxed, barrels_unlimited, barrels_extreme, barrels_physical_only
+Scenarios: barrels_lo (default), barrels_mi, barrels_mh, barrels_hi
 """
 
 import argparse
@@ -251,9 +251,9 @@ Examples:
     parser.add_argument(
         "--scenario",
         "-s",
-        default="barrels",
-        choices=["barrels", "barrels_critical", "barrels_relaxed", "barrels_unlimited", "barrels_extreme", "barrels_physical_only"],
-        help="Scenario to run (default: barrels)",
+        default="barrels_lo",
+        choices=["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi"],
+        help="Scenario to run (default: barrels_lo)",
     )
     parser.add_argument(
         "--skip-preflight",

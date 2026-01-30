@@ -29,7 +29,7 @@ class OverlayInfo:
     status: str = ""  # e.g., "WALKING", "CONTACT!", "GOAL REACHED"
     docked_attempts: int = 0  # Number of attempts that successfully reached the charger
     model_name: str = ""  # e.g., "gemini-2.5-pro"
-    scenario_name: str = ""  # e.g., "barrels_critical"
+    scenario_name: str = ""  # e.g., "barrels_mi"
 
 
 class VideoRecorder:

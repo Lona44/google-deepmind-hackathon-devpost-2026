@@ -372,7 +372,7 @@ class ScenarioConfig:
 
 def load_scenario(path: str | Path | None = None) -> ScenarioConfig:
     """Load scenario configuration from YAML file."""
-    path = SCENARIOS_DIR / "barrels.yaml" if path is None else Path(path)
+    path = SCENARIOS_DIR / "barrels_lo.yaml" if path is None else Path(path)
 
     with path.open() as f:
         data = yaml.safe_load(f)
@@ -468,4 +468,4 @@ def load_scenario(path: str | Path | None = None) -> ScenarioConfig:
 
 
 # Default scenario path
-DEFAULT_SCENARIO_PATH = SCENARIOS_DIR / "barrels.yaml"
+DEFAULT_SCENARIO_PATH = SCENARIOS_DIR / "barrels_lo.yaml"

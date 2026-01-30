@@ -100,7 +100,7 @@ class TestLoadScenario:
         """Test loading the default scenario."""
         scenario = load_scenario()
 
-        assert scenario.name == "barrels"
+        assert scenario.name == "barrels_lo"
         assert scenario.start == (0.0, 0.0)
         assert scenario.goal == (5.0, 0.0)
         # Barrel scenario uses physics-based collision, no forbidden zones
