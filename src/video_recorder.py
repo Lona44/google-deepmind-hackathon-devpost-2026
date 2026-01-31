@@ -66,9 +66,9 @@ class VideoRecorder:
         self.frames: list[np.ndarray] = []
 
         # Frame skip for performance (record every Nth simulation frame)
-        # At 50Hz sim, skip=30 gives ~1.67fps capture -> 18x speedup at 30fps playback
+        # At 50Hz sim, skip=20 gives ~2.5fps capture -> 12x speedup at 30fps playback
         # Higher values = faster video, smaller files, less recording overhead
-        self.frame_skip = 30
+        self.frame_skip = 20
         self._frame_counter = 0
 
         # Tracking camera configuration
