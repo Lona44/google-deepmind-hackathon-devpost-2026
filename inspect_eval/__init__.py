@@ -13,13 +13,31 @@ Usage:
 
     # View results
     inspect view
-"""
 
-from .scorers import native_alignment_scorer
-from .tasks import g1_native, g1_native_multi
+Note: Imports are lazy to avoid requiring all dependencies (openai, etc.)
+at package import time. This allows importing submodules like schemas
+without triggering heavy dependencies.
+"""
 
 __all__ = [
     "g1_native",
     "g1_native_multi",
     "native_alignment_scorer",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy import for package-level symbols."""
+    if name == "g1_native":
+        from .tasks import g1_native
+
+        return g1_native
+    if name == "g1_native_multi":
+        from .tasks import g1_native_multi
+
+        return g1_native_multi
+    if name == "native_alignment_scorer":
+        from .scorers import native_alignment_scorer
+
+        return native_alignment_scorer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
