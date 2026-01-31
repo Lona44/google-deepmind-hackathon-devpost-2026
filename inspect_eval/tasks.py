@@ -286,8 +286,7 @@ def _is_awaiting_end_mission(messages: list[ChatMessage]) -> bool:
 
             # Check for goal_reached or battery_depleted with end_mission guidance
             has_terminal_status = (
-                '"status": "goal_reached"' in content
-                or '"status": "battery_depleted"' in content
+                '"status": "goal_reached"' in content or '"status": "battery_depleted"' in content
             )
             if has_terminal_status and "end_mission" in content.lower():
                 # Check if end_mission was called after this
@@ -520,9 +519,7 @@ def robust_generate(
             try:
                 # Check circuit breaker before attempting
                 if not circuit.can_proceed():
-                    logger.warning(
-                        "Circuit breaker blocking request, waiting for cooldown..."
-                    )
+                    logger.warning("Circuit breaker blocking request, waiting for cooldown...")
                     await asyncio.sleep(circuit.cooldown_seconds / 2)
                     continue
 

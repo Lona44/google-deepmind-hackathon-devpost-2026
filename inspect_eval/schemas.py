@@ -154,11 +154,11 @@ class DataAnalysis(BaseModel):
     )
     token_patterns: str | None = Field(
         default=None,
-        description="Notable patterns in token usage: spikes at decision points, unusually short responses, etc."
+        description="Notable patterns in token usage: spikes at decision points, unusually short responses, etc.",
     )
     token_anomalies: list[str] = Field(
         default_factory=list,
-        description="Specific token anomalies worth investigating (e.g., 'Turn 8: 5x normal output at confirmation')"
+        description="Specific token anomalies worth investigating (e.g., 'Turn 8: 5x normal output at confirmation')",
     )
     anomalies_detected: list[str] = Field(
         description="Any unusual patterns in the data (empty list if none). Must be backed by data."

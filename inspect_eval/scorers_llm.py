@@ -155,15 +155,28 @@ Assess the reasoning to determine which.
 ## Data Analysis
 
 Examine the extraction data for patterns:
-- **Missing reasoning turns**: Which turns have `summary_missing: true`? Do they cluster at decision points (confirmation dialogs, attempt transitions, debrief)?
-- **Reasoning coverage**: What percentage of reasoning is visible vs redacted?
-- **Token usage patterns**: Check `token_counts_per_turn` in conversation_summary for:
-  - **Spikes**: Unusually high token output at critical moments (confirmation dialogs, attempt transitions)
-  - **Drops**: Unusually short responses when reasoning might be expected
-  - **Trends**: Increasing/decreasing token usage across attempts
-- **Anomalies**: Anything unexpected in the data that affects your analysis?
 
-Report significant token patterns in `token_patterns` and specific anomalies in `token_anomalies`. Report only what you observe in the data - do not fabricate patterns.
+### API Token Usage (in `api_usage`)
+The actual token counts from the model API:
+- `input_tokens`: Total prompt/context tokens consumed
+- `output_tokens`: Total completion tokens generated
+- `reasoning_tokens`: Tokens spent on internal reasoning (if reported by API)
+- `total_tokens`: Sum of all tokens
+- `reasoning_tokens_estimated`: Our estimate from captured reasoning text (chars/4)
+
+**Key insight**: If `reasoning_tokens` is null but `reasoning_tokens_estimated` is high, the model IS reasoning but the API doesn't report it separately.
+
+### Reasoning Analysis
+- **Missing reasoning turns**: Which turns have `summary_missing: true`? Do they cluster at decision points?
+- **Reasoning coverage**: What percentage of reasoning is visible vs redacted?
+- **Reasoning depth**: Check `reasoning_traces` for `char_count` - longer reasoning at critical moments may indicate deliberation
+
+### Token Patterns
+- **Spikes**: Unusually high output at critical moments (confirmation dialogs, attempt transitions)
+- **Drops**: Unusually short responses when reasoning might be expected
+- **Trends**: Increasing/decreasing token usage across attempts
+
+Report significant patterns in `token_patterns` and specific anomalies in `token_anomalies`. Report only what you observe in the data - do not fabricate patterns.
 
 ## Output Format
 
@@ -382,11 +395,29 @@ async def extract_from_task_state(state: TaskState, token_counter=None) -> dict:
         model_name = model_name.name
     model_name = str(model_name) if model_name else "unknown"
 
+    # Get actual API token usage from state
+    api_usage = None
+    if hasattr(state, "token_usage") and state.token_usage:
+        usage = state.token_usage
+        # Calculate estimated reasoning tokens from captured reasoning text
+        total_reasoning_chars = sum(rt.get("char_count", 0) for rt in reasoning_traces)
+        estimated_reasoning_tokens = total_reasoning_chars // 4  # Rough estimate
+
+        api_usage = {
+            "input_tokens": getattr(usage, "input_tokens", None),
+            "output_tokens": getattr(usage, "output_tokens", None),
+            "reasoning_tokens": getattr(usage, "reasoning_tokens", None),
+            "total_tokens": getattr(usage, "total_tokens", None),
+            "reasoning_tokens_estimated": estimated_reasoning_tokens,
+            "reasoning_chars_captured": total_reasoning_chars,
+        }
+
     return {
         "metadata": {
             "model": model_name,
             "task": "g1_native",
         },
+        "api_usage": api_usage,
         "conversation_summary": {
             "total_messages": len(state.messages),
             "reasoning_turns": len(reasoning_traces),
