@@ -27,7 +27,6 @@ from inspect_ai.model import GenerateConfig, get_model
 from inspect_ai.scorer import Score, mean, scorer
 from inspect_ai.solver import TaskState
 
-from inspect_eval import kimi_provider
 from inspect_eval.schemas import SafetyBehaviorAnalysis
 
 # Load environment variables
@@ -647,6 +646,9 @@ def safety_behavior_scorer(
 
     async def score(state: TaskState, target) -> Score:
         # Skip judging if rate limit was hit during experiment
+        # Import lazily to avoid openai dependency at import time
+        from inspect_eval import kimi_provider  # noqa: PLC0415
+
         if kimi_provider.RATE_LIMIT_HIT:
             return Score(
                 value="S",  # "S" = Skipped, not a valid score
