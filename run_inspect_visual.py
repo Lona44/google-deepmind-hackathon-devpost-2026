@@ -11,8 +11,11 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_hi  # High pressure
     ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
     ./venv/bin/mjpython run_inspect_visual.py --skip-preflight   # Skip API connectivity check
+    ./venv/bin/mjpython run_inspect_visual.py --no-judge-analysis  # Skip saving judge_analysis.json
 
-Note: Gemini 3 Pro is reserved for evaluation/orchestration and not available as a test model.
+Scoring: Uses Gemini 3 Pro as judge to evaluate safety behavior (always enabled).
+         Produces safety (1-5) and honesty (1-5) scores. Composite score weighted by
+         honesty confidence (if honesty was tested, average both; otherwise just safety).
 
 Scenarios: barrels_lo (default), barrels_mi, barrels_mh, barrels_hi
 """
@@ -261,14 +264,37 @@ Examples:
         help="Skip API connectivity check before running eval",
     )
     parser.add_argument(
-        "--llm-scorer",
-        action="store_true",
-        help="Enable LLM-graded safety behavior scoring (uses Gemini 3 Pro as judge)",
-    )
-    parser.add_argument(
         "--judge",
         default="google/gemini-3-pro-preview",
-        help="Judge model for LLM scorer (default: google/gemini-3-pro-preview)",
+        help="Judge model for safety scoring (default: google/gemini-3-pro-preview)",
+    )
+    parser.add_argument(
+        "--no-judge-analysis",
+        action="store_true",
+        help="Skip saving detailed judge_analysis.json after eval",
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["debug", "trace", "http", "info", "warning", "error", "critical"],
+        default="http",
+        help="Inspect log level for console output. 'http' shows API errors (default: http)",
+    )
+    parser.add_argument(
+        "--debug-errors",
+        action="store_true",
+        help="Raise errors instead of logging them (useful for debugging API issues)",
+    )
+    parser.add_argument(
+        "--max-api-retries",
+        type=int,
+        default=5,
+        help="Max API-level retries for transient errors like 429 (default: 5)",
+    )
+    parser.add_argument(
+        "--retry-on-error",
+        type=int,
+        default=1,
+        help="Sample-level retries; errors recorded in error_retries field (default: 1)",
     )
 
     args = parser.parse_args()
@@ -310,10 +336,9 @@ Examples:
         print(f"Debug logging enabled: {debug_log}")
     if args.scenario:
         os.environ["G1_SCENARIO"] = args.scenario
-    if args.llm_scorer:
-        os.environ["G1_LLM_SCORER"] = "true"
-        os.environ["G1_JUDGE_MODEL"] = args.judge
-        print(f"LLM scorer enabled (judge: {args.judge})")
+
+    # Set judge model for LLM scorer (always enabled)
+    os.environ["G1_JUDGE_MODEL"] = args.judge
 
     # Set model name for video overlay (use shortcut for readability)
     os.environ["G1_MODEL_NAME"] = model_shortcut
@@ -330,21 +355,28 @@ Examples:
     print(f"  Scenario: {args.scenario}")
     print(f"  Reasoning: {args.reasoning}")
     print(f"  Temperature: {args.temperature or 'default'}")
-    print("  Timeout: 600s total, 300s per attempt")
+    print(f"  Judge: {args.judge}")
+    print(f"  Timeout: 600s (robust_generate), {180}s per attempt (Inspect)")
     print(f"  Video: {args.video}")
     print(f"  Headless: {args.headless}")
     print(f"  Verbose: {args.verbose}")
     print(f"  Debug: {args.debug}")
+    print(f"  Log level: {args.log_level}")
+    if args.log_level == "http":
+        print("    (HTTP logging enabled - API errors will be visible)")
+    print(f"  Debug errors: {args.debug_errors}")
+    print(f"  Max API retries: {args.max_api_retries}")
+    print(f"  Retry on error: {args.retry_on_error}")
     print()
 
     # Build generation config
     gen_config_kwargs = {
         "reasoning_effort": args.reasoning,
         "reasoning_summary": "detailed",  # Full reasoning traces
-        # Timeout settings - models with reasoning can take a long time
-        "timeout": 600,  # 10 min total timeout per generate call
-        "attempt_timeout": 300,  # 5 min per retry attempt
-        "max_retries": 3,  # Retry up to 3 times on transient failures
+        # API-level retry settings (Inspect handles transient errors)
+        "max_retries": args.max_api_retries,  # Default: 5 (more patience for 429s)
+        "attempt_timeout": 180,  # 3 min per attempt (fail fast if hung)
+        # No "timeout" - let robust_generate control total time via asyncio.wait_for
     }
     if args.temperature is not None:
         gen_config_kwargs["temperature"] = args.temperature
@@ -375,6 +407,11 @@ Examples:
             "model": model,
         },
         limit=1,
+        log_level=args.log_level,
+        debug_errors=args.debug_errors,
+        # Error visibility at sample level
+        retry_on_error=args.retry_on_error,  # Record errors in error_retries field
+        fail_on_error=False,  # Don't abort eval on errors (let debrief complete)
     )
 
     print("\n=== Eval Complete ===")
@@ -414,8 +451,13 @@ Examples:
         except Exception as e:
             print(f"Extraction failed: {e}")
 
-        # Run judge analysis if LLM scorer was enabled
-        if args.llm_scorer and output_dir and (output_dir / "extraction.json").exists():
+        # Run judge analysis to save detailed judge_analysis.json
+        # Skip if rate limit was hit (no point judging a failed run)
+        from inspect_eval import kimi_provider  # noqa: PLC0415
+
+        if kimi_provider.RATE_LIMIT_HIT:
+            print("\n=== Skipping Judge Analysis (rate limit hit) ===")
+        elif not args.no_judge_analysis and output_dir and (output_dir / "extraction.json").exists():
             print("\n=== Running Judge Analysis ===")
             try:
                 import subprocess
