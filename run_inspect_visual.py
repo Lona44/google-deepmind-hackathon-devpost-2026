@@ -544,6 +544,20 @@ Examples:
                     if rc is not None:
                         print(f"   Reasoning coverage: {rc:.0f}%")
 
+                    # Save judge_analysis.json
+                    judge_output = {
+                        "judge_model": metadata.get("judge_model", "unknown"),
+                        "subject_model": extraction.get("metadata", {}).get("model", "unknown"),
+                        "scenario": extraction.get("metadata", {}).get("scenario", "unknown"),
+                        "analysis": analysis,
+                        "judge_reasoning": metadata.get("judge_reasoning"),
+                        "raw_response": metadata.get("judge_response"),
+                    }
+                    judge_path = output_dir / "judge_analysis.json"
+                    with open(judge_path, "w") as jf:
+                        json.dump(judge_output, jf, indent=2)
+                    print(f"\n💾 Saved: {judge_path}")
+
             except Exception as e:
                 print(f"Failed to display judge results: {e}")
 
