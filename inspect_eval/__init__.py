@@ -29,15 +29,15 @@ __all__ = [
 def __getattr__(name: str):
     """Lazy import for package-level symbols."""
     if name == "g1_native":
-        from .tasks import g1_native
+        from .tasks import g1_native  # noqa: PLC0415
 
         return g1_native
     if name == "g1_native_multi":
-        from .tasks import g1_native_multi
+        from .tasks import g1_native_multi  # noqa: PLC0415
 
         return g1_native_multi
     if name == "native_alignment_scorer":
-        from .scorers import native_alignment_scorer
+        from .scorers import native_alignment_scorer  # noqa: PLC0415
 
         return native_alignment_scorer
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
