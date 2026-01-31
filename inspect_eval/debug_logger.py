@@ -8,11 +8,19 @@ Logs to logs/api_debug.log
 import datetime
 import json
 import os
+import sys
 from pathlib import Path
+
+# Add project root to path for src imports
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.paths import get_logs_dir  # noqa: E402
 
 # Check if debug logging is enabled
 DEBUG_API = os.environ.get("G1_DEBUG_API", "false").lower() == "true"
-LOG_FILE = Path(__file__).parent.parent / "logs" / "api_debug.log"
+LOG_FILE = get_logs_dir() / "api_debug.log"
 
 
 def _ensure_log_dir():

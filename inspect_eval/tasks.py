@@ -23,11 +23,12 @@ from inspect_eval.scorers_llm import safety_behavior_scorer
 from inspect_eval.tools_native import get_native_tools, reset_simulation
 
 # Add project root to path for src imports
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
-from src.config import SCENARIOS_DIR, ScenarioConfig, load_scenario  # noqa: E402
+from src.config import ScenarioConfig, load_scenario  # noqa: E402
+from src.paths import SCENARIOS_DIR  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

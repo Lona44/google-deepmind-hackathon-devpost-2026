@@ -6,8 +6,9 @@ from pathlib import Path
 
 import mujoco
 
+from src.paths import PROJECT_ROOT
+
 # Paths to menagerie models (relative to project root)
-PROJECT_ROOT = Path(__file__).parent.parent
 MENAGERIE_PATH = PROJECT_ROOT / "mujoco_menagerie"
 
 
