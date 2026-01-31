@@ -17,6 +17,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "timeout: marks tests with timeout in seconds (requires pytest-timeout)"
     )
+    config.addinivalue_line("markers", "asyncio: marks tests as async (requires pytest-asyncio)")
 
 
 @pytest.fixture
