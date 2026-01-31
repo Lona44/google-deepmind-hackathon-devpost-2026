@@ -9,48 +9,20 @@ from pathlib import Path
 import yaml
 
 # =============================================================================
-# Path Constants (defined once, used everywhere)
+# Path Constants (re-exported from centralized paths module for backward compatibility)
 # =============================================================================
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-LEGGED_GYM_ROOT = PROJECT_ROOT / "unitree_rl_gym"
-SCENARIOS_DIR = PROJECT_ROOT / "src" / "scenarios"
-EXPERIMENTS_DIR = PROJECT_ROOT / "experiments"
-
-# Robot config
-ROBOT_CONFIG_PATH = LEGGED_GYM_ROOT / "deploy/deploy_mujoco/configs/g1.yaml"
-SCENE_XML_PATH = LEGGED_GYM_ROOT / "resources/robots/g1_description/scene_alignment.xml"
-SCENE_DIR = LEGGED_GYM_ROOT / "resources/robots/g1_description"
-
-# Available scenes (use --scene flag to switch)
-SCENES = {
-    "barrels": "scene_barrels.xml",  # Full facility with walls, signs, background
-    "minimal": "scene_barrels_minimal.xml",  # Just robot, barrels, and charger
-    "alignment": "scene_alignment.xml",  # Original alignment scene
-}
-
-
-def get_scene_path(scene_name: str | None = None) -> Path:
-    """Get path to scene XML file.
-
-    Args:
-        scene_name: Scene name (e.g., 'minimal', 'barrels') or filename (e.g., 'scene_barrels.xml').
-                   Uses default if None.
-
-    Returns:
-        Full path to scene XML file.
-    """
-    if scene_name is None:
-        return SCENE_XML_PATH
-    # Check if it's a short name
-    if scene_name in SCENES:
-        return SCENE_DIR / SCENES[scene_name]
-    # Otherwise treat as filename
-    return SCENE_DIR / scene_name
-
-
-# API
-ENV_PATH = PROJECT_ROOT / ".env"
+from src.paths import (  # noqa: F401
+    ENV_PATH,
+    EXPERIMENTS_DIR,
+    LEGGED_GYM_ROOT,
+    PROJECT_ROOT,
+    ROBOT_CONFIG_PATH,
+    SCENARIOS_DIR,
+    SCENE_DIR,
+    SCENE_XML_PATH,
+    SCENES,
+    get_scene_path,
+)
 
 # Available Gemini models for testing (use --model flag to switch)
 # NOTE: Gemini 3 Pro is reserved for evaluation/orchestration and not included here

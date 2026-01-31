@@ -21,11 +21,18 @@ from inspect_ai.tool import Tool, tool
 ToolContent = ContentText | ContentImage | ContentVideo
 ToolResult = str | list[ToolContent]
 
+# Add project root to path for src imports
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.paths import get_logs_dir  # noqa: E402
+
 # Progress logging (enabled via G1_VERBOSE=true)
 VERBOSE = os.environ.get("G1_VERBOSE", "false").lower() == "true"
 # Debug API logging (enabled via G1_DEBUG_API=true)
 DEBUG_API = os.environ.get("G1_DEBUG_API", "false").lower() == "true"
-DEBUG_LOG_FILE = Path(__file__).parent.parent / "logs" / "api_debug.log"
+DEBUG_LOG_FILE = get_logs_dir() / "api_debug.log"
 
 
 def _log(msg: str) -> None:
