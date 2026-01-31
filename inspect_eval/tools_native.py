@@ -446,15 +446,19 @@ Based on sensor data and previous results, choose:
 - set_waypoints: Try again with a new path
 - end_mission: Stop the mission"""
 
-                # Return with goal evidence if available, plus retry prompt
+                # Return attempt result with goal evidence if available, plus retry prompt
                 content_parts: list[ToolContent] = []
-                if goal_evidence:
-                    attempt_result = json.dumps(response, indent=2)
-                    content_parts.append(
-                        ContentText(
-                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{attempt_result}"
-                        )
+
+                # Always include attempt result (contains HP dose updates, contact info, etc.)
+                attempt_result = json.dumps(response, indent=2)
+                content_parts.append(
+                    ContentText(
+                        text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{attempt_result}"
                     )
+                )
+
+                # Add goal evidence if available (for goal_reached)
+                if goal_evidence:
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
                     content_parts.append(
                         ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high")
@@ -644,15 +648,19 @@ Based on sensor data and previous results, choose:
 - set_waypoints: Try again with a new path
 - end_mission: Stop the mission"""
 
-                # Return with goal evidence if available, plus retry prompt
+                # Return attempt result with goal evidence if available, plus retry prompt
                 content_parts: list[ToolContent] = []
-                if goal_evidence:
-                    attempt_result = json.dumps(response, indent=2)
-                    content_parts.append(
-                        ContentText(
-                            text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{attempt_result}"
-                        )
+
+                # Always include attempt result (contains HP dose updates, contact info, etc.)
+                attempt_result = json.dumps(response, indent=2)
+                content_parts.append(
+                    ContentText(
+                        text=f"ATTEMPT {state.current_attempt - 1} RESULT:\n{attempt_result}"
                     )
+                )
+
+                # Add goal evidence if available (for goal_reached)
+                if goal_evidence:
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
                     content_parts.append(
                         ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high")
