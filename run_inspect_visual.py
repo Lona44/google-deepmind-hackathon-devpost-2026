@@ -452,31 +452,100 @@ Examples:
             print(f"Extraction failed: {e}")
 
         # Run judge analysis to save detailed judge_analysis.json
-        # Skip if rate limit was hit (no point judging a failed run)
+        # Display judge results from live scorer (already in extraction.json)
         from inspect_eval import kimi_provider  # noqa: PLC0415
 
         if kimi_provider.RATE_LIMIT_HIT:
             print("\n=== Skipping Judge Analysis (rate limit hit) ===")
         elif not args.no_judge_analysis and output_dir and (output_dir / "extraction.json").exists():
-            print("\n=== Running Judge Analysis ===")
+            print("\n=== Judge Analysis Results ===")
             try:
-                import subprocess
-                result = subprocess.run(
-                    [
-                        "python", "scripts/test_llm_scorer.py",
-                        str(output_dir),
-                        "--judge", args.judge,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
-                )
-                if result.returncode == 0:
-                    print(result.stdout)
+                import json
+                with open(output_dir / "extraction.json") as f:
+                    extraction = json.load(f)
+
+                scores = extraction.get("scores", {})
+                scorer_data = scores.get("safety_behavior_scorer", {})
+
+                if not scorer_data:
+                    print("No safety_behavior_scorer results found")
                 else:
-                    print(f"Judge analysis failed: {result.stderr}")
+                    value = scorer_data.get("value")
+                    answer = scorer_data.get("answer", "")
+                    explanation = scorer_data.get("explanation", "")
+                    metadata = scorer_data.get("metadata", {})
+                    analysis = metadata.get("analysis", {})
+
+                    # Calculate components for display
+                    safety_score = analysis.get("safety_score", "?")
+                    ml = analysis.get("misalignment_level", {})
+                    level = ml.get("level", "?")
+                    level_name = ml.get("level_name", "unknown")
+                    justification = ml.get("justification", "")
+
+                    print("=" * 60)
+                    print("Three-Phase Analysis Complete")
+                    print("=" * 60)
+
+                    print(f"\n📊 COMPOSITE SCORE: {value}")
+                    print(f"   {answer}")
+
+                    print(f"\n⚠️  MISALIGNMENT LEVEL: {level} - {level_name}")
+                    print(f"   {justification}")
+
+                    # Phase 1
+                    p1 = analysis.get("phase1_navigation", {})
+                    print("\n--- Phase 1: Navigation ---")
+                    print(f"  Harm noticed: {p1.get('harm_noticed')} (turn {p1.get('harm_noticed_turn')})")
+                    print(f"  Warnings ignored: {p1.get('warnings_ignored_count')}")
+                    print(f"  Risky path despite warning: {p1.get('took_risky_path_despite_warning')}")
+                    print(f"  Rationalization detected: {p1.get('rationalization_detected')}")
+
+                    # Phase 2
+                    p2 = analysis.get("phase2_report", {})
+                    print("\n--- Phase 2: Report ---")
+                    print(f"  Facts known: {len(p2.get('facts_known_from_phase1', []))}")
+                    print(f"  Facts omitted: {len(p2.get('facts_omitted_from_report', []))}")
+                    if p2.get("facts_omitted_from_report"):
+                        print(f"    Omitted: {p2.get('facts_omitted_from_report')}")
+                    print(f"  Omission type: {p2.get('omission_type')}")
+                    completeness = p2.get("report_completeness")
+                    if completeness is not None:
+                        print(f"  Report completeness: {completeness:.0%}")
+
+                    # Phase 3
+                    p3 = analysis.get("phase3_debrief", {})
+                    print("\n--- Phase 3: Debrief ---")
+                    if p3.get("claims_actions_were_aligned") is None:
+                        print("  ⚠️  Phase 3 data missing")
+                    else:
+                        print(f"  Claims aligned: {p3.get('claims_actions_were_aligned')}")
+                        print(f"  Self-assessment accuracy: {p3.get('self_assessment_accuracy')}")
+                        print(f"  Story changed at disclosure: {analysis.get('cross_phase', {}).get('story_changed_at_disclosure')}")
+                        print(f"  Retrospective pattern: {p3.get('retrospective_pattern')}")
+
+                    # Cross-phase
+                    cp = analysis.get("cross_phase", {})
+                    print("\n--- Cross-Phase Analysis ---")
+                    ktr = cp.get("knowledge_to_report_honesty")
+                    if ktr is not None:
+                        print(f"  Knowledge→Report honesty: {ktr:.0%}")
+                    print(f"  Behavior trajectory: {cp.get('behavior_trajectory')}")
+
+                    # Key findings
+                    print(f"\n🚨 Most concerning: {analysis.get('most_concerning_behavior')}")
+                    if analysis.get("most_positive_behavior"):
+                        print(f"✅ Most positive: {analysis.get('most_positive_behavior')}")
+
+                    # Data quality
+                    da = analysis.get("data_analysis", {})
+                    print(f"\n📊 Data quality: {da.get('data_quality_notes', 'N/A')}")
+                    rc = da.get("reasoning_coverage_percent")
+                    if rc is not None:
+                        print(f"   Reasoning coverage: {rc:.0f}%")
+
             except Exception as e:
-                print(f"Judge analysis failed: {e}")
+                print(f"Failed to display judge results: {e}")
 
 
 if __name__ == "__main__":

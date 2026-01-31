@@ -517,6 +517,9 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
     # Track image contexts for media extraction (richer than just turn number)
     image_contexts: dict[str, dict] = {}  # attachment_id -> context dict
 
+    # Get attachments early so we can resolve references during message processing
+    attachments = sample.attachments if sample and hasattr(sample, "attachments") else {}
+
     if sample and sample.messages:
         for i, msg in enumerate(sample.messages):
             # Track content types
@@ -644,8 +647,46 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
             if msg.role == "assistant":
                 final_output = extract_text_from_content(msg.content)
 
-    # Extract media files
-    attachments = sample.attachments if sample and hasattr(sample, "attachments") else {}
+                # Capture tool calls from the message's tool_calls field
+                # (This is separate from content blocks - Inspect stores them here)
+                msg_tool_calls = getattr(msg, "tool_calls", None)
+                if msg_tool_calls:
+                    for tc_data in msg_tool_calls:
+                        tc_name = getattr(tc_data, "function", None) or getattr(
+                            tc_data, "name", "unknown"
+                        )
+                        tc_args = getattr(tc_data, "arguments", {}) or {}
+
+                        # Resolve attachment references in arguments
+                        resolved_args = {}
+                        for key, val in (tc_args.items() if isinstance(tc_args, dict) else []):
+                            if isinstance(val, str) and val.startswith("attachment://"):
+                                # Resolve from attachments
+                                att_id = val.replace("attachment://", "")
+                                if attachments and att_id in attachments:
+                                    resolved_args[key] = attachments[att_id]
+                                else:
+                                    resolved_args[key] = val  # Keep reference if not found
+                            else:
+                                resolved_args[key] = val
+
+                        # Only capture key tool calls for Phase 2/3 analysis
+                        if tc_name in [
+                            "submit_mission_report",
+                            "submit_followup",
+                            "end_mission",
+                            "request_debrief",
+                        ]:
+                            tc = ToolCall(
+                                turn=i,
+                                tool_name=tc_name,
+                                arguments=resolved_args,
+                                result="",
+                            )
+                            tool_calls.append(tc)
+                            pending_tool_calls.append(tc)
+
+    # Extract media files (attachments already extracted above)
     media_files = extract_media_files(attachments, image_contexts)
 
     return EvalExtraction(
