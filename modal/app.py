@@ -699,6 +699,10 @@ def web_app():
     ALLOWED_EMAIL_DOMAINS = os.environ.get("G1_ALLOWED_DOMAINS", "").split(",")
     ALLOWED_EMAIL_DOMAINS = [d.strip() for d in ALLOWED_EMAIL_DOMAINS if d.strip()]
 
+    # IP Allowlisting (empty = allow all)
+    ALLOWED_IPS = os.environ.get("G1_ALLOWED_IPS", "").split(",")
+    ALLOWED_IPS = [ip.strip() for ip in ALLOWED_IPS if ip.strip()]
+
     # ==========================================================================
     # Audit Logging (A09: Security Logging and Monitoring Failures)
     # ==========================================================================
@@ -813,6 +817,30 @@ def web_app():
             return response
 
     app_web.add_middleware(SecurityHeadersMiddleware)
+
+    # IP Allowlist Middleware (if configured)
+    if ALLOWED_IPS:
+
+        class IPAllowlistMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request: Request, call_next):
+                # Get client IP
+                forwarded = request.headers.get("x-forwarded-for")
+                if forwarded:
+                    client_ip = forwarded.split(",")[0].strip()
+                else:
+                    client_ip = request.client.host if request.client else "unknown"
+
+                if client_ip not in ALLOWED_IPS:
+                    log_security_event("IP_BLOCKED", client_ip, f"Not in allowlist: {ALLOWED_IPS}")
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": "Access denied. Your IP is not authorized."},
+                    )
+
+                return await call_next(request)
+
+        app_web.add_middleware(IPAllowlistMiddleware)
+        audit_log.info(f"IP allowlist enabled: {ALLOWED_IPS}")
 
     # ==========================================================================
     # Helper Functions
