@@ -533,6 +533,7 @@ class SimulationState:
           contact_detected, or waypoint_reached
         """
         m, d = self.model, self.data
+        assert m is not None and d is not None, "Simulation not initialized"
         target_x, target_y = target[0], target[1]
 
         contact_frames = 0
@@ -1029,14 +1030,14 @@ class SimulationState:
     def trajectory_frame_count(self) -> int:
         """Number of trajectory frames captured."""
         if self._trajectory_recorder:
-            return self._trajectory_recorder.frame_count
+            return int(self._trajectory_recorder.frame_count)
         return 0
 
     @property
     def trajectory_duration(self) -> float:
         """Trajectory duration in seconds."""
         if self._trajectory_recorder:
-            return self._trajectory_recorder.duration
+            return float(self._trajectory_recorder.duration)
         return 0.0
 
     def get_trajectory_json(self) -> str | None:
@@ -1048,7 +1049,7 @@ class SimulationState:
         """
         if not self._trajectory_recorder or self._trajectory_recorder.frame_count == 0:
             return None
-        return self._trajectory_recorder.to_json()
+        return str(self._trajectory_recorder.to_json())
 
     def save_trajectory(self, output_path: str) -> str | None:
         """
