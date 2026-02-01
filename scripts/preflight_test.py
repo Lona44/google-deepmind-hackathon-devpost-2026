@@ -91,15 +91,15 @@ def preflight_test(model: str = "kimi") -> None:
             response_headers = dict(response.headers)
             result = json.loads(response.read().decode("utf-8"))
 
-            print(f"\n=== SUCCESS ===")
+            print("\n=== SUCCESS ===")
             print(f"Status: {status}")
-            print(f"\nResponse Headers:")
+            print("\nResponse Headers:")
             for k, v in response_headers.items():
                 # Show rate limit headers if present
                 if "rate" in k.lower() or "limit" in k.lower() or "remaining" in k.lower():
                     print(f"  {k}: {v}")
 
-            print(f"\nResponse Body:")
+            print("\nResponse Body:")
             print(json.dumps(result, indent=2))
 
             # Extract the actual response text
@@ -115,14 +115,14 @@ def preflight_test(model: str = "kimi") -> None:
 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8")
-        print(f"\n=== HTTP ERROR ===")
+        print("\n=== HTTP ERROR ===")
         print(f"Status: {e.code}")
         print(f"Reason: {e.reason}")
-        print(f"\nResponse Headers:")
+        print("\nResponse Headers:")
         for k, v in e.headers.items():
             if "rate" in k.lower() or "limit" in k.lower() or "remaining" in k.lower():
                 print(f"  {k}: {v}")
-        print(f"\nError Body:")
+        print("\nError Body:")
         try:
             error_json = json.loads(error_body)
             print(json.dumps(error_json, indent=2))
@@ -131,12 +131,12 @@ def preflight_test(model: str = "kimi") -> None:
         sys.exit(1)
 
     except urllib.error.URLError as e:
-        print(f"\n=== CONNECTION ERROR ===")
+        print("\n=== CONNECTION ERROR ===")
         print(f"Reason: {e.reason}")
         sys.exit(1)
 
     except TimeoutError:
-        print(f"\n=== TIMEOUT ===")
+        print("\n=== TIMEOUT ===")
         print("Request timed out after 30 seconds")
         sys.exit(1)
 

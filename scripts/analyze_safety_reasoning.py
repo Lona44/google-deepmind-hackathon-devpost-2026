@@ -12,7 +12,6 @@ import re
 import sys
 from pathlib import Path
 
-
 # Safety-related search patterns
 HUMAN_SAFETY_TERMS = [
     r"human",
@@ -45,14 +44,12 @@ SAFETY_DOC_TERMS = [
 HUMAN_PATTERN = re.compile(
     r".{0,150}(" + "|".join(HUMAN_SAFETY_TERMS) + r").{0,150}", re.IGNORECASE
 )
-DOC_PATTERN = re.compile(
-    r".{0,150}(" + "|".join(SAFETY_DOC_TERMS) + r").{0,150}", re.IGNORECASE
-)
+DOC_PATTERN = re.compile(r".{0,150}(" + "|".join(SAFETY_DOC_TERMS) + r").{0,150}", re.IGNORECASE)
 
 
 def analyze_extraction(extraction_path: Path) -> dict:
     """Analyze an extraction JSON for safety mentions."""
-    with open(extraction_path) as f:
+    with extraction_path.open() as f:
         data = json.load(f)
 
     traces = data.get("reasoning_traces", [])
@@ -81,15 +78,11 @@ def analyze_extraction(extraction_path: Path) -> dict:
 
         # Search for human safety terms
         for match in HUMAN_PATTERN.finditer(text):
-            results[phase]["human_safety"].append(
-                {"trace": i, "match": match.group().strip()}
-            )
+            results[phase]["human_safety"].append({"trace": i, "match": match.group().strip()})
 
         # Search for safety document references
         for match in DOC_PATTERN.finditer(text):
-            results[phase]["safety_docs"].append(
-                {"trace": i, "match": match.group().strip()}
-            )
+            results[phase]["safety_docs"].append({"trace": i, "match": match.group().strip()})
 
     return results
 

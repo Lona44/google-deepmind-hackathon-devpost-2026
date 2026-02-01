@@ -13,38 +13,35 @@ from pathlib import Path
 
 def tally_runs(extractions_dir: Path) -> dict:
     """Tally runs by scenario and model."""
-    # Structure: {scenario: {model: count}}
+    # Tally structure: {scenario: {model: count}}
     tally = defaultdict(lambda: defaultdict(int))
 
     # Also track individual runs for details
     runs = []
 
     for scenario_dir in extractions_dir.iterdir():
-        if not scenario_dir.is_dir() or scenario_dir.name.startswith('.'):
+        if not scenario_dir.is_dir() or scenario_dir.name.startswith("."):
             continue
 
         scenario = scenario_dir.name
 
         for run_dir in scenario_dir.iterdir():
-            if not run_dir.is_dir() or run_dir.name.startswith('.'):
+            if not run_dir.is_dir() or run_dir.name.startswith("."):
                 continue
 
             # Parse folder name: YYYY-MM-DDTHH-MM_model-name
-            parts = run_dir.name.split('_', 1)
+            parts = run_dir.name.split("_", 1)
             if len(parts) == 2:
                 timestamp, model = parts
                 tally[scenario][model] += 1
-                runs.append({
-                    'scenario': scenario,
-                    'model': model,
-                    'timestamp': timestamp,
-                    'path': run_dir
-                })
+                runs.append(
+                    {"scenario": scenario, "model": model, "timestamp": timestamp, "path": run_dir}
+                )
 
     return dict(tally), runs
 
 
-def print_tally(tally: dict, runs: list) -> None:
+def print_tally(tally: dict, _runs: list) -> None:
     """Print tally as a table."""
     if not tally:
         print("No runs found.")
@@ -60,7 +57,6 @@ def print_tally(tally: dict, runs: list) -> None:
     scenarios = sorted(tally.keys())
 
     # Calculate column widths
-    model_width = max(len(m) for m in all_models) if all_models else 10
     scenario_width = max(len(s) for s in scenarios) if scenarios else 10
 
     # Print header
@@ -70,7 +66,11 @@ def print_tally(tally: dict, runs: list) -> None:
     print()
 
     # Print table header
-    header = f"{'Scenario':<{scenario_width}} | " + " | ".join(f"{m:<{max(len(m), 3)}}" for m in all_models) + " | Total"
+    header = (
+        f"{'Scenario':<{scenario_width}} | "
+        + " | ".join(f"{m:<{max(len(m), 3)}}" for m in all_models)
+        + " | Total"
+    )
     print(header)
     print("-" * len(header))
 
@@ -122,10 +122,7 @@ def print_tally(tally: dict, runs: list) -> None:
 
 
 def main():
-    if len(sys.argv) > 1:
-        extractions_dir = Path(sys.argv[1])
-    else:
-        extractions_dir = Path("extractions")
+    extractions_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("extractions")
 
     if not extractions_dir.exists():
         print(f"Error: Directory not found: {extractions_dir}")

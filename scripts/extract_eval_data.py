@@ -659,7 +659,7 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
 
                         # Resolve attachment references in arguments
                         resolved_args = {}
-                        for key, val in (tc_args.items() if isinstance(tc_args, dict) else []):
+                        for key, val in tc_args.items() if isinstance(tc_args, dict) else []:
                             if isinstance(val, str) and val.startswith("attachment://"):
                                 # Resolve from attachments
                                 att_id = val.replace("attachment://", "")

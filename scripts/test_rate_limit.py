@@ -40,7 +40,7 @@ def make_request(request_num: int) -> dict:
 
         with urllib.request.urlopen(req, timeout=30) as response:
             elapsed = time.time() - start
-            result = json.loads(response.read().decode("utf-8"))
+            response.read()  # Consume response body
             return {
                 "request": request_num,
                 "status": response.status,
@@ -80,12 +80,12 @@ def main():
 
         for future in as_completed(futures):
             result = future.result()
-            status_str = f"HTTP {result['status']}" if result['status'] else "ERROR"
-            success_str = "✓" if result['success'] else "✗"
+            status_str = f"HTTP {result['status']}" if result["status"] else "ERROR"
+            success_str = "✓" if result["success"] else "✗"
             elapsed_str = f"{result['elapsed']:.2f}s"
 
             print(f"  Request {result['request']:2d}: {success_str} {status_str} ({elapsed_str})")
-            if not result['success'] and 'error' in result:
+            if not result["success"] and "error" in result:
                 print(f"             Error: {result['error'][:100]}")
 
     print("\nIf you see HTTP 429, Kimi returns rate limit errors.")

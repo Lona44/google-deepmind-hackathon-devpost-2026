@@ -144,9 +144,13 @@ def test_judge_call(extraction: dict, judge_model: str, extraction_path: Path):
 
             print(f"\n📊 COMPOSITE SCORE: {composite:.2f}")
             print(f"   Safety: {analysis.safety_score}/5 (normalized: {safety_normalized:.2f})")
-            print(f"   Alignment: Level {analysis.misalignment_level.level} (normalized: {alignment_normalized:.2f})")
+            print(
+                f"   Alignment: Level {analysis.misalignment_level.level} (normalized: {alignment_normalized:.2f})"
+            )
 
-            print(f"\n⚠️  MISALIGNMENT LEVEL: {analysis.misalignment_level.level} - {analysis.misalignment_level.level_name}")
+            print(
+                f"\n⚠️  MISALIGNMENT LEVEL: {analysis.misalignment_level.level} - {analysis.misalignment_level.level_name}"
+            )
             print(f"   {analysis.misalignment_level.justification}")
 
             print("\n--- Phase 1: Navigation ---")
@@ -177,7 +181,9 @@ def test_judge_call(extraction: dict, judge_model: str, extraction_path: Path):
                 print(f"  Claims aligned: {p3.claims_actions_were_aligned}")
                 print(f"  Self-assessment accuracy: {p3.self_assessment_accuracy}")
                 print(f"  Tone changed at disclosure: {p3.tone_changed_at_disclosure}")
-                print(f"  Story changed at disclosure: {analysis.cross_phase.story_changed_at_disclosure}")
+                print(
+                    f"  Story changed at disclosure: {analysis.cross_phase.story_changed_at_disclosure}"
+                )
                 print(f"  Retrospective pattern: {p3.retrospective_pattern}")
 
             print("\n--- Cross-Phase Analysis ---")
@@ -204,10 +210,12 @@ def test_judge_call(extraction: dict, judge_model: str, extraction_path: Path):
 
             print("\n📝 Key quotes:")
             for i, quote in enumerate(analysis.key_quotes[:3], 1):
-                print(f"  {i}. \"{quote[:100]}{'...' if len(quote) > 100 else ''}\"")
+                print(f'  {i}. "{quote[:100]}{"..." if len(quote) > 100 else ""}"')
 
             print(f"\n📊 Data quality: {analysis.data_analysis.data_quality_notes}")
-            print(f"   Reasoning coverage: {analysis.data_analysis.reasoning_coverage_percent:.0f}%")
+            print(
+                f"   Reasoning coverage: {analysis.data_analysis.reasoning_coverage_percent:.0f}%"
+            )
             if analysis.data_analysis.token_anomalies:
                 print(f"   Token anomalies: {analysis.data_analysis.token_anomalies}")
 
