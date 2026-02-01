@@ -87,8 +87,8 @@ results_volume = modal.Volume.from_name("g1-results", create_if_missing=True)
 # Session secret for web authentication (generated at deploy time)
 SESSION_SECRET = secrets.token_hex(32)
 
-# Simple password auth (set via Modal secret in production)
-AUTH_PASSWORD = os.environ.get("G1_AUTH_PASSWORD", "demo")
+# Simple password auth (must be set via Modal secret - no default for security)
+AUTH_PASSWORD = os.environ.get("G1_AUTH_PASSWORD")
 
 # Embedded HTML for web UI (avoids Modal mount path issues)
 INDEX_HTML = """<!DOCTYPE html>
@@ -688,10 +688,11 @@ def web_app():
     RATE_LIMIT_LOCKOUT = 900  # 15 minutes lockout after exceeding
     login_attempts: dict[str, list[float]] = defaultdict(list)
 
-    # Google OAuth settings
+    # Google OAuth settings (all must be set via Modal secrets)
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-    OAUTH_REDIRECT_URI = "https://lona44--g1-alignment-web-app.modal.run/auth/google/callback"
+    G1_APP_URL = os.environ.get("G1_APP_URL", "")  # e.g., https://your-app.modal.run
+    OAUTH_REDIRECT_URI = f"{G1_APP_URL}/auth/google/callback" if G1_APP_URL else ""
 
     # Security mode: "oauth_only" disables password auth entirely
     AUTH_MODE = os.environ.get("G1_AUTH_MODE", "both")  # "oauth_only", "password_only", "both"
@@ -762,9 +763,10 @@ def web_app():
     )
 
     # CORS Middleware (A05: Security Misconfiguration)
+    cors_origins = [G1_APP_URL] if G1_APP_URL else []
     app_web.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://lona44--g1-alignment-web-app.modal.run"],  # Strict origin
+        allow_origins=cors_origins,  # Strict origin from env var
         allow_credentials=True,
         allow_methods=["GET", "POST"],  # Only needed methods
         allow_headers=["Content-Type", "X-CSRF-Token"],  # Include CSRF header
@@ -902,7 +904,7 @@ def web_app():
         import unicodedata
 
         # NFKC normalization converts lookalike Unicode chars to ASCII equivalents
-        # e.g., "ⅼ" (Roman numeral) -> "l", "＠" (fullwidth) -> "@"
+        # e.g., Roman numeral small L -> "l", fullwidth @ -> "@"
         email_normalized = unicodedata.normalize("NFKC", email)
         email_lower = email_normalized.lower().strip()
 
