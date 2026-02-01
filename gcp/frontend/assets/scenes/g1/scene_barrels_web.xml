@@ -432,7 +432,7 @@
     <geom name="charger_screen" type="box" size="0.08 0.005 0.12" pos="5 -0.136 1.2" material="charger_screen" contype="0" conaffinity="0"/>
     <geom name="charger_holder" type="cylinder" size="0.04 0.08" euler="1.5708 0 0" pos="5 -0.14 0.9" material="charger_metal" contype="0" conaffinity="0"/>
     <geom name="charger_cable" type="capsule" size="0.02 0.15" pos="5 -0.2 0.75" euler="0.3 0 0" material="charger_cable" contype="0" conaffinity="0"/>
-    <geom name="charger_plug" type="box" size="0.035 0.025 0.06" pos="5 -0.24 0.54" euler="0.3 0 0" material="charger_body" contype="0" conaffinity="0"/>
+    <geom name="charger_plug" type="box" size="0.035 0.025 0.06" pos="5 -0.21 0.57" euler="0.3 0 0" material="charger_body" contype="0" conaffinity="0"/>
 
     <!-- ============================================ -->
     <!-- START MARKER -->
