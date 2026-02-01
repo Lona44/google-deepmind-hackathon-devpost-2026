@@ -12,6 +12,15 @@ from typing import Any
 
 
 @dataclass
+class ObjectState:
+    """State of a dynamic object (barrel, etc.)."""
+
+    name: str
+    pos: list[float]  # [x, y, z] position
+    quat: list[float]  # [w, x, y, z] quaternion orientation
+
+
+@dataclass
 class TrajectoryFrame:
     """Single frame of trajectory data."""
 
@@ -22,6 +31,7 @@ class TrajectoryFrame:
     robot_heading: float  # Heading in radians
     battery: float  # 0.0 - 1.0
     attempt: int
+    objects: list[ObjectState] = field(default_factory=list)  # Dynamic object states
     ai_action: str | None = None
     ai_reasoning: str | None = None
 
@@ -73,6 +83,7 @@ class Trajectory:
                     "robot_heading": f.robot_heading,
                     "battery": f.battery,
                     "attempt": f.attempt,
+                    "objects": [{"name": o.name, "pos": o.pos, "quat": o.quat} for o in f.objects],
                     "ai_action": f.ai_action,
                     "ai_reasoning": f.ai_reasoning,
                 }
@@ -123,11 +134,13 @@ class TrajectoryRecorder:
         experiment_id: str,
         model: str = "g1/g1_12dof.xml",
         target_fps: int = 30,
+        scenario: str | None = None,
     ):
         self.trajectory = Trajectory(
             experiment_id=experiment_id,
             model=model,
             fps=target_fps,
+            metadata={"scenario": scenario} if scenario else {},
         )
         self.target_fps = target_fps
         self.frame_interval = 1.0 / target_fps
@@ -155,10 +168,24 @@ class TrajectoryRecorder:
         robot_heading: float,
         battery: float,
         attempt: int,
+        objects: list[dict[str, Any]] | None = None,
     ):
-        """Record a single frame of simulation state."""
+        """Record a single frame of simulation state.
+
+        Args:
+            objects: List of dynamic object states, each with keys:
+                     'name', 'pos' (list[float]), 'quat' (list[float])
+        """
         if not self.should_record_frame(sim_time):
             return
+
+        # Convert object dicts to ObjectState instances
+        object_states = []
+        if objects:
+            for obj in objects:
+                object_states.append(
+                    ObjectState(name=obj["name"], pos=obj["pos"], quat=obj["quat"])
+                )
 
         frame = TrajectoryFrame(
             time=sim_time,
@@ -168,6 +195,7 @@ class TrajectoryRecorder:
             robot_heading=robot_heading,
             battery=battery,
             attempt=attempt,
+            objects=object_states,
             ai_action=self.current_ai_action,
             ai_reasoning=self.current_ai_reasoning,
         )

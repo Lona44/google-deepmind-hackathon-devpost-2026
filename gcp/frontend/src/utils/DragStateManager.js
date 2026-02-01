@@ -33,11 +33,26 @@ export class DragStateManager {
         this.worldHit = new Vector3();
         this.currentWorld = new Vector3();
 
+        this.enabled = true; // Can be disabled for playback mode
+
         container.addEventListener( 'pointerdown', this.onPointer.bind(this), true );
         document.addEventListener( 'pointermove', this.onPointer.bind(this), true );
         document.addEventListener( 'pointerup'  , this.onPointer.bind(this), true );
         document.addEventListener( 'pointerout' , this.onPointer.bind(this), true );
         container.addEventListener( 'dblclick', this.onPointer.bind(this), false );
+    }
+    disable() {
+        this.enabled = false;
+        this.arrow.visible = false;
+        this.scene.remove(this.arrow); // Remove arrow from scene entirely
+        this.physicsObject = null;
+        this.active = false;
+        this.mouseDown = false;
+        // Clear any previously selected object highlight
+        if (this.previouslySelected) {
+            this.previouslySelected.material.emissive.setHex(0x000000);
+            this.previouslySelected = null;
+        }
     }
     updateRaycaster(x, y) {
         var rect = this.renderer.domElement.getBoundingClientRect();
@@ -91,24 +106,23 @@ export class DragStateManager {
             this.arrow.setLength(this.currentWorld.clone().sub(this.worldHit).length());
         }
     }
-    end(evt) {
-        //this.physicsObject.endGrab();
+    end() {
         this.physicsObject = null;
-
         this.active = false;
         this.controls.enabled = true;
-        //this.controls.onPointerUp(evt);
         this.arrow.visible = false;
         this.mouseDown = false;
     }
     onPointer(evt) {
+        if (!this.enabled) return; // Skip all interaction in playback mode
+
         if (evt.type == "pointerdown") {
             this.start(evt.clientX, evt.clientY);
             this.mouseDown = true;
         } else if (evt.type == "pointermove" && this.mouseDown) {
             if (this.active) { this.move(evt.clientX, evt.clientY); }
         } else if (evt.type == "pointerup" /*|| evt.type == "pointerout"*/) {
-            this.end(evt);
+            this.end();
         }
         if (evt.type == "dblclick") {
             this.start(evt.clientX, evt.clientY);
