@@ -56,6 +56,7 @@ g1_image = (
         "pydantic>=2.0.0",
         "fastapi>=0.100.0",
         "python-jose[cryptography]",  # JWT for sessions
+        "httpx>=0.25.0",  # For OAuth token exchange
     )
     # Environment for headless operation (must be before add_local_*)
     .env(
@@ -117,6 +118,11 @@ INDEX_HTML = """<!DOCTYPE html>
         .status.running { background: rgba(74, 158, 255, 0.2); color: var(--accent); }
         .status.success { background: rgba(76, 175, 80, 0.2); color: var(--success); }
         .status.error { background: rgba(244, 67, 54, 0.2); color: var(--error); }
+        .divider { display: flex; align-items: center; margin: 1.5rem 0; color: var(--text-dim); font-size: 0.875rem; }
+        .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
+        .divider span { padding: 0 1rem; }
+        .btn-google { background: #4285f4; display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; }
+        .btn-google svg { width: 18px; height: 18px; }
         .results-list { list-style: none; }
         .results-list li { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
         .results-list li:last-child { border-bottom: none; }
@@ -135,12 +141,19 @@ INDEX_HTML = """<!DOCTYPE html>
         <p class="subtitle">AI Alignment Research with Simulated Robotics</p>
         <div id="login-section" class="card">
             <h2>Authentication</h2>
+            <div id="google-login" class="hidden">
+                <a href="/auth/google" class="btn-google" style="text-decoration: none;">
+                    <svg viewBox="0 0 24 24"><path fill="white" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="white" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="white" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="white" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Sign in with Google
+                </a>
+                <div class="divider"><span>or</span></div>
+            </div>
             <form id="login-form">
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" placeholder="Enter password" required>
                 </div>
-                <button type="submit">Login</button>
+                <button type="submit">Login with Password</button>
             </form>
             <p id="login-error" class="hidden" style="color: var(--error); margin-top: 1rem;"></p>
         </div>
@@ -196,6 +209,7 @@ INDEX_HTML = """<!DOCTYPE html>
         const mainSection = document.getElementById('main-section');
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
+        const googleLogin = document.getElementById('google-login');
         const runForm = document.getElementById('run-form');
         const runBtn = document.getElementById('run-btn');
         const statusCard = document.getElementById('status-card');
@@ -207,12 +221,28 @@ INDEX_HTML = """<!DOCTYPE html>
             try { const res = await fetch('/api/results'); if (res.ok) { showMain(); loadResults(); } } catch (e) {}
         }
 
+        async function checkAuthMethods() {
+            try {
+                const res = await fetch('/api/auth-methods');
+                if (res.ok) {
+                    const methods = await res.json();
+                    if (methods.google) { googleLogin.classList.remove('hidden'); }
+                }
+            } catch (e) {}
+        }
+
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const password = document.getElementById('password').value;
+            loginError.classList.add('hidden');
             try {
                 const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
-                if (res.ok) { showMain(); loadResults(); } else { loginError.textContent = 'Invalid password'; loginError.classList.remove('hidden'); }
+                if (res.ok) { showMain(); loadResults(); }
+                else {
+                    const data = await res.json();
+                    loginError.textContent = data.detail || 'Invalid password';
+                    loginError.classList.remove('hidden');
+                }
             } catch (e) { loginError.textContent = 'Connection error'; loginError.classList.remove('hidden'); }
         });
 
@@ -271,6 +301,7 @@ INDEX_HTML = """<!DOCTYPE html>
         }
 
         checkAuth();
+        checkAuthMethods();
     </script>
 </body>
 </html>"""
@@ -548,10 +579,14 @@ def run_batch(
 @modal.asgi_app()
 def web_app():
     """FastAPI web application for the G1 platform."""
+    import hashlib
+    import time
+    import urllib.parse
+    from collections import defaultdict
     from datetime import timedelta
 
     from fastapi import Depends, FastAPI, HTTPException, Request
-    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
     from jose import jwt
     from pydantic import BaseModel
 
@@ -562,6 +597,17 @@ def web_app():
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_HOURS = 24
 
+    # Rate limiting settings
+    RATE_LIMIT_ATTEMPTS = 5  # Max attempts per window
+    RATE_LIMIT_WINDOW = 300  # 5 minutes in seconds
+    RATE_LIMIT_LOCKOUT = 900  # 15 minutes lockout after exceeding
+    login_attempts: dict[str, list[float]] = defaultdict(list)
+
+    # Google OAuth settings
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    OAUTH_REDIRECT_URI = "https://lona44--g1-alignment-web-app.modal.run/auth/google/callback"
+
     class LoginRequest(BaseModel):
         password: str
 
@@ -571,6 +617,34 @@ def web_app():
         reasoning: str = "high"
         num_runs: int = 1
         api_key: str | None = None
+
+    def get_client_ip(request: Request) -> str:
+        """Get client IP, considering proxies."""
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.client.host if request.client else "unknown"
+
+    def check_rate_limit(ip: str) -> tuple[bool, int]:
+        """Check if IP is rate limited. Returns (is_allowed, seconds_until_unlock)."""
+        now = time.time()
+        attempts = login_attempts[ip]
+
+        # Clean old attempts outside the window
+        attempts[:] = [t for t in attempts if now - t < RATE_LIMIT_WINDOW]
+
+        if len(attempts) >= RATE_LIMIT_ATTEMPTS:
+            # Check if still in lockout period
+            oldest_in_window = min(attempts) if attempts else now
+            lockout_end = oldest_in_window + RATE_LIMIT_LOCKOUT
+            if now < lockout_end:
+                return False, int(lockout_end - now)
+
+        return True, 0
+
+    def record_attempt(ip: str):
+        """Record a login attempt."""
+        login_attempts[ip].append(time.time())
 
     def create_token(data: dict) -> str:
         to_encode = data.copy()
@@ -589,13 +663,32 @@ def web_app():
             raise HTTPException(status_code=401, detail="Invalid token") from e
 
     @app_web.post("/api/login")
-    async def login(req: LoginRequest):
-        # Get password from Modal secret or use default
+    async def login(request: Request, req: LoginRequest):
+        # Rate limiting
+        client_ip = get_client_ip(request)
+        allowed, wait_time = check_rate_limit(client_ip)
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many login attempts. Try again in {wait_time} seconds.",
+            )
+
+        # Record this attempt
+        record_attempt(client_ip)
+
+        # Verify password
         expected = os.environ.get("G1_AUTH_PASSWORD", AUTH_PASSWORD)
         if req.password != expected:
-            raise HTTPException(status_code=401, detail="Invalid password")
+            remaining = RATE_LIMIT_ATTEMPTS - len(login_attempts[client_ip])
+            raise HTTPException(
+                status_code=401,
+                detail=f"Invalid password. {remaining} attempts remaining.",
+            )
 
-        token = create_token({"sub": "user", "authenticated": True})
+        # Clear attempts on successful login
+        login_attempts[client_ip] = []
+
+        token = create_token({"sub": "password_user", "auth_method": "password"})
         response = JSONResponse({"status": "ok"})
         response.set_cookie(
             "session",
@@ -605,6 +698,100 @@ def web_app():
             max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
         )
         return response
+
+    @app_web.get("/auth/google")
+    async def google_auth():
+        """Redirect to Google OAuth."""
+        if not GOOGLE_CLIENT_ID:
+            raise HTTPException(status_code=503, detail="Google OAuth not configured")
+
+        # Generate state for CSRF protection
+        state = hashlib.sha256(secrets.token_bytes(32)).hexdigest()
+
+        params = {
+            "client_id": GOOGLE_CLIENT_ID,
+            "redirect_uri": OAUTH_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "email profile",
+            "state": state,
+            "access_type": "offline",
+            "prompt": "consent",
+        }
+        url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
+        response = RedirectResponse(url)
+        response.set_cookie("oauth_state", state, httponly=True, max_age=600)
+        return response
+
+    @app_web.get("/auth/google/callback")
+    async def google_callback(request: Request, code: str = "", state: str = ""):
+        """Handle Google OAuth callback."""
+        import httpx
+
+        if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+            raise HTTPException(status_code=503, detail="Google OAuth not configured")
+
+        # Verify state for CSRF protection
+        saved_state = request.cookies.get("oauth_state")
+        if not saved_state or saved_state != state:
+            raise HTTPException(status_code=400, detail="Invalid state parameter")
+
+        # Exchange code for tokens
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": OAUTH_REDIRECT_URI,
+                },
+            )
+
+            if token_response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to exchange code")
+
+            tokens = token_response.json()
+            access_token = tokens.get("access_token")
+
+            # Get user info
+            user_response = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+            if user_response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to get user info")
+
+            user_info = user_response.json()
+
+        # Create session token
+        token = create_token(
+            {
+                "sub": user_info.get("email"),
+                "name": user_info.get("name"),
+                "auth_method": "google",
+            }
+        )
+
+        response = RedirectResponse("/")
+        response.set_cookie(
+            "session",
+            token,
+            httponly=True,
+            samesite="lax",
+            max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
+        )
+        response.delete_cookie("oauth_state")
+        return response
+
+    @app_web.get("/api/auth-methods")
+    async def auth_methods():
+        """Return available authentication methods."""
+        return {
+            "password": True,
+            "google": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+        }
 
     @app_web.post("/api/run")
     async def start_run(req: RunRequest, _user: dict = Depends(verify_token)):
