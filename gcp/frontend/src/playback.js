@@ -128,7 +128,8 @@ export class PlaybackController {
     if (!this.demo.model || !this.demo.data) return;
 
     // Build name-to-body-id map on first call
-    if (!this._bodyNameMap) {
+    // Note: model.body() may not be available until model is fully loaded
+    if (!this._bodyNameMap && typeof this.demo.model.body === 'function') {
       this._bodyNameMap = {};
       for (let i = 0; i < this.demo.model.nbody; i++) {
         const name = this.demo.model.body(i).name;
@@ -137,6 +138,9 @@ export class PlaybackController {
         }
       }
     }
+
+    // Skip if we couldn't build the map yet
+    if (!this._bodyNameMap) return;
 
     // Apply each object's position
     for (const obj of objects) {
@@ -205,7 +209,8 @@ export class PlaybackController {
     if (!this.demo.model || !this.demo.data) return;
 
     // Build name-to-body-id map on first call
-    if (!this._bodyNameMap) {
+    // Note: model.body() may not be available until model is fully loaded
+    if (!this._bodyNameMap && typeof this.demo.model.body === 'function') {
       this._bodyNameMap = {};
       for (let i = 0; i < this.demo.model.nbody; i++) {
         const name = this.demo.model.body(i).name;
@@ -214,6 +219,9 @@ export class PlaybackController {
         }
       }
     }
+
+    // Skip if we couldn't build the map yet
+    if (!this._bodyNameMap) return;
 
     // Create lookup for objectsB by name
     const objBMap = {};

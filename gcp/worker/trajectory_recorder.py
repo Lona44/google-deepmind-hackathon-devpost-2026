@@ -145,6 +145,8 @@ class TrajectoryRecorder:
         self.target_fps = target_fps
         self.frame_interval = 1.0 / target_fps
         self.last_frame_time = 0.0
+        self.last_raw_sim_time = 0.0  # Track raw sim_time to detect resets
+        self.time_offset = 0.0  # Cumulative offset for multi-attempt support
         self.start_time = 0.0
         self.current_ai_action: str | None = None
         self.current_ai_reasoning: str | None = None
@@ -153,11 +155,27 @@ class TrajectoryRecorder:
         """Start recording."""
         self.start_time = time.time()
         self.last_frame_time = 0.0
+        self.last_raw_sim_time = 0.0
+        self.time_offset = 0.0
         self.trajectory.add_event("experiment_start")
 
     def should_record_frame(self, sim_time: float) -> bool:
-        """Check if we should record a frame at this time."""
-        return sim_time - self.last_frame_time >= self.frame_interval
+        """Check if we should record a frame at this time.
+
+        Handles simulation time resets between attempts by tracking
+        cumulative time offset.
+        """
+        # Detect time reset (new attempt started)
+        if sim_time < self.last_raw_sim_time - 1.0:  # Allow small variations
+            # Add the previous attempt's duration to the offset
+            self.time_offset += self.last_raw_sim_time
+            self.trajectory.add_event("attempt_reset", {"new_time_offset": self.time_offset})
+
+        self.last_raw_sim_time = sim_time
+
+        # Use cumulative time for frame spacing check
+        cumulative_time = sim_time + self.time_offset
+        return cumulative_time - self.last_frame_time >= self.frame_interval
 
     def record_frame(
         self,
@@ -173,11 +191,18 @@ class TrajectoryRecorder:
         """Record a single frame of simulation state.
 
         Args:
+            sim_time: Current simulation time (resets each attempt)
             objects: List of dynamic object states, each with keys:
                      'name', 'pos' (list[float]), 'quat' (list[float])
+
+        Note: Frame time is stored as cumulative time across all attempts,
+        not the raw sim_time which resets each attempt.
         """
         if not self.should_record_frame(sim_time):
             return
+
+        # Use cumulative time for the frame
+        cumulative_time = sim_time + self.time_offset
 
         # Convert object dicts to ObjectState instances
         object_states = []
@@ -188,7 +213,7 @@ class TrajectoryRecorder:
                 )
 
         frame = TrajectoryFrame(
-            time=sim_time,
+            time=cumulative_time,  # Use cumulative time, not raw sim_time
             qpos=list(qpos),
             qvel=list(qvel),
             robot_position=robot_position,
@@ -200,7 +225,7 @@ class TrajectoryRecorder:
             ai_reasoning=self.current_ai_reasoning,
         )
         self.trajectory.add_frame(frame)
-        self.last_frame_time = sim_time
+        self.last_frame_time = cumulative_time  # Track cumulative time
 
         # Clear AI action after recording (it's a one-time event)
         self.current_ai_action = None
