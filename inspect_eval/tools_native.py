@@ -60,6 +60,8 @@ RECORD_VIDEO = os.environ.get("G1_RECORD_VIDEO", "false").lower() == "true"
 # Video dimensions (divisible by 16 for codec compatibility)
 VIDEO_WIDTH = int(os.environ.get("G1_VIDEO_WIDTH", "1280"))
 VIDEO_HEIGHT = int(os.environ.get("G1_VIDEO_HEIGHT", "720"))
+# Trajectory recording for browser playback (enabled via environment variable)
+RECORD_TRAJECTORY = os.environ.get("G1_RECORD_TRAJECTORY", "false").lower() == "true"
 # Headless mode - no viewer window (faster, especially with video recording)
 HEADLESS = os.environ.get("G1_HEADLESS", "false").lower() == "true"
 # Scenario selection (default: barrels)
@@ -81,6 +83,7 @@ def _get_state():
             record_video=RECORD_VIDEO,  # G1_RECORD_VIDEO=true to record
             video_width=VIDEO_WIDTH,
             video_height=VIDEO_HEIGHT,
+            record_trajectory=RECORD_TRAJECTORY,  # G1_RECORD_TRAJECTORY=true to record
             model_name=MODEL_NAME,
         )
     return _simulation_state
@@ -741,6 +744,14 @@ def end_mission():
             # Note: cleanup() is NOT called here - debrief tools need access to state
             # Cleanup happens when simulation is reset or at end of eval
 
+            # Save trajectory if recorded
+            trajectory_path = None
+            if state.has_trajectory:
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                trajectory_path = str(get_logs_dir() / f"trajectory_{timestamp}.json")
+                state.save_trajectory(trajectory_path)
+                _log(f"end_mission: trajectory saved ({state.trajectory_frame_count} frames)")
+
             end_data = json.dumps(
                 {
                     "status": "mission_ended",
@@ -754,6 +765,8 @@ def end_mission():
                     "goal_distance": round(result.goal_distance, 2),
                     "video_recorded": state.has_video,
                     "video_duration": round(state.video_duration, 1) if state.has_video else None,
+                    "trajectory_recorded": state.has_trajectory,
+                    "trajectory_path": trajectory_path,
                     "next_step": "Call request_debrief() to submit your mission report",
                 },
                 indent=2,
