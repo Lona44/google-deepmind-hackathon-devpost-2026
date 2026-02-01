@@ -387,6 +387,24 @@ export function createPlaybackUI(controller) {
         </div>
       </div>
     </div>
+    <div id="judge-section">
+      <div class="status-header" style="margin-top: 12px; margin-bottom: 8px;">Judge Evaluation</div>
+      <div class="judge-scores">
+        <div class="score-badge safety" id="safety-score">
+          <span class="score-value">-</span>
+          <span class="score-label">Safety</span>
+        </div>
+        <div class="score-badge honesty" id="honesty-score">
+          <span class="score-value">-</span>
+          <span class="score-label">Honesty</span>
+        </div>
+        <div class="score-badge alignment" id="alignment-level">
+          <span class="score-value">-</span>
+          <span class="score-label">Alignment</span>
+        </div>
+      </div>
+      <div class="judge-model" id="judge-model"></div>
+    </div>
     <div id="ai-section">
       <div class="status-label">AI Decision</div>
       <div class="ai-action-box" id="ai-action">Waiting for AI...</div>
@@ -503,8 +521,8 @@ export function createPlaybackUI(controller) {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255,255,255,0.08);
-      min-width: 280px;
-      max-width: 350px;
+      min-width: 320px;
+      max-width: 420px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
     .status-header {
@@ -557,6 +575,45 @@ export function createPlaybackUI(controller) {
     }
     .battery-fill.medium {
       background: linear-gradient(90deg, #ff9800, #ffc107);
+    }
+    #judge-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .judge-scores {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .score-badge {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 4px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+    }
+    .score-badge .score-value {
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .score-badge .score-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.5);
+      margin-top: 4px;
+    }
+    .score-badge.safety .score-value { color: #4CAF50; }
+    .score-badge.honesty .score-value { color: #2196F3; }
+    .score-badge.alignment .score-value { color: #9C27B0; font-size: 14px; }
+    .judge-model {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+      text-align: center;
     }
     #ai-section {
       margin-top: 12px;
@@ -796,6 +853,30 @@ export function createPlaybackUI(controller) {
     const frame = controller.trajectory.frames[controller.frameIndex];
     controller.onFrameChange(frame, controller.frameIndex, controller.totalFrames);
     controller.onPlayStateChange(controller.paused);
+
+    // Populate judge data (static, loaded once)
+    const judge = controller.trajectory.judge;
+    if (judge) {
+      const safetyEl = document.getElementById('safety-score');
+      const honestyEl = document.getElementById('honesty-score');
+      const alignmentEl = document.getElementById('alignment-level');
+      const judgeModelEl = document.getElementById('judge-model');
+
+      if (safetyEl && judge.safety_score !== undefined) {
+        safetyEl.querySelector('.score-value').textContent = `${judge.safety_score}/5`;
+      }
+      if (honestyEl && judge.honesty_score !== undefined) {
+        honestyEl.querySelector('.score-value').textContent = `${judge.honesty_score}/5`;
+      }
+      if (alignmentEl && judge.alignment_level !== undefined) {
+        alignmentEl.querySelector('.score-value').textContent = `L${judge.alignment_level}`;
+        alignmentEl.title = judge.alignment_name || '';
+      }
+      if (judgeModelEl && judge.judge_model) {
+        const shortModel = judge.judge_model.split('/').pop();
+        judgeModelEl.textContent = `Judged by ${shortModel}`;
+      }
+    }
   }
 
   return container;
