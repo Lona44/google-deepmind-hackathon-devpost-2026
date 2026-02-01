@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>G1 Alignment Experiment Viewer</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <meta name="application-name"   content="G1 Alignment Viewer">
+        <meta name="description"        content="Interactive 3D playback of G1 robot alignment experiments">
+        <meta name="keywords"           content="MuJoCo, G1, Robot, Alignment, AI">
+        <meta name="viewport"           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no, shrink-to-fit=0">
+        <meta name="theme-color"        content="#1a1a2e">
+        <link rel="icon" type="image/x-icon" href="./assets/favicon.png">
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #1a1a2e;
+                overflow: hidden;
+                position: fixed;
+                min-height: 100%;
+                touch-action: none;
+                -webkit-touch-callout: none;
+                -webkit-user-select: none;
+                -khtml-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            h1 { display: none; }
+
+            #loading-screen {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: #1a1a2e;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                color: white;
+            }
+            #loading-screen.hidden {
+                display: none;
+            }
+            .loading-spinner {
+                width: 50px;
+                height: 50px;
+                border: 3px solid #333;
+                border-top-color: #4CAF50;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            .loading-text {
+                margin-top: 20px;
+                font-size: 16px;
+                color: #888;
+            }
+
+            #header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 50px;
+                background: rgba(26, 26, 46, 0.95);
+                display: flex;
+                align-items: center;
+                padding: 0 20px;
+                z-index: 1001;
+                border-bottom: 1px solid #333;
+            }
+            #header h1 {
+                display: block !important;
+                font-size: 18px;
+                font-weight: 600;
+                color: white;
+                margin: 0;
+            }
+            #header .experiment-id {
+                margin-left: 20px;
+                color: #888;
+                font-size: 14px;
+                font-family: monospace;
+            }
+
+            #help-panel {
+                position: fixed;
+                top: 60px;
+                right: 10px;
+                background: rgba(0, 0, 0, 0.85);
+                padding: 15px;
+                border-radius: 8px;
+                color: white;
+                font-size: 13px;
+                z-index: 1000;
+                display: none;
+            }
+            #help-panel.visible {
+                display: block;
+            }
+            #help-panel h3 {
+                margin: 0 0 10px 0;
+                font-size: 14px;
+                color: #4CAF50;
+            }
+            #help-panel kbd {
+                background: #333;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: monospace;
+            }
+
+            #drop-zone {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(76, 175, 80, 0.2);
+                border: 4px dashed #4CAF50;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 3000;
+            }
+            #drop-zone.active {
+                display: flex;
+            }
+            #drop-zone p {
+                color: white;
+                font-size: 24px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <h1>G1 Alignment Experiment Viewer</h1>
+
+        <!-- Loading screen -->
+        <div id="loading-screen">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading MuJoCo...</div>
+        </div>
+
+        <!-- Header -->
+        <div id="header">
+            <h1>G1 Alignment Viewer</h1>
+            <span class="experiment-id" id="experiment-id"></span>
+        </div>
+
+        <!-- Help panel -->
+        <div id="help-panel">
+            <h3>Controls</h3>
+            <p><kbd>Space</kbd> Play/Pause</p>
+            <p><kbd>←</kbd> <kbd>→</kbd> Step frame</p>
+            <p><kbd>[</kbd> <kbd>]</kbd> Change speed</p>
+            <p><kbd>R</kbd> Reset to start</p>
+            <p><kbd>?</kbd> Toggle help</p>
+            <h3>Camera</h3>
+            <p>Drag to rotate</p>
+            <p>Scroll to zoom</p>
+            <p>Right-drag to pan</p>
+        </div>
+
+        <!-- Drag-and-drop zone -->
+        <div id="drop-zone">
+            <p>Drop trajectory.json here</p>
+        </div>
+
+        <!-- Import maps polyfill -->
+        <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+        <!-- Allows three.js Examples to work without building -->
+        <script type="importmap">
+            { "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/"} }
+        </script>
+
+        <div id="appbody" style="position: absolute;">
+            <script type="module" src="./src/main.js"></script>
+        </div>
+    </body>
+</html>

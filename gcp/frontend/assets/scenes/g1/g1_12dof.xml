@@ -1,0 +1,403 @@
+<mujoco model="g1_12dof">
+  <compiler angle="radian" meshdir="meshes/"/>
+
+  <statistic meansize="0.144785" extent="1.23314" center="0.025392 2.0634e-05 -0.245975"/>
+  <default>
+    <joint damping="0.001" armature="0.01" frictionloss="0.1"/>
+  </default>
+
+  <asset>
+    <mesh name="pelvis" file="pelvis.STL"/>
+    <mesh name="pelvis_contour_link" file="pelvis_contour_link.STL"/>
+    <mesh name="left_hip_pitch_link" file="left_hip_pitch_link.STL"/>
+    <mesh name="left_hip_roll_link" file="left_hip_roll_link.STL"/>
+    <mesh name="left_hip_yaw_link" file="left_hip_yaw_link.STL"/>
+    <mesh name="left_knee_link" file="left_knee_link.STL"/>
+    <mesh name="left_ankle_pitch_link" file="left_ankle_pitch_link.STL"/>
+    <mesh name="left_ankle_roll_link" file="left_ankle_roll_link.STL"/>
+    <mesh name="right_hip_pitch_link" file="right_hip_pitch_link.STL"/>
+    <mesh name="right_hip_roll_link" file="right_hip_roll_link.STL"/>
+    <mesh name="right_hip_yaw_link" file="right_hip_yaw_link.STL"/>
+    <mesh name="right_knee_link" file="right_knee_link.STL"/>
+    <mesh name="right_ankle_pitch_link" file="right_ankle_pitch_link.STL"/>
+    <mesh name="right_ankle_roll_link" file="right_ankle_roll_link.STL"/>
+    <mesh name="torso_link_23dof_rev_1_0" file="torso_link_23dof_rev_1_0.STL"/>
+    <mesh name="logo_link" file="logo_link.STL"/>
+    <mesh name="head_link" file="head_link.STL"/>
+    <mesh name="left_shoulder_pitch_link" file="left_shoulder_pitch_link.STL"/>
+    <mesh name="left_shoulder_roll_link" file="left_shoulder_roll_link.STL"/>
+    <mesh name="left_shoulder_yaw_link" file="left_shoulder_yaw_link.STL"/>
+    <mesh name="left_elbow_link" file="left_elbow_link.STL"/>
+    <mesh name="left_wrist_roll_rubber_hand" file="left_wrist_roll_rubber_hand.STL"/>
+    <mesh name="right_shoulder_pitch_link" file="right_shoulder_pitch_link.STL"/>
+    <mesh name="right_shoulder_roll_link" file="right_shoulder_roll_link.STL"/>
+    <mesh name="right_shoulder_yaw_link" file="right_shoulder_yaw_link.STL"/>
+    <mesh name="right_elbow_link" file="right_elbow_link.STL"/>
+    <mesh name="right_wrist_roll_rubber_hand" file="right_wrist_roll_rubber_hand.STL"/>
+  </asset>
+
+  <worldbody>
+    <body name="pelvis" pos="0 0 0.793">
+      <inertial pos="0.0144905 0.000151462 0.144068" quat="0.999881 -0.000505543 -0.0154276 0.000328408" mass="17.7349" diaginertia="0.552723 0.454092 0.211762"/>
+      <joint name="floating_base_joint" type="free" limited="false" actuatorfrclimited="false"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="pelvis"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="pelvis_contour_link"/>
+      <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="pelvis_contour_link"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="torso_link_23dof_rev_1_0"/>
+      <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="torso_link_23dof_rev_1_0"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="logo_link"/>
+      <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="logo_link"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="head_link"/>
+      <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="head_link"/>
+      <!-- ============================================ -->
+      <!-- 360° CAMERA SYSTEM - 4 cameras for full coverage -->
+      <!-- Each camera: 90° FOV, tilted 15° down -->
+      <!-- ============================================ -->
+      <!-- FRONT camera (original head_camera, looking +X) -->
+      <camera name="head_camera" pos="0.05 0 0.35" xyaxes="0 -1 0 0.259 0 0.966" fovy="90"/>
+      <!-- LEFT camera (looking +Y) -->
+      <camera name="head_camera_left" pos="0 0.05 0.35" xyaxes="1 0 0 0 0.259 0.966" fovy="90"/>
+      <!-- BACK camera (looking -X) -->
+      <camera name="head_camera_back" pos="-0.05 0 0.35" xyaxes="0 1 0 -0.259 0 0.966" fovy="90"/>
+      <!-- RIGHT camera (looking -Y) -->
+      <camera name="head_camera_right" pos="0 -0.05 0.35" xyaxes="-1 0 0 0 -0.259 0.966" fovy="90"/>
+      <!-- IMU site in pelvis -->
+      <site name="imu_site" pos="0 0 0.1" size="0.01"/>
+
+      <!-- ============================================ -->
+      <!-- DUAL-RING LiDAR SYSTEM (like Velodyne multi-plane) -->
+      <!-- Each ring: 180 rays, 2° apart = 360° coverage -->
+      <!-- group=4 so visible in viewer but hidden from robot camera -->
+      <!-- ============================================ -->
+
+      <!-- WAIST RING (yellow): at waist level (~0.75m), horizontal -->
+      <!-- Detects tall obstacles like 1.4m barrels, furniture, people -->
+      <!-- euler Y=1.5708 = 90° (horizontal forward) -->
+      <replicate count="180" sep="-" offset="0 0 0" euler="0 0 0.0349066">
+        <site name="lidar_gnd" pos="0.05 0 0" size="0.005" euler="0 1.5708 0" rgba="1 1 0 0.02" group="4"/>
+      </replicate>
+
+      <!-- HEAD RING REMOVED: Was hitting robot's shoulders during walking gait.
+           Only waist ring (lidar_gnd) is now used for obstacle detection.
+           Original config (preserved for reference):
+           <replicate count="180" sep="-" offset="0 0 0" euler="0 0 0.0349066">
+             <site name="lidar_mid" pos="0.05 0 0.35" size="0.005" euler="0 1.7453 0" rgba="0 1 1 0.02" group="4"/>
+           </replicate>
+      -->
+      <geom pos="-7.2e-06 0.10022 0.29178" quat="0.990264 0.139201 1.38722e-05 -9.86868e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_pitch_link"/>
+      <geom size="0.03 0.025" pos="7.72569e-07 0.141427 0.293195" quat="0.700213 0.0985001 0.700232 0.0983605" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="3.73942e-07 0.14056 0.288961" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_roll_link"/>
+      <geom size="0.03 0.015" pos="-0.00400139 0.146564 0.235962" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="-4.10007e-06 0.146807 0.185762" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_yaw_link"/>
+      <geom pos="-4.10007e-06 0.146807 0.185762" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_yaw_link"/>
+      <geom pos="0.0157745 0.146808 0.105243" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_elbow_link"/>
+      <geom pos="0.0157745 0.146808 0.105243" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_elbow_link"/>
+      <geom pos="0.115774 0.148678 0.0952374" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_wrist_roll_rubber_hand"/>
+      <geom pos="0.115774 0.148678 0.0952374" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_wrist_roll_rubber_hand"/>
+      <geom pos="-7.2e-06 -0.10021 0.29178" quat="0.990264 -0.139201 1.38722e-05 9.86868e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_pitch_link"/>
+      <geom size="0.03 0.025" pos="7.72569e-07 -0.141417 0.293195" quat="0.700213 -0.0985001 0.700232 -0.0983605" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="3.73942e-07 -0.14055 0.288961" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_roll_link"/>
+      <geom size="0.03 0.015" pos="-0.00400139 -0.146554 0.235962" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="-4.10007e-06 -0.146797 0.185762" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_yaw_link"/>
+      <geom pos="-4.10007e-06 -0.146797 0.185762" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_yaw_link"/>
+      <geom pos="0.0157745 -0.146798 0.105243" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_elbow_link"/>
+      <geom pos="0.0157745 -0.146798 0.105243" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_elbow_link"/>
+      <geom pos="0.115774 -0.148668 0.0952374" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_wrist_roll_rubber_hand"/>
+      <geom pos="0.115774 -0.148668 0.0952374" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_wrist_roll_rubber_hand"/>
+      <body name="left_hip_pitch_link" pos="0 0.064452 -0.1027">
+        <inertial pos="0.002741 0.047791 -0.02606" quat="0.954862 0.293964 0.0302556 0.030122" mass="1.35" diaginertia="0.00181517 0.00153422 0.00116212"/>
+        <joint name="left_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-2.5307 2.8798" actuatorfrcrange="-88 88"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="left_hip_pitch_link"/>
+        <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="left_hip_pitch_link"/>
+        <body name="left_hip_roll_link" pos="0 0.052 -0.030465" quat="0.996179 0 -0.0873386 0">
+          <inertial pos="0.029812 -0.001045 -0.087934" quat="0.977808 -1.97119e-05 0.205576 -0.0403793" mass="1.52" diaginertia="0.00254986 0.00241169 0.00148755"/>
+          <joint name="left_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.5236 2.9671" actuatorfrcrange="-139 139"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_hip_roll_link"/>
+          <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_hip_roll_link"/>
+          <body name="left_hip_yaw_link" pos="0.025001 0 -0.12412">
+            <inertial pos="-0.057709 -0.010981 -0.15078" quat="0.600598 0.15832 0.223482 0.751181" mass="1.702" diaginertia="0.00776166 0.00717575 0.00160139"/>
+            <joint name="left_hip_yaw_joint" pos="0 0 0" axis="0 0 1" range="-2.7576 2.7576" actuatorfrcrange="-88 88"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_hip_yaw_link"/>
+            <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_hip_yaw_link"/>
+            <body name="left_knee_link" pos="-0.078273 0.0021489 -0.17734" quat="0.996179 0 0.0873386 0">
+              <inertial pos="0.005457 0.003964 -0.12074" quat="0.923418 -0.0327699 0.0158246 0.382067" mass="1.932" diaginertia="0.0113804 0.0112778 0.00146458"/>
+              <joint name="left_knee_joint" pos="0 0 0" axis="0 1 0" range="-0.087267 2.8798" actuatorfrcrange="-139 139"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_knee_link"/>
+              <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_knee_link"/>
+              <body name="left_ankle_pitch_link" pos="0 -9.4445e-05 -0.30001">
+                <inertial pos="-0.007269 0 0.011137" quat="0.603053 0.369225 0.369225 0.603053" mass="0.074" diaginertia="1.89e-05 1.40805e-05 6.9195e-06"/>
+                <joint name="left_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.87267 0.5236" actuatorfrcrange="-50 50"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_ankle_pitch_link"/>
+                <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_ankle_pitch_link"/>
+                <body name="left_ankle_roll_link" pos="0 0 -0.017558">
+                  <inertial pos="0.026505 0 -0.016425" quat="-0.000481092 0.728482 -0.000618967 0.685065" mass="0.608" diaginertia="0.00167218 0.0016161 0.000217621"/>
+                  <joint name="left_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.2618 0.2618" actuatorfrcrange="-50 50"/>
+                  <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="left_ankle_roll_link"/>
+                  <geom size="0.005" pos="-0.05 0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="-0.05 -0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 -0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <!-- Left foot contact site -->
+                  <site name="left_foot_site" pos="0.03 0 -0.03" size="0.01"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="right_hip_pitch_link" pos="0 -0.064452 -0.1027">
+        <inertial pos="0.002741 -0.047791 -0.02606" quat="0.954862 -0.293964 0.0302556 -0.030122" mass="1.35" diaginertia="0.00181517 0.00153422 0.00116212"/>
+        <joint name="right_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-2.5307 2.8798" actuatorfrcrange="-88 88"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="right_hip_pitch_link"/>
+        <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="right_hip_pitch_link"/>
+        <body name="right_hip_roll_link" pos="0 -0.052 -0.030465" quat="0.996179 0 -0.0873386 0">
+          <inertial pos="0.029812 0.001045 -0.087934" quat="0.977808 1.97119e-05 0.205576 0.0403793" mass="1.52" diaginertia="0.00254986 0.00241169 0.00148755"/>
+          <joint name="right_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-2.9671 0.5236" actuatorfrcrange="-139 139"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_hip_roll_link"/>
+          <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_hip_roll_link"/>
+          <body name="right_hip_yaw_link" pos="0.025001 0 -0.12412">
+            <inertial pos="-0.057709 0.010981 -0.15078" quat="0.751181 0.223482 0.15832 0.600598" mass="1.702" diaginertia="0.00776166 0.00717575 0.00160139"/>
+            <joint name="right_hip_yaw_joint" pos="0 0 0" axis="0 0 1" range="-2.7576 2.7576" actuatorfrcrange="-88 88"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_hip_yaw_link"/>
+            <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_hip_yaw_link"/>
+            <body name="right_knee_link" pos="-0.078273 -0.0021489 -0.17734" quat="0.996179 0 0.0873386 0">
+              <inertial pos="0.005457 -0.003964 -0.12074" quat="0.923439 0.0345276 0.0116333 -0.382012" mass="1.932" diaginertia="0.011374 0.0112843 0.00146452"/>
+              <joint name="right_knee_joint" pos="0 0 0" axis="0 1 0" range="-0.087267 2.8798" actuatorfrcrange="-139 139"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_knee_link"/>
+              <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_knee_link"/>
+              <body name="right_ankle_pitch_link" pos="0 9.4445e-05 -0.30001">
+                <inertial pos="-0.007269 0 0.011137" quat="0.603053 0.369225 0.369225 0.603053" mass="0.074" diaginertia="1.89e-05 1.40805e-05 6.9195e-06"/>
+                <joint name="right_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.87267 0.5236" actuatorfrcrange="-50 50"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_ankle_pitch_link"/>
+                <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_ankle_pitch_link"/>
+                <body name="right_ankle_roll_link" pos="0 0 -0.017558">
+                  <inertial pos="0.026505 0 -0.016425" quat="0.000481092 0.728482 0.000618967 0.685065" mass="0.608" diaginertia="0.00167218 0.0016161 0.000217621"/>
+                  <joint name="right_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.2618 0.2618" actuatorfrcrange="-50 50"/>
+                  <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="right_ankle_roll_link"/>
+                  <geom size="0.005" pos="-0.05 0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="-0.05 -0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 -0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <!-- Right foot contact site -->
+                  <site name="right_foot_site" pos="0.03 0 -0.03" size="0.01"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- Sensors -->
+  <sensor>
+    <!-- IMU in pelvis -->
+    <gyro name="imu_gyro" site="imu_site" noise="0.0005"/>
+    <accelerometer name="imu_accel" site="imu_site" noise="0.01"/>
+
+    <!-- Foot contact forces (for touch sensing) -->
+    <touch name="left_foot_touch" site="left_foot_site"/>
+    <touch name="right_foot_touch" site="right_foot_site"/>
+
+
+    <!-- GROUND RING LiDAR (180 rays, 30° down - detects curbs/ground) -->
+    <rangefinder name="lidar_gnd-000" site="lidar_gnd-000" cutoff="10"/>
+    <rangefinder name="lidar_gnd-001" site="lidar_gnd-001" cutoff="10"/>
+    <rangefinder name="lidar_gnd-002" site="lidar_gnd-002" cutoff="10"/>
+    <rangefinder name="lidar_gnd-003" site="lidar_gnd-003" cutoff="10"/>
+    <rangefinder name="lidar_gnd-004" site="lidar_gnd-004" cutoff="10"/>
+    <rangefinder name="lidar_gnd-005" site="lidar_gnd-005" cutoff="10"/>
+    <rangefinder name="lidar_gnd-006" site="lidar_gnd-006" cutoff="10"/>
+    <rangefinder name="lidar_gnd-007" site="lidar_gnd-007" cutoff="10"/>
+    <rangefinder name="lidar_gnd-008" site="lidar_gnd-008" cutoff="10"/>
+    <rangefinder name="lidar_gnd-009" site="lidar_gnd-009" cutoff="10"/>
+    <rangefinder name="lidar_gnd-010" site="lidar_gnd-010" cutoff="10"/>
+    <rangefinder name="lidar_gnd-011" site="lidar_gnd-011" cutoff="10"/>
+    <rangefinder name="lidar_gnd-012" site="lidar_gnd-012" cutoff="10"/>
+    <rangefinder name="lidar_gnd-013" site="lidar_gnd-013" cutoff="10"/>
+    <rangefinder name="lidar_gnd-014" site="lidar_gnd-014" cutoff="10"/>
+    <rangefinder name="lidar_gnd-015" site="lidar_gnd-015" cutoff="10"/>
+    <rangefinder name="lidar_gnd-016" site="lidar_gnd-016" cutoff="10"/>
+    <rangefinder name="lidar_gnd-017" site="lidar_gnd-017" cutoff="10"/>
+    <rangefinder name="lidar_gnd-018" site="lidar_gnd-018" cutoff="10"/>
+    <rangefinder name="lidar_gnd-019" site="lidar_gnd-019" cutoff="10"/>
+    <rangefinder name="lidar_gnd-020" site="lidar_gnd-020" cutoff="10"/>
+    <rangefinder name="lidar_gnd-021" site="lidar_gnd-021" cutoff="10"/>
+    <rangefinder name="lidar_gnd-022" site="lidar_gnd-022" cutoff="10"/>
+    <rangefinder name="lidar_gnd-023" site="lidar_gnd-023" cutoff="10"/>
+    <rangefinder name="lidar_gnd-024" site="lidar_gnd-024" cutoff="10"/>
+    <rangefinder name="lidar_gnd-025" site="lidar_gnd-025" cutoff="10"/>
+    <rangefinder name="lidar_gnd-026" site="lidar_gnd-026" cutoff="10"/>
+    <rangefinder name="lidar_gnd-027" site="lidar_gnd-027" cutoff="10"/>
+    <rangefinder name="lidar_gnd-028" site="lidar_gnd-028" cutoff="10"/>
+    <rangefinder name="lidar_gnd-029" site="lidar_gnd-029" cutoff="10"/>
+    <rangefinder name="lidar_gnd-030" site="lidar_gnd-030" cutoff="10"/>
+    <rangefinder name="lidar_gnd-031" site="lidar_gnd-031" cutoff="10"/>
+    <rangefinder name="lidar_gnd-032" site="lidar_gnd-032" cutoff="10"/>
+    <rangefinder name="lidar_gnd-033" site="lidar_gnd-033" cutoff="10"/>
+    <rangefinder name="lidar_gnd-034" site="lidar_gnd-034" cutoff="10"/>
+    <rangefinder name="lidar_gnd-035" site="lidar_gnd-035" cutoff="10"/>
+    <rangefinder name="lidar_gnd-036" site="lidar_gnd-036" cutoff="10"/>
+    <rangefinder name="lidar_gnd-037" site="lidar_gnd-037" cutoff="10"/>
+    <rangefinder name="lidar_gnd-038" site="lidar_gnd-038" cutoff="10"/>
+    <rangefinder name="lidar_gnd-039" site="lidar_gnd-039" cutoff="10"/>
+    <rangefinder name="lidar_gnd-040" site="lidar_gnd-040" cutoff="10"/>
+    <rangefinder name="lidar_gnd-041" site="lidar_gnd-041" cutoff="10"/>
+    <rangefinder name="lidar_gnd-042" site="lidar_gnd-042" cutoff="10"/>
+    <rangefinder name="lidar_gnd-043" site="lidar_gnd-043" cutoff="10"/>
+    <rangefinder name="lidar_gnd-044" site="lidar_gnd-044" cutoff="10"/>
+    <rangefinder name="lidar_gnd-045" site="lidar_gnd-045" cutoff="10"/>
+    <rangefinder name="lidar_gnd-046" site="lidar_gnd-046" cutoff="10"/>
+    <rangefinder name="lidar_gnd-047" site="lidar_gnd-047" cutoff="10"/>
+    <rangefinder name="lidar_gnd-048" site="lidar_gnd-048" cutoff="10"/>
+    <rangefinder name="lidar_gnd-049" site="lidar_gnd-049" cutoff="10"/>
+    <rangefinder name="lidar_gnd-050" site="lidar_gnd-050" cutoff="10"/>
+    <rangefinder name="lidar_gnd-051" site="lidar_gnd-051" cutoff="10"/>
+    <rangefinder name="lidar_gnd-052" site="lidar_gnd-052" cutoff="10"/>
+    <rangefinder name="lidar_gnd-053" site="lidar_gnd-053" cutoff="10"/>
+    <rangefinder name="lidar_gnd-054" site="lidar_gnd-054" cutoff="10"/>
+    <rangefinder name="lidar_gnd-055" site="lidar_gnd-055" cutoff="10"/>
+    <rangefinder name="lidar_gnd-056" site="lidar_gnd-056" cutoff="10"/>
+    <rangefinder name="lidar_gnd-057" site="lidar_gnd-057" cutoff="10"/>
+    <rangefinder name="lidar_gnd-058" site="lidar_gnd-058" cutoff="10"/>
+    <rangefinder name="lidar_gnd-059" site="lidar_gnd-059" cutoff="10"/>
+    <rangefinder name="lidar_gnd-060" site="lidar_gnd-060" cutoff="10"/>
+    <rangefinder name="lidar_gnd-061" site="lidar_gnd-061" cutoff="10"/>
+    <rangefinder name="lidar_gnd-062" site="lidar_gnd-062" cutoff="10"/>
+    <rangefinder name="lidar_gnd-063" site="lidar_gnd-063" cutoff="10"/>
+    <rangefinder name="lidar_gnd-064" site="lidar_gnd-064" cutoff="10"/>
+    <rangefinder name="lidar_gnd-065" site="lidar_gnd-065" cutoff="10"/>
+    <rangefinder name="lidar_gnd-066" site="lidar_gnd-066" cutoff="10"/>
+    <rangefinder name="lidar_gnd-067" site="lidar_gnd-067" cutoff="10"/>
+    <rangefinder name="lidar_gnd-068" site="lidar_gnd-068" cutoff="10"/>
+    <rangefinder name="lidar_gnd-069" site="lidar_gnd-069" cutoff="10"/>
+    <rangefinder name="lidar_gnd-070" site="lidar_gnd-070" cutoff="10"/>
+    <rangefinder name="lidar_gnd-071" site="lidar_gnd-071" cutoff="10"/>
+    <rangefinder name="lidar_gnd-072" site="lidar_gnd-072" cutoff="10"/>
+    <rangefinder name="lidar_gnd-073" site="lidar_gnd-073" cutoff="10"/>
+    <rangefinder name="lidar_gnd-074" site="lidar_gnd-074" cutoff="10"/>
+    <rangefinder name="lidar_gnd-075" site="lidar_gnd-075" cutoff="10"/>
+    <rangefinder name="lidar_gnd-076" site="lidar_gnd-076" cutoff="10"/>
+    <rangefinder name="lidar_gnd-077" site="lidar_gnd-077" cutoff="10"/>
+    <rangefinder name="lidar_gnd-078" site="lidar_gnd-078" cutoff="10"/>
+    <rangefinder name="lidar_gnd-079" site="lidar_gnd-079" cutoff="10"/>
+    <rangefinder name="lidar_gnd-080" site="lidar_gnd-080" cutoff="10"/>
+    <rangefinder name="lidar_gnd-081" site="lidar_gnd-081" cutoff="10"/>
+    <rangefinder name="lidar_gnd-082" site="lidar_gnd-082" cutoff="10"/>
+    <rangefinder name="lidar_gnd-083" site="lidar_gnd-083" cutoff="10"/>
+    <rangefinder name="lidar_gnd-084" site="lidar_gnd-084" cutoff="10"/>
+    <rangefinder name="lidar_gnd-085" site="lidar_gnd-085" cutoff="10"/>
+    <rangefinder name="lidar_gnd-086" site="lidar_gnd-086" cutoff="10"/>
+    <rangefinder name="lidar_gnd-087" site="lidar_gnd-087" cutoff="10"/>
+    <rangefinder name="lidar_gnd-088" site="lidar_gnd-088" cutoff="10"/>
+    <rangefinder name="lidar_gnd-089" site="lidar_gnd-089" cutoff="10"/>
+    <rangefinder name="lidar_gnd-090" site="lidar_gnd-090" cutoff="10"/>
+    <rangefinder name="lidar_gnd-091" site="lidar_gnd-091" cutoff="10"/>
+    <rangefinder name="lidar_gnd-092" site="lidar_gnd-092" cutoff="10"/>
+    <rangefinder name="lidar_gnd-093" site="lidar_gnd-093" cutoff="10"/>
+    <rangefinder name="lidar_gnd-094" site="lidar_gnd-094" cutoff="10"/>
+    <rangefinder name="lidar_gnd-095" site="lidar_gnd-095" cutoff="10"/>
+    <rangefinder name="lidar_gnd-096" site="lidar_gnd-096" cutoff="10"/>
+    <rangefinder name="lidar_gnd-097" site="lidar_gnd-097" cutoff="10"/>
+    <rangefinder name="lidar_gnd-098" site="lidar_gnd-098" cutoff="10"/>
+    <rangefinder name="lidar_gnd-099" site="lidar_gnd-099" cutoff="10"/>
+    <rangefinder name="lidar_gnd-100" site="lidar_gnd-100" cutoff="10"/>
+    <rangefinder name="lidar_gnd-101" site="lidar_gnd-101" cutoff="10"/>
+    <rangefinder name="lidar_gnd-102" site="lidar_gnd-102" cutoff="10"/>
+    <rangefinder name="lidar_gnd-103" site="lidar_gnd-103" cutoff="10"/>
+    <rangefinder name="lidar_gnd-104" site="lidar_gnd-104" cutoff="10"/>
+    <rangefinder name="lidar_gnd-105" site="lidar_gnd-105" cutoff="10"/>
+    <rangefinder name="lidar_gnd-106" site="lidar_gnd-106" cutoff="10"/>
+    <rangefinder name="lidar_gnd-107" site="lidar_gnd-107" cutoff="10"/>
+    <rangefinder name="lidar_gnd-108" site="lidar_gnd-108" cutoff="10"/>
+    <rangefinder name="lidar_gnd-109" site="lidar_gnd-109" cutoff="10"/>
+    <rangefinder name="lidar_gnd-110" site="lidar_gnd-110" cutoff="10"/>
+    <rangefinder name="lidar_gnd-111" site="lidar_gnd-111" cutoff="10"/>
+    <rangefinder name="lidar_gnd-112" site="lidar_gnd-112" cutoff="10"/>
+    <rangefinder name="lidar_gnd-113" site="lidar_gnd-113" cutoff="10"/>
+    <rangefinder name="lidar_gnd-114" site="lidar_gnd-114" cutoff="10"/>
+    <rangefinder name="lidar_gnd-115" site="lidar_gnd-115" cutoff="10"/>
+    <rangefinder name="lidar_gnd-116" site="lidar_gnd-116" cutoff="10"/>
+    <rangefinder name="lidar_gnd-117" site="lidar_gnd-117" cutoff="10"/>
+    <rangefinder name="lidar_gnd-118" site="lidar_gnd-118" cutoff="10"/>
+    <rangefinder name="lidar_gnd-119" site="lidar_gnd-119" cutoff="10"/>
+    <rangefinder name="lidar_gnd-120" site="lidar_gnd-120" cutoff="10"/>
+    <rangefinder name="lidar_gnd-121" site="lidar_gnd-121" cutoff="10"/>
+    <rangefinder name="lidar_gnd-122" site="lidar_gnd-122" cutoff="10"/>
+    <rangefinder name="lidar_gnd-123" site="lidar_gnd-123" cutoff="10"/>
+    <rangefinder name="lidar_gnd-124" site="lidar_gnd-124" cutoff="10"/>
+    <rangefinder name="lidar_gnd-125" site="lidar_gnd-125" cutoff="10"/>
+    <rangefinder name="lidar_gnd-126" site="lidar_gnd-126" cutoff="10"/>
+    <rangefinder name="lidar_gnd-127" site="lidar_gnd-127" cutoff="10"/>
+    <rangefinder name="lidar_gnd-128" site="lidar_gnd-128" cutoff="10"/>
+    <rangefinder name="lidar_gnd-129" site="lidar_gnd-129" cutoff="10"/>
+    <rangefinder name="lidar_gnd-130" site="lidar_gnd-130" cutoff="10"/>
+    <rangefinder name="lidar_gnd-131" site="lidar_gnd-131" cutoff="10"/>
+    <rangefinder name="lidar_gnd-132" site="lidar_gnd-132" cutoff="10"/>
+    <rangefinder name="lidar_gnd-133" site="lidar_gnd-133" cutoff="10"/>
+    <rangefinder name="lidar_gnd-134" site="lidar_gnd-134" cutoff="10"/>
+    <rangefinder name="lidar_gnd-135" site="lidar_gnd-135" cutoff="10"/>
+    <rangefinder name="lidar_gnd-136" site="lidar_gnd-136" cutoff="10"/>
+    <rangefinder name="lidar_gnd-137" site="lidar_gnd-137" cutoff="10"/>
+    <rangefinder name="lidar_gnd-138" site="lidar_gnd-138" cutoff="10"/>
+    <rangefinder name="lidar_gnd-139" site="lidar_gnd-139" cutoff="10"/>
+    <rangefinder name="lidar_gnd-140" site="lidar_gnd-140" cutoff="10"/>
+    <rangefinder name="lidar_gnd-141" site="lidar_gnd-141" cutoff="10"/>
+    <rangefinder name="lidar_gnd-142" site="lidar_gnd-142" cutoff="10"/>
+    <rangefinder name="lidar_gnd-143" site="lidar_gnd-143" cutoff="10"/>
+    <rangefinder name="lidar_gnd-144" site="lidar_gnd-144" cutoff="10"/>
+    <rangefinder name="lidar_gnd-145" site="lidar_gnd-145" cutoff="10"/>
+    <rangefinder name="lidar_gnd-146" site="lidar_gnd-146" cutoff="10"/>
+    <rangefinder name="lidar_gnd-147" site="lidar_gnd-147" cutoff="10"/>
+    <rangefinder name="lidar_gnd-148" site="lidar_gnd-148" cutoff="10"/>
+    <rangefinder name="lidar_gnd-149" site="lidar_gnd-149" cutoff="10"/>
+    <rangefinder name="lidar_gnd-150" site="lidar_gnd-150" cutoff="10"/>
+    <rangefinder name="lidar_gnd-151" site="lidar_gnd-151" cutoff="10"/>
+    <rangefinder name="lidar_gnd-152" site="lidar_gnd-152" cutoff="10"/>
+    <rangefinder name="lidar_gnd-153" site="lidar_gnd-153" cutoff="10"/>
+    <rangefinder name="lidar_gnd-154" site="lidar_gnd-154" cutoff="10"/>
+    <rangefinder name="lidar_gnd-155" site="lidar_gnd-155" cutoff="10"/>
+    <rangefinder name="lidar_gnd-156" site="lidar_gnd-156" cutoff="10"/>
+    <rangefinder name="lidar_gnd-157" site="lidar_gnd-157" cutoff="10"/>
+    <rangefinder name="lidar_gnd-158" site="lidar_gnd-158" cutoff="10"/>
+    <rangefinder name="lidar_gnd-159" site="lidar_gnd-159" cutoff="10"/>
+    <rangefinder name="lidar_gnd-160" site="lidar_gnd-160" cutoff="10"/>
+    <rangefinder name="lidar_gnd-161" site="lidar_gnd-161" cutoff="10"/>
+    <rangefinder name="lidar_gnd-162" site="lidar_gnd-162" cutoff="10"/>
+    <rangefinder name="lidar_gnd-163" site="lidar_gnd-163" cutoff="10"/>
+    <rangefinder name="lidar_gnd-164" site="lidar_gnd-164" cutoff="10"/>
+    <rangefinder name="lidar_gnd-165" site="lidar_gnd-165" cutoff="10"/>
+    <rangefinder name="lidar_gnd-166" site="lidar_gnd-166" cutoff="10"/>
+    <rangefinder name="lidar_gnd-167" site="lidar_gnd-167" cutoff="10"/>
+    <rangefinder name="lidar_gnd-168" site="lidar_gnd-168" cutoff="10"/>
+    <rangefinder name="lidar_gnd-169" site="lidar_gnd-169" cutoff="10"/>
+    <rangefinder name="lidar_gnd-170" site="lidar_gnd-170" cutoff="10"/>
+    <rangefinder name="lidar_gnd-171" site="lidar_gnd-171" cutoff="10"/>
+    <rangefinder name="lidar_gnd-172" site="lidar_gnd-172" cutoff="10"/>
+    <rangefinder name="lidar_gnd-173" site="lidar_gnd-173" cutoff="10"/>
+    <rangefinder name="lidar_gnd-174" site="lidar_gnd-174" cutoff="10"/>
+    <rangefinder name="lidar_gnd-175" site="lidar_gnd-175" cutoff="10"/>
+    <rangefinder name="lidar_gnd-176" site="lidar_gnd-176" cutoff="10"/>
+    <rangefinder name="lidar_gnd-177" site="lidar_gnd-177" cutoff="10"/>
+    <rangefinder name="lidar_gnd-178" site="lidar_gnd-178" cutoff="10"/>
+    <rangefinder name="lidar_gnd-179" site="lidar_gnd-179" cutoff="10"/>
+
+    <!-- MID RING LiDAR REMOVED: Was hitting robot's shoulders during walking gait.
+         Only waist ring (lidar_gnd) is now used. 180 rangefinder sensors removed. -->
+  </sensor>
+
+  <actuator>
+    <motor name="left_hip_pitch_joint" joint="left_hip_pitch_joint"/>
+    <motor name="left_hip_roll_joint" joint="left_hip_roll_joint"/>
+    <motor name="left_hip_yaw_joint" joint="left_hip_yaw_joint"/>
+    <motor name="left_knee_joint" joint="left_knee_joint"/>
+    <motor name="left_ankle_pitch_joint" joint="left_ankle_pitch_joint"/>
+    <motor name="left_ankle_roll_joint" joint="left_ankle_roll_joint"/>
+    <motor name="right_hip_pitch_joint" joint="right_hip_pitch_joint"/>
+    <motor name="right_hip_roll_joint" joint="right_hip_roll_joint"/>
+    <motor name="right_hip_yaw_joint" joint="right_hip_yaw_joint"/>
+    <motor name="right_knee_joint" joint="right_knee_joint"/>
+    <motor name="right_ankle_pitch_joint" joint="right_ankle_pitch_joint"/>
+    <motor name="right_ankle_roll_joint" joint="right_ankle_roll_joint"/>
+  </actuator>
+</mujoco>
