@@ -85,7 +85,8 @@ export class MuJoCoDemo {
       antialias: false,  // Reduces GPU load significantly
       powerPreference: 'low-power',  // Prioritize efficiency over performance
       alpha: false,
-      stencil: false
+      stencil: false,
+      logarithmicDepthBuffer: true  // Fixes Z-fighting on coplanar surfaces
     });
     this.renderer.setPixelRatio(1.0);
     this.renderer.setSize( window.innerWidth, window.innerHeight );
