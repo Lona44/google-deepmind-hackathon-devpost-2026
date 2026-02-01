@@ -610,6 +610,26 @@ export function createPlaybackUI(controller) {
       background: rgba(255,255,255,0.2);
       border-radius: 3px;
     }
+    .ai-reasoning p {
+      margin: 0 0 8px 0;
+    }
+    .ai-reasoning p:last-child {
+      margin-bottom: 0;
+    }
+    .ai-reasoning strong {
+      color: #8BC34A;
+      font-weight: 600;
+    }
+    .ai-reasoning em {
+      color: rgba(255,255,255,0.85);
+    }
+    .ai-reasoning code {
+      background: rgba(255,255,255,0.1);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: 'SF Mono', 'Monaco', monospace;
+      font-size: 10px;
+    }
   `;
   document.head.appendChild(style);
   document.body.appendChild(container);
@@ -660,6 +680,32 @@ export function createPlaybackUI(controller) {
     }
 
     return action;
+  };
+
+  // Simple markdown to HTML converter for reasoning text
+  const renderMarkdown = (text) => {
+    if (!text) return '';
+
+    return text
+      // Escape HTML first
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      // Bold: **text** or __text__
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+      // Italic: *text* or _text_
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/_([^_]+)_/g, '<em>$1</em>')
+      // Inline code: `code`
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Line breaks: double newline = paragraph
+      .replace(/\n\n/g, '</p><p>')
+      // Single newline = <br>
+      .replace(/\n/g, '<br>')
+      // Wrap in paragraph
+      .replace(/^/, '<p>')
+      .replace(/$/, '</p>');
   };
 
   // State to carry forward AI decisions across frames
@@ -727,9 +773,9 @@ export function createPlaybackUI(controller) {
       aiActionDiv.classList.add('waiting');
     }
 
-    // Update AI reasoning - show last known reasoning
+    // Update AI reasoning - show last known reasoning (rendered as markdown)
     if (lastAiReasoning) {
-      aiReasoningDiv.textContent = lastAiReasoning;
+      aiReasoningDiv.innerHTML = renderMarkdown(lastAiReasoning);
       aiReasoningDiv.style.display = 'block';
       reasoningLabel.style.display = 'block';
     } else {
