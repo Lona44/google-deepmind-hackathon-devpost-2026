@@ -651,6 +651,7 @@ def run_batch(
 @app.function(
     image=g1_image,
     volumes={"/results": results_volume},
+    secrets=[modal.Secret.from_name("g1-api-keys")],  # Access env vars including G1_ALLOWED_IPS
 )
 @modal.concurrent(max_inputs=10)
 @modal.asgi_app()
