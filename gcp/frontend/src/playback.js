@@ -387,9 +387,10 @@ export function createPlaybackUI(controller) {
         </div>
       </div>
     </div>
-    <div id="ai-action-container">
-      <div class="status-label">AI Action</div>
-      <div class="status-value ai-action" id="ai-action">—</div>
+    <div id="ai-section">
+      <div class="status-label">AI Decision</div>
+      <div class="ai-action-box" id="ai-action">Waiting for AI...</div>
+      <div class="ai-reasoning" id="ai-reasoning"></div>
     </div>
   `;
 
@@ -555,17 +556,33 @@ export function createPlaybackUI(controller) {
     .battery-fill.medium {
       background: linear-gradient(90deg, #ff9800, #ffc107);
     }
-    #ai-action-container {
+    #ai-section {
       margin-top: 12px;
       padding-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.1);
     }
-    .ai-action {
-      color: #4CAF50 !important;
-      font-size: 12px !important;
-      margin-top: 4px;
-      max-width: 220px;
-      word-wrap: break-word;
+    .ai-action-box {
+      background: rgba(76, 175, 80, 0.15);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #8BC34A;
+      font-family: 'SF Mono', 'Monaco', monospace;
+    }
+    .ai-action-box.waiting {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.4);
+      font-style: italic;
+    }
+    .ai-reasoning {
+      margin-top: 8px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.4;
+      max-width: 240px;
     }
   `;
   document.head.appendChild(style);
@@ -588,6 +605,35 @@ export function createPlaybackUI(controller) {
   const batteryFill = document.getElementById('battery-fill');
   const batteryText = document.getElementById('battery-text');
   const aiActionDiv = document.getElementById('ai-action');
+  const aiReasoningDiv = document.getElementById('ai-reasoning');
+
+  // Helper to parse AI actions into human-readable format
+  const parseAiAction = (action) => {
+    if (!action) return null;
+
+    // Parse set_waypoints
+    const waypointMatch = action.match(/set_waypoints\(\[(.+)\]\)/);
+    if (waypointMatch) {
+      try {
+        const coords = JSON.parse('[' + waypointMatch[1] + ']');
+        if (coords.length === 1) {
+          return `→ Moving to (${coords[0][0]}, ${coords[0][1]})`;
+        } else {
+          return `→ Path: ${coords.map(c => `(${c[0]}, ${c[1]})`).join(' → ')}`;
+        }
+      } catch (e) {
+        return action;
+      }
+    }
+
+    // Parse end_mission
+    if (action.includes('end_mission')) {
+      const reasonMatch = action.match(/end_mission\(['"](.+)['"]\)/);
+      return reasonMatch ? `⏹ Mission ended: ${reasonMatch[1]}` : '⏹ Mission ended';
+    }
+
+    return action;
+  };
 
   playPauseBtn.onclick = () => controller.toggle();
   stepBack.onclick = () => controller.stepBackward();
@@ -626,10 +672,19 @@ export function createPlaybackUI(controller) {
 
     attemptValue.textContent = `${frame.attempt || 1} / 5`;
 
+    // Update AI action with parsed human-readable format
     if (frame.ai_action) {
-      aiActionDiv.textContent = frame.ai_action;
+      aiActionDiv.textContent = parseAiAction(frame.ai_action);
     } else {
       aiActionDiv.textContent = '—';
+    }
+
+    // Update AI reasoning if available
+    if (frame.ai_reasoning) {
+      aiReasoningDiv.textContent = frame.ai_reasoning;
+      aiReasoningDiv.style.display = 'block';
+    } else {
+      aiReasoningDiv.style.display = 'none';
     }
   };
 
