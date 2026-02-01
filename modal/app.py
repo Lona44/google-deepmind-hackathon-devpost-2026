@@ -70,6 +70,7 @@ g1_image = (
     .add_local_dir("src", "/app/src")
     .add_local_dir("inspect_eval", "/app/inspect_eval")
     .add_local_dir("scripts", "/app/scripts")
+    .add_local_dir("modal/static", "/app/modal/static")
     .add_local_file("run_inspect_visual.py", "/app/run_inspect_visual.py")
     .add_local_file("pyproject.toml", "/app/pyproject.toml")
     # Copy MuJoCo model files
@@ -87,6 +88,192 @@ SESSION_SECRET = secrets.token_hex(32)
 
 # Simple password auth (set via Modal secret in production)
 AUTH_PASSWORD = os.environ.get("G1_AUTH_PASSWORD", "demo")
+
+# Embedded HTML for web UI (avoids Modal mount path issues)
+INDEX_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G1 Alignment Platform</title>
+    <style>
+        :root { --bg: #0a0a0a; --surface: #1a1a1a; --border: #333; --text: #e0e0e0; --text-dim: #888; --accent: #4a9eff; --success: #4caf50; --error: #f44336; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+        .subtitle { color: var(--text-dim); margin-bottom: 2rem; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card h2 { font-size: 1rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; color: var(--text-dim); font-size: 0.875rem; margin-bottom: 0.5rem; }
+        input, select { width: 100%; padding: 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 1rem; }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
+        button { padding: 0.75rem 1.5rem; background: var(--accent); color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+        .status { padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.875rem; }
+        .status.running { background: rgba(74, 158, 255, 0.2); color: var(--accent); }
+        .status.success { background: rgba(76, 175, 80, 0.2); color: var(--success); }
+        .status.error { background: rgba(244, 67, 54, 0.2); color: var(--error); }
+        .results-list { list-style: none; }
+        .results-list li { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .results-list li:last-child { border-bottom: none; }
+        .result-info { flex: 1; }
+        .result-model { font-weight: 500; }
+        .result-meta { font-size: 0.875rem; color: var(--text-dim); }
+        .result-score { font-size: 1.25rem; font-weight: 600; min-width: 60px; text-align: right; }
+        .hidden { display: none !important; }
+        .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 1rem; }
+        .progress-bar-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>G1 Alignment Platform</h1>
+        <p class="subtitle">AI Alignment Research with Simulated Robotics</p>
+        <div id="login-section" class="card">
+            <h2>Authentication</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter password" required>
+                </div>
+                <button type="submit">Login</button>
+            </form>
+            <p id="login-error" class="hidden" style="color: var(--error); margin-top: 1rem;"></p>
+        </div>
+        <div id="main-section" class="hidden">
+            <div class="card">
+                <h2>Run Experiment</h2>
+                <form id="run-form">
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="scenario">Scenario</label>
+                            <select id="scenario">
+                                <option value="barrels_lo">barrels_lo (Baseline)</option>
+                                <option value="barrels_mi">barrels_mi (Institutional)</option>
+                                <option value="barrels_mh">barrels_mh (HP Dose)</option>
+                                <option value="barrels_hi">barrels_hi (Max Pressure)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="model">Model</label>
+                            <select id="model">
+                                <option value="robotics">Gemini Robotics ER</option>
+                                <option value="gemini2.5">Gemini 2.5 Pro</option>
+                                <option value="claude">Claude 3.5 Sonnet</option>
+                                <option value="gpt5">GPT-5</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="num-runs">Runs</label>
+                            <select id="num-runs">
+                                <option value="1">1</option>
+                                <option value="3">3</option>
+                                <option value="5">5</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" id="run-btn">Start Experiment</button>
+                </form>
+            </div>
+            <div id="status-card" class="card hidden">
+                <h2>Status</h2>
+                <div id="status-text" class="status running">Starting...</div>
+                <div class="progress-bar"><div id="progress-fill" class="progress-bar-fill" style="width: 0%"></div></div>
+            </div>
+            <div class="card">
+                <h2>Recent Results</h2>
+                <ul id="results-list" class="results-list"><li><span class="result-meta">Loading...</span></li></ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentCallId = null;
+        const loginSection = document.getElementById('login-section');
+        const mainSection = document.getElementById('main-section');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const runForm = document.getElementById('run-form');
+        const runBtn = document.getElementById('run-btn');
+        const statusCard = document.getElementById('status-card');
+        const statusText = document.getElementById('status-text');
+        const progressFill = document.getElementById('progress-fill');
+        const resultsList = document.getElementById('results-list');
+
+        async function checkAuth() {
+            try { const res = await fetch('/api/results'); if (res.ok) { showMain(); loadResults(); } } catch (e) {}
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            try {
+                const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+                if (res.ok) { showMain(); loadResults(); } else { loginError.textContent = 'Invalid password'; loginError.classList.remove('hidden'); }
+            } catch (e) { loginError.textContent = 'Connection error'; loginError.classList.remove('hidden'); }
+        });
+
+        function showMain() { loginSection.classList.add('hidden'); mainSection.classList.remove('hidden'); }
+
+        async function loadResults() {
+            try {
+                const res = await fetch('/api/results');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.results.length === 0) { resultsList.innerHTML = '<li><span class="result-meta">No results yet</span></li>'; return; }
+                resultsList.innerHTML = data.results.map(r => {
+                    const score = r.scores?.safety_behavior_scorer?.value;
+                    const scoreDisplay = score != null ? (score * 100).toFixed(0) + '%' : '--';
+                    return `<li><div class="result-info"><div class="result-model">${r.model || 'Unknown'}</div><div class="result-meta">${r.scenario}</div></div><div class="result-score">${scoreDisplay}</div></li>`;
+                }).join('');
+            } catch (e) {}
+        }
+
+        runForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const scenario = document.getElementById('scenario').value;
+            const model = document.getElementById('model').value;
+            const numRuns = parseInt(document.getElementById('num-runs').value);
+            runBtn.disabled = true;
+            statusCard.classList.remove('hidden');
+            statusText.textContent = 'Starting...';
+            statusText.className = 'status running';
+            progressFill.style.width = '10%';
+            try {
+                const res = await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario, model, num_runs: numRuns, reasoning: 'high' }) });
+                if (!res.ok) throw new Error('Failed');
+                const data = await res.json();
+                currentCallId = data.call_id;
+                progressFill.style.width = '20%';
+                statusText.textContent = 'Running ' + numRuns + ' experiment(s)...';
+                pollStatus();
+            } catch (e) { statusText.textContent = 'Error: ' + e.message; statusText.className = 'status error'; runBtn.disabled = false; }
+        });
+
+        async function pollStatus() {
+            if (!currentCallId) return;
+            try {
+                const res = await fetch('/api/status/' + currentCallId);
+                const data = await res.json();
+                if (data.status === 'completed') {
+                    progressFill.style.width = '100%';
+                    statusText.textContent = 'Completed';
+                    statusText.className = 'status success';
+                    runBtn.disabled = false;
+                    currentCallId = null;
+                    loadResults();
+                } else if (data.status === 'running') { setTimeout(pollStatus, 3000); }
+                else { statusText.textContent = 'Error'; statusText.className = 'status error'; runBtn.disabled = false; currentCallId = null; }
+            } catch (e) { setTimeout(pollStatus, 5000); }
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>"""
 
 
 # =============================================================================
@@ -502,21 +689,8 @@ def web_app():
     @app_web.get("/")
     async def index():
         """Serve the main page."""
-        html_path = Path(__file__).parent / "static" / "index.html"
-        if html_path.exists():
-            return HTMLResponse(html_path.read_text())
-        else:
-            return HTMLResponse(
-                """
-                <html>
-                <head><title>G1 Alignment Platform</title></head>
-                <body>
-                    <h1>G1 Alignment Platform</h1>
-                    <p>Static files not found. Deploy with modal/static/index.html</p>
-                </body>
-                </html>
-                """
-            )
+        # Embedded HTML to avoid Modal mount path issues
+        return HTMLResponse(INDEX_HTML)
 
     return app_web
 
