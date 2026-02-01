@@ -44,15 +44,26 @@ Current AI alignment research focuses on text-based interactions. But as LLMs in
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Extraction Pipeline                           │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  Reasoning  │  │    Media    │  │   Timing    │              │
-│  │   Traces    │  │  (img/vid)  │  │   Metrics   │              │
+│  │  Reasoning  │  │    Media    │  │ Trajectory  │              │
+│  │   Traces    │  │  (img/vid)  │  │   (qpos)    │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+└─────────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                 Browser-Based 3D Playback                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │  MuJoCo     │  │   Judge     │  │     AI      │              │
+│  │   WASM      │  │   Scores    │  │  Reasoning  │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
           │
           ▼
     extractions/
-    └── 2026-01-27T21-27_gemini-robotics-er-1.5-preview/
+    └── 2026-02-01T05-39_gemini-robotics-er-1.5-preview/
         ├── extraction.json    # Complete structured data
+        ├── judge_analysis.json # Detailed judge feedback
+        ├── trajectory.json    # Physics playback data
         └── media/             # Chronological images + video
 ```
 
@@ -66,8 +77,8 @@ python -m venv venv && source venv/bin/activate
 pip install -e ".[dev]"
 echo "GEMINI_API_KEY=your_key_here" > .env
 
-# Run an evaluation
-./venv/bin/mjpython run_inspect_visual.py --model robotics --video --headless
+# Run an evaluation with trajectory recording
+./venv/bin/mjpython run_inspect_visual.py --model robotics --video --trajectory --headless
 
 # Run with specific scenario and verbose output
 ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_hi --verbose
@@ -75,11 +86,58 @@ echo "GEMINI_API_KEY=your_key_here" > .env
 # Run with custom judge model
 ./venv/bin/mjpython run_inspect_visual.py --model kimi --judge google/gemini-3-pro
 
-# View results
+# View results in Inspect UI
 inspect view
+
+# View results in 3D Playback Viewer (see below)
+cd gcp/frontend && npx serve -p 5500
 ```
 
-Results are automatically extracted to `extractions/` with full reasoning traces, images, and video.
+Results are automatically extracted to `extractions/` with full reasoning traces, images, video, and trajectory data.
+
+## 3D Playback Viewer
+
+Review experiments in an interactive browser-based 3D viewer with full camera control and AI reasoning display.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **3D Playback** | MuJoCo WASM-based physics visualization |
+| **Camera Control** | Orbit, pan, zoom + automatic follow mode |
+| **Playback Controls** | Play/pause, timeline scrubbing, 0.25x-4x speed |
+| **AI Reasoning** | Full markdown-rendered thinking traces |
+| **Judge Scores** | Composite score, safety/honesty ratings, alignment level |
+| **Status Panel** | Real-time position, battery, attempt tracking |
+
+### Usage
+
+```bash
+# 1. Run an evaluation with trajectory recording
+./venv/bin/mjpython run_inspect_visual.py --trajectory --video
+
+# 2. Start the viewer
+cd gcp/frontend && npx serve -p 5500
+
+# 3. Open http://localhost:5500
+# 4. Drag trajectory.json onto the viewer (or load via URL param)
+```
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Space` | Play/Pause |
+| `←` / `→` | Step backward/forward |
+| `Home` / `End` | Jump to start/end |
+| `F` | Toggle follow mode |
+
+### What You See
+
+The viewer displays:
+- **Left Panel**: Experiment status, judge evaluation (composite score 0-1, safety/honesty 1-5), AI decision with full reasoning trace
+- **Center**: 3D robot navigation with barrel obstacles
+- **Bottom**: Playback controls with timeline
 
 ## What Gets Captured
 
@@ -211,11 +269,13 @@ We're working to add support for specialized robotics models:
 | Model | Type | Status | Notes |
 |-------|------|--------|-------|
 | [LingBot-VLA](https://github.com/robbyant/lingbot-vla) | Vision-Language-Action | Planned | Open-source VLA trained on 20K hours of real robot data |
-| [Gemini Robotics ER](https://deepmind.google/models/gemini-robotics/gemini-robotics-er/) | Embodied Reasoning | Awaiting access | Requires [Trusted Tester Program](https://docs.google.com/forms/d/1sM5GqcVMWv-KmKY3TOMpVtQ-lDFeAftQ-d9xQn92jCE/viewform) |
+| [Gemini Robotics ER (Local)](https://deepmind.google/models/gemini-robotics/gemini-robotics-er/) | Embodied Reasoning | Awaiting access | On-device variant via [Trusted Tester Program](https://docs.google.com/forms/d/1sM5GqcVMWv-KmKY3TOMpVtQ-lDFeAftQ-d9xQn92jCE/viewform) |
 
 **Why these models matter:**
 - **LingBot-VLA** is a pragmatic VLA foundation model achieving 88.56% success on real-world benchmarks. Testing alignment in a model specifically designed for robotic control (vs general LLMs adapted for robotics) may reveal different failure patterns.
-- **Gemini Robotics ER** has native spatial reasoning and trajectory planning capabilities. Our current `robotics` shortcut uses the preview — full access would enable deeper evaluation.
+- **Gemini Robotics ER (Local)** is the on-device variant with native spatial reasoning. The cloud preview is available via our `robotics` shortcut — local deployment would enable offline evaluation.
+
+*Note: The cloud-based Gemini Robotics ER preview is already available via `--model robotics`.*
 
 ## CLI Reference
 
@@ -230,6 +290,7 @@ Core Options:
 
 Recording & Display:
   --video               Record video of navigation
+  --trajectory          Record trajectory for 3D browser playback
   --headless            No MuJoCo viewer (faster)
   --verbose, -v         Print thinking traces to terminal
   --debug, -d           API debug logging to logs/api_debug.log
@@ -354,17 +415,26 @@ python scripts/extract_eval_data.py --all -o extractions/
 │   ├── scorers_llm.py       # LLM-graded safety behavior scorer
 │   ├── schemas.py           # Pydantic models for SafetyBehaviorAnalysis
 │   └── kimi_provider.py     # Custom Kimi provider with rate limit detection
+├── gcp/
+│   ├── frontend/            # Browser-based 3D playback viewer
+│   │   ├── src/main.js      # MuJoCo WASM integration
+│   │   ├── src/playback.js  # Playback UI & controls
+│   │   └── assets/scenes/   # Robot models for web
+│   └── worker/
+│       └── trajectory_recorder.py  # Records qpos/qvel for playback
 ├── scripts/
-│   ├── extract_eval_data.py # Data extraction pipeline
+│   ├── extract_eval_data.py # Data extraction + trajectory copying
 │   ├── preflight_test.py    # Standalone API connectivity test
 │   ├── test_rate_limit.py   # Test rate limit detection behavior
 │   └── test_llm_scorer.py   # Test judge analysis on extractions
 ├── run_inspect_visual.py    # Main CLI entry point
 ├── extractions/             # Extracted run data by scenario (gitignored)
-│   ├── barrels_lo/
-│   ├── barrels_mi/
-│   ├── barrels_mh/
-│   └── barrels_hi/
+│   └── barrels_lo/
+│       └── 2026-02-01T05-39_model/
+│           ├── extraction.json
+│           ├── judge_analysis.json
+│           ├── trajectory.json  # For 3D playback
+│           └── media/
 └── logs/                    # Inspect eval logs (gitignored)
 ```
 
@@ -558,34 +628,15 @@ See also: [MuJoCo-LiDAR GitHub](https://github.com/TATP-233/MuJoCo-LiDAR) | [Vel
 
 ### Community Platform & Eval Sharing
 
-Build a web platform where alignment researchers can upload, analyze, and share evaluation results — creating network effects for safety research.
+**Current state:** We have a browser-based 3D playback viewer for reviewing experiments locally. Future work would expand this to a shared platform.
 
-**Eval sharing:**
-- **Upload custom `.eval` files** — Researchers can upload their own Inspect AI evaluations based on our framework, and our platform analyzes them with all the tools above (video verification, reasoning analysis, interactive Q&A)
-- **Official eval submission** — We plan to submit our eval to [UK AISI's inspect_evals](https://github.com/UKGovernmentBEIS/inspect_evals) repository, making it available as a standard benchmark
-- **Community contributions** — Other researchers can submit scenario variants, new pressure configurations, or alternative scoring approaches
-
-**User accounts:**
-- **Secure API key storage** — Users can safely store their own API keys (Gemini, OpenAI, Anthropic) to run evals without sharing credentials
-- **Run evals locally or on-platform** — Download and run locally, or execute directly on our infrastructure
-- **Personal eval history** — Track runs, compare results across models, save annotations
-
-**Membership tiers:**
-
-| Tier | API Keys | Compute | Features |
-|------|----------|---------|----------|
-| **Free** | Bring your own | Local only | Upload & analyze results |
-| **Researcher** | Bring your own | Platform compute | Run evals on our infra, priority queue |
-| **Pro** | We provide | Platform compute | No API key needed, we run models for you |
+**Planned features:**
+- **Upload custom `.eval` files** — Researchers upload their own Inspect AI evaluations, analyzed with video verification and reasoning tools
+- **Official eval submission** — Submit to [UK AISI's inspect_evals](https://github.com/UKGovernmentBEIS/inspect_evals) repository as a standard benchmark
+- **Community contributions** — Scenario variants, new pressure configurations, alternative scoring approaches
 
 **Why this matters:**
 Alignment research benefits from shared benchmarks and reproducible results. By making it easy to run the same eval across different models and share findings, we accelerate the community's understanding of embodied AI safety.
-
-**Security considerations:**
-- Encrypted API key storage (never logged, never visible after entry)
-- Sandboxed eval execution
-- Rate limiting and abuse prevention
-- Secure document/eval upload with validation
 
 ## License
 
