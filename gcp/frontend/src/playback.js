@@ -525,8 +525,8 @@ export function createPlaybackUI(controller) {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255,255,255,0.08);
-      min-width: 320px;
-      max-width: 420px;
+      min-width: 380px;
+      max-width: 480px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
     .status-header {
@@ -675,7 +675,8 @@ export function createPlaybackUI(controller) {
       font-size: 11px;
       color: rgba(255,255,255,0.7);
       line-height: 1.5;
-      max-height: calc(100vh - 520px);
+      max-height: calc(100vh - 650px);
+      min-height: 100px;
       overflow-y: auto;
       padding: 10px 12px;
       background: rgba(0,0,0,0.2);
