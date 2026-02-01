@@ -326,6 +326,7 @@ export function createPlaybackUI(controller) {
         <option value="2">2x</option>
         <option value="4">4x</option>
       </select>
+      <button id="follow-btn" title="Follow robot (F)">📷 Follow</button>
     </div>
     <div id="overlay">
       <div id="battery">Battery: 100%</div>

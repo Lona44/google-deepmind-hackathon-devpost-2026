@@ -94,6 +94,9 @@ export class MuJoCoDemo {
 
     this.container.appendChild( this.renderer.domElement );
 
+    // Prevent right-click context menu on canvas
+    this.renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0, 0.7, 0);
     this.controls.panSpeed = 2;
@@ -263,6 +266,8 @@ export class MuJoCoDemo {
       if (modelPath && modelPath !== this.params.scene) {
         try {
           await this.loadModel(modelPath);
+          // Re-apply first frame after model loads (model load resets positions)
+          this.playbackController.applyFrame(0);
         } catch (e) {
           console.warn('Could not load specified model, using current:', e);
         }
@@ -272,8 +277,169 @@ export class MuJoCoDemo {
       this.playbackMode = true;
       this.params.paused = true;
 
+      // Disable drag/perturbation interactions (only allow camera orbit)
+      this.dragStateManager.disable();
+
+      // Hide tendon spheres and cylinders (they're instanced meshes that default to 1023 instances)
+      // Without this, 1023 red spheres render at the origin!
+      if (this.mujocoRoot) {
+        if (this.mujocoRoot.spheres) {
+          this.mujocoRoot.spheres.count = 0;
+          this.mujocoRoot.spheres.instanceMatrix.needsUpdate = true;
+        }
+        if (this.mujocoRoot.cylinders) {
+          this.mujocoRoot.cylinders.count = 0;
+          this.mujocoRoot.cylinders.instanceMatrix.needsUpdate = true;
+        }
+      }
+
+      // Clear any red highlights on objects
+      if (this.bodies) {
+        for (const key in this.bodies) {
+          const body = this.bodies[key];
+          if (body && body.material && body.material.emissive) {
+            body.material.emissive.setHex(0x000000);
+          }
+        }
+      }
+
+      // Performance optimizations for playback mode
+      this.renderer.shadowMap.enabled = false; // Shadows are expensive
+      this.lastPlaybackFrame = -1; // Track frame changes to avoid redundant updates
+
+      // Adjust lighting for playback - create a proper studio lighting setup
+      if (this.spotlight) {
+        this.spotlight.position.set(2.5, 6, 2);  // Key light - front overhead
+        this.spotlight.target.position.set(2.5, 0, 0);
+        this.spotlight.intensity = 3.14 * 4.0;
+        this.spotlight.angle = 1.0;
+        this.spotlight.penumbra = 0.5;
+      }
+      if (this.ambientLight) {
+        this.ambientLight.intensity = 0.6 * 3.14;  // Boost ambient for fill
+      }
+
+      // Add additional lights for better coverage
+      const fillLight = new THREE.DirectionalLight(0xffffff, 2.0);
+      fillLight.position.set(-3, 4, -2);  // Fill from opposite side
+      fillLight.name = 'playback-fill';
+      this.scene.add(fillLight);
+
+      const backLight = new THREE.DirectionalLight(0xaaccff, 1.5);  // Slight blue tint
+      backLight.position.set(5, 3, -3);  // Back/rim light
+      backLight.name = 'playback-back';
+      this.scene.add(backLight);
+
+      // Hemisphere light for natural sky/ground lighting
+      const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x444444, 1.0);  // Sky blue / ground gray
+      hemiLight.name = 'playback-hemi';
+      this.scene.add(hemiLight);
+
+      // Disable scene lights from XML (they're stuck at origin because positions aren't set)
+      if (this.lights) {
+        for (const light of this.lights) {
+          light.visible = false;
+        }
+      }
+
+      // Disable the reflective floor (Reflector) - it causes intense light from below
+      // Find and hide any Reflector objects, replace with simple floor
+      if (this.mujocoRoot) {
+        this.mujocoRoot.traverse((child) => {
+          // Hide reflectors and the floor plane
+          if (child.isReflector || (child.type === 'Mesh' && child.geometry?.type === 'PlaneGeometry')) {
+            if (Math.abs(child.rotation.x + Math.PI / 2) < 0.1) {
+              child.visible = false;
+            }
+          }
+          // Also hide any lights in the scene (they're at origin)
+          if (child.isLight && child !== this.spotlight && child !== this.ambientLight) {
+            child.visible = false;
+          }
+        });
+        // Add a simple non-reflective floor (below floor markings)
+        const floorGeom = new THREE.PlaneGeometry(100, 100);
+        const floorMat = new THREE.MeshStandardMaterial({
+          color: 0x6a6a66,  // Concrete gray
+          roughness: 0.9,
+          metalness: 0.1,
+          polygonOffset: true,      // Prevent z-fighting
+          polygonOffsetFactor: 1,
+          polygonOffsetUnits: 1
+        });
+        const floor = new THREE.Mesh(floorGeom, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.02;  // Well below floor markings to prevent z-fighting
+        floor.receiveShadow = false;
+        floor.renderOrder = -1;     // Render floor first
+        floor.name = 'playback-floor';
+        this.mujocoRoot.add(floor);
+      }
+
+      // Camera follow mode - enabled by default
+      this.followRobot = true;
+      this.followOffset = new THREE.Vector3(-2, 1.5, 2); // Camera offset from robot
+
+      // Intercept keyboard shortcuts that conflict with playback
+      this.playbackKeyHandler = (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.playbackController.toggle(); // Use our play/pause
+        } else if (e.code === 'Backspace') {
+          e.preventDefault();
+          e.stopPropagation();
+          // Don't reset - just ignore
+        } else if (e.ctrlKey && e.code === 'KeyL') {
+          e.preventDefault();
+          e.stopPropagation();
+          // Don't reload model - just ignore
+        } else if (e.code === 'ArrowLeft') {
+          e.preventDefault();
+          this.playbackController.stepBackward();
+        } else if (e.code === 'ArrowRight') {
+          e.preventDefault();
+          this.playbackController.stepForward();
+        } else if (e.code === 'Home') {
+          e.preventDefault();
+          this.playbackController.seek(0); // Go to start
+        } else if (e.code === 'End') {
+          e.preventDefault();
+          this.playbackController.seek(this.playbackController.totalFrames - 1); // Go to end
+        } else if (e.code === 'KeyF') {
+          e.preventDefault();
+          this.followRobot = !this.followRobot;
+          // Show feedback
+          const followBtn = document.getElementById('follow-btn');
+          if (followBtn) {
+            followBtn.textContent = this.followRobot ? '📷 Following' : '📷 Follow';
+            followBtn.style.background = this.followRobot ? '#4CAF50' : '#444';
+          }
+        }
+      };
+      document.addEventListener('keydown', this.playbackKeyHandler, true); // Use capture phase
+
       // Create playback UI
       createPlaybackUI(this.playbackController);
+
+      // Wire up follow button
+      const followBtn = document.getElementById('follow-btn');
+      if (followBtn) {
+        followBtn.onclick = () => {
+          this.followRobot = !this.followRobot;
+          followBtn.textContent = this.followRobot ? '📷 Following' : '📷 Follow';
+          followBtn.style.background = this.followRobot ? '#4CAF50' : '#444';
+        };
+        // Set initial state to show follow mode is active
+        followBtn.textContent = '📷 Following';
+        followBtn.style.background = '#4CAF50';
+      }
+
+      // Set initial camera position behind the robot
+      // Robot starts at origin, facing +X direction
+      this.camera.position.set(-2.5, 1.8, 0);  // Behind and above
+      this.controls.target.set(0, 0.8, 0);     // Look at robot
+      this.controls.update();
 
       // Hide the standard GUI
       if (this.gui) {
@@ -308,8 +474,79 @@ export class MuJoCoDemo {
         }
         mujoco.FS.writeFile(`/working/${modelPath}`, xml);
 
+        // Remove old bodies from scene before loading new model
+        const disposeObject = (obj) => {
+          if (!obj) return;
+          // Remove from parent
+          if (obj.parent) obj.parent.remove(obj);
+          // Dispose geometry
+          if (obj.geometry) obj.geometry.dispose();
+          // Dispose material(s)
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(m => m.dispose());
+            } else {
+              obj.material.dispose();
+            }
+          }
+          // Recursively dispose children
+          while (obj.children && obj.children.length > 0) {
+            disposeObject(obj.children[0]);
+          }
+        };
+
+        // NUCLEAR OPTION: Remove everything from scene except camera and lights
+        const keepObjects = new Set([
+          this.camera,
+          this.ambientLight,
+          this.spotlight,
+          this.spotlight.target
+        ]);
+
+        const toRemove = [];
+        this.scene.children.forEach((obj) => {
+          if (!keepObjects.has(obj)) {
+            toRemove.push(obj);
+          }
+        });
+
+        console.log('Removing', toRemove.length, 'objects from scene');
+
+        for (const obj of toRemove) {
+          obj.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.dispose());
+              } else if (child.material.dispose) {
+                child.material.dispose();
+              }
+            }
+          });
+          this.scene.remove(obj);
+        }
+        this.mujocoRoot = null;
+        this.bodies = null;
+        this.lights = null;
+
+        // Also clean up bodies and lights references
+        this.bodies = null;
+        this.lights = null;
+
         [this.model, this.data, this.bodies, this.lights] =
           await loadSceneFromURL(mujoco, modelPath, this);
+
+        // If in playback mode, hide tendon spheres/cylinders (they default to 1023 instances)
+        if (this.playbackMode && this.mujocoRoot) {
+          if (this.mujocoRoot.spheres) {
+            this.mujocoRoot.spheres.count = 0;
+            this.mujocoRoot.spheres.instanceMatrix.needsUpdate = true;
+          }
+          if (this.mujocoRoot.cylinders) {
+            this.mujocoRoot.cylinders.count = 0;
+            this.mujocoRoot.cylinders.instanceMatrix.needsUpdate = true;
+          }
+        }
 
         this.params.scene = modelPath;
       }
@@ -330,6 +567,35 @@ export class MuJoCoDemo {
     if (this.playbackMode) {
       // Playback mode - apply recorded trajectory
       this.playbackController.update(timeMS);
+
+      // Only update body transforms if frame actually changed
+      const currentFrame = this.playbackController.frameIndex;
+      if (currentFrame !== this.lastPlaybackFrame) {
+        this.lastPlaybackFrame = currentFrame;
+        // Update body transforms only on frame change
+        for (let b = 0; b < this.model.nbody; b++) {
+          if (this.bodies[b]) {
+            getPosition(this.data.xpos, b, this.bodies[b].position);
+            getQuaternion(this.data.xquat, b, this.bodies[b].quaternion);
+            this.bodies[b].updateWorldMatrix();
+          }
+        }
+
+        // Camera follow mode - update target to robot position
+        if (this.followRobot) {
+          const frame = this.playbackController.currentFrame;
+          if (frame && frame.robot_position) {
+            // Robot position is (x, y) in MuJoCo coords, z is height (~0.8m for pelvis)
+            const robotX = frame.robot_position[0];
+            const robotY = frame.robot_position[1];
+            // Update orbit target to follow robot (Three.js: x, z, -y from MuJoCo)
+            this.controls.target.set(robotX, 0.8, -robotY);
+          }
+        }
+      }
+      // Skip to render (don't run simulation code or redundant body updates)
+      this.renderer.render(this.scene, this.camera);
+      return;
     } else if (!this.params["paused"]) {
       // Physics simulation mode (original behavior)
       let timestep = this.model.opt.timestep;

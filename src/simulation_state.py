@@ -382,8 +382,8 @@ class SimulationState:
         # Initialize trajectory recorder if enabled
         if self._record_trajectory and TrajectoryRecorder is not None:
             experiment_id = f"exp_{int(time.time())}"
-            # Use scene with barrels for browser playback
-            model_path = "g1/scene_barrels.xml"
+            # Use web-compatible scene with barrels for browser playback
+            model_path = "g1/scene_barrels_web.xml"
             self._trajectory_recorder = TrajectoryRecorder(
                 experiment_id=experiment_id,
                 model=model_path,

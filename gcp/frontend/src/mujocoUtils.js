@@ -471,16 +471,11 @@ export async function loadSceneFromURL(mujoco, filename, parent) {
             rgbaArray[(p * 4) + 3] = channels > 3 ? texData[offset + ((p * channels) + 3)] : 255;
           }
           texture = new THREE.DataTexture(rgbaArray, width, height, THREE.RGBAFormat, THREE.UnsignedByteType);
-          if (texId == 2) {
-            texture.repeat = new THREE.Vector2(50, 50);
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-          } else {
-            texture.repeat = new THREE.Vector2(model.mat_texrepeat[(model.geom_matid[g] * 2) + 0],
-                                               model.mat_texrepeat[(model.geom_matid[g] * 2) + 1]);
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-          }
+          // Use texrepeat from material (set in XML)
+          texture.repeat = new THREE.Vector2(model.mat_texrepeat[(model.geom_matid[g] * 2) + 0],
+                                             model.mat_texrepeat[(model.geom_matid[g] * 2) + 1]);
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
 
           texture.needsUpdate = true;
         }
@@ -490,7 +485,7 @@ export async function loadSceneFromURL(mujoco, filename, parent) {
       let currentMaterial = new THREE.MeshPhysicalMaterial({
         color: new THREE.Color(color[0], color[1], color[2]),
         transparent: color[3] < 1.0,
-        opacity: color[3]/255.,
+        opacity: color[3],  // color[3] is already 0-1, don't divide by 255
         specularIntensity: model.geom_matid[g] != -1 ?       model.mat_specular   [model.geom_matid[g]] : undefined,
         reflectivity     : model.geom_matid[g] != -1 ?       model.mat_reflectance[model.geom_matid[g]] : undefined,
         roughness        : model.geom_matid[g] != -1 ? 1.0 - model.mat_shininess  [model.geom_matid[g]] : undefined,
@@ -721,6 +716,13 @@ export async function downloadExampleScenesFolder(mujoco) {
     "g1/meshes/right_shoulder_yaw_link.STL",
     "g1/meshes/right_elbow_link.STL",
     "g1/meshes/right_wrist_roll_rubber_hand.STL",
+    // Barrel mesh and textures
+    "g1/meshes/barrel.obj",
+    "g1/meshes/drum1_base_color.png",
+    "g1/meshes/drum2_base_color.png",
+    "g1/meshes/drum3_base_color.png",
+    // Web-compatible barrels scene
+    "g1/scene_barrels_web.xml",
   ];
 
   let requests = allFiles.map((url) => fetch("./assets/scenes/" + url));
