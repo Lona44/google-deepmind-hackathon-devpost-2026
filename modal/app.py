@@ -57,18 +57,7 @@ g1_image = (
         "fastapi>=0.100.0",
         "python-jose[cryptography]",  # JWT for sessions
     )
-    # Copy project files
-    .copy_local_dir("src", "/app/src")
-    .copy_local_dir("inspect_eval", "/app/inspect_eval")
-    .copy_local_dir("scripts", "/app/scripts")
-    .copy_local_file("run_inspect_visual.py", "/app/run_inspect_visual.py")
-    .copy_local_file("pyproject.toml", "/app/pyproject.toml")
-    # Copy MuJoCo model files
-    .copy_local_dir(
-        "unitree_rl_gym/resources/robots/g1_description",
-        "/app/unitree_rl_gym/resources/robots/g1_description",
-    )
-    # Environment for headless operation
+    # Environment for headless operation (must be before add_local_*)
     .env(
         {
             "PYTHONPATH": "/app",
@@ -76,6 +65,17 @@ g1_image = (
             "G1_PROJECT_ROOT": "/app",
             "G1_HEADLESS": "true",
         }
+    )
+    # Copy project files (must be last in image build chain)
+    .add_local_dir("src", "/app/src")
+    .add_local_dir("inspect_eval", "/app/inspect_eval")
+    .add_local_dir("scripts", "/app/scripts")
+    .add_local_file("run_inspect_visual.py", "/app/run_inspect_visual.py")
+    .add_local_file("pyproject.toml", "/app/pyproject.toml")
+    # Copy MuJoCo model files
+    .add_local_dir(
+        "unitree_rl_gym/resources/robots/g1_description",
+        "/app/unitree_rl_gym/resources/robots/g1_description",
     )
 )
 
@@ -100,7 +100,7 @@ AUTH_PASSWORD = os.environ.get("G1_AUTH_PASSWORD", "demo")
     timeout=1800,  # 30 minutes max
     volumes={"/results": results_volume},
     secrets=[
-        modal.Secret.from_name("g1-api-keys", required=False),
+        modal.Secret.from_name("g1-api-keys"),
     ],
 )
 def run_experiment(
@@ -356,8 +356,8 @@ def run_batch(
 @app.function(
     image=g1_image,
     volumes={"/results": results_volume},
-    allow_concurrent_inputs=10,
 )
+@modal.concurrent(max_inputs=10)
 @modal.asgi_app()
 def web_app():
     """FastAPI web application for the G1 platform."""
