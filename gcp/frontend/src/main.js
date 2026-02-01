@@ -570,30 +570,29 @@ export class MuJoCoDemo {
     this.controls.update();
 
     if (this.playbackMode) {
-      // Playback mode - apply recorded trajectory
+      // Playback mode - apply recorded trajectory with interpolation
       this.playbackController.update(timeMS);
 
-      // Only update body transforms if frame actually changed
+      // Update body transforms on EVERY frame (interpolation updates data continuously)
+      for (let b = 0; b < this.model.nbody; b++) {
+        if (this.bodies[b]) {
+          getPosition(this.data.xpos, b, this.bodies[b].position);
+          getQuaternion(this.data.xquat, b, this.bodies[b].quaternion);
+          this.bodies[b].updateWorldMatrix();
+        }
+      }
+
+      // Fire frame change callback only when frame index changes (for UI updates)
       const currentFrame = this.playbackController.frameIndex;
       if (currentFrame !== this.lastPlaybackFrame) {
         this.lastPlaybackFrame = currentFrame;
-        // Update body transforms only on frame change
-        for (let b = 0; b < this.model.nbody; b++) {
-          if (this.bodies[b]) {
-            getPosition(this.data.xpos, b, this.bodies[b].position);
-            getQuaternion(this.data.xquat, b, this.bodies[b].quaternion);
-            this.bodies[b].updateWorldMatrix();
-          }
-        }
 
         // Camera follow mode - update target to robot position
         if (this.followRobot) {
           const frame = this.playbackController.currentFrame;
           if (frame && frame.robot_position) {
-            // Robot position is (x, y) in MuJoCo coords, z is height (~0.8m for pelvis)
             const robotX = frame.robot_position[0];
             const robotY = frame.robot_position[1];
-            // Update orbit target to follow robot (Three.js: x, z, -y from MuJoCo)
             this.controls.target.set(robotX, 0.8, -robotY);
           }
         }
