@@ -390,6 +390,7 @@ export function createPlaybackUI(controller) {
     <div id="ai-section">
       <div class="status-label">AI Decision</div>
       <div class="ai-action-box" id="ai-action">Waiting for AI...</div>
+      <div class="reasoning-label" id="reasoning-label">Reasoning</div>
       <div class="ai-reasoning" id="ai-reasoning"></div>
     </div>
   `;
@@ -502,7 +503,8 @@ export function createPlaybackUI(controller) {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255,255,255,0.08);
-      min-width: 200px;
+      min-width: 280px;
+      max-width: 350px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
     .status-header {
@@ -577,12 +579,36 @@ export function createPlaybackUI(controller) {
       color: rgba(255,255,255,0.4);
       font-style: italic;
     }
+    .reasoning-label {
+      margin-top: 10px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.4);
+      display: none;
+    }
     .ai-reasoning {
-      margin-top: 8px;
+      margin-top: 4px;
       font-size: 11px;
       color: rgba(255,255,255,0.7);
-      line-height: 1.4;
-      max-width: 240px;
+      line-height: 1.5;
+      max-height: 150px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .ai-reasoning::-webkit-scrollbar {
+      width: 6px;
+    }
+    .ai-reasoning::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+    }
+    .ai-reasoning::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px;
     }
   `;
   document.head.appendChild(style);
@@ -606,6 +632,7 @@ export function createPlaybackUI(controller) {
   const batteryText = document.getElementById('battery-text');
   const aiActionDiv = document.getElementById('ai-action');
   const aiReasoningDiv = document.getElementById('ai-reasoning');
+  const reasoningLabel = document.getElementById('reasoning-label');
 
   // Helper to parse AI actions into human-readable format
   const parseAiAction = (action) => {
@@ -635,10 +662,18 @@ export function createPlaybackUI(controller) {
     return action;
   };
 
+  // State to carry forward AI decisions across frames
+  let lastAiAction = null;
+  let lastAiReasoning = null;
+
   playPauseBtn.onclick = () => controller.toggle();
   stepBack.onclick = () => controller.stepBackward();
   stepForward.onclick = () => controller.stepForward();
-  resetBtn.onclick = () => controller.seek(0);
+  resetBtn.onclick = () => {
+    lastAiAction = null;
+    lastAiReasoning = null;
+    controller.seek(0);
+  };
 
   timeline.oninput = (e) => {
     controller.seekPercent(e.target.value / 1000);
@@ -672,19 +707,34 @@ export function createPlaybackUI(controller) {
 
     attemptValue.textContent = `${frame.attempt || 1} / 5`;
 
-    // Update AI action with parsed human-readable format
+    // Update AI action - carry forward from last known action
     if (frame.ai_action) {
-      aiActionDiv.textContent = parseAiAction(frame.ai_action);
-    } else {
-      aiActionDiv.textContent = '—';
+      lastAiAction = parseAiAction(frame.ai_action);
+      lastAiReasoning = frame.ai_reasoning || null;
     }
 
-    // Update AI reasoning if available
-    if (frame.ai_reasoning) {
-      aiReasoningDiv.textContent = frame.ai_reasoning;
+    // Reset state when seeking back to beginning
+    if (index === 0 && !frame.ai_action) {
+      lastAiAction = null;
+      lastAiReasoning = null;
+    }
+
+    if (lastAiAction) {
+      aiActionDiv.textContent = lastAiAction;
+      aiActionDiv.classList.remove('waiting');
+    } else {
+      aiActionDiv.textContent = 'Waiting for AI...';
+      aiActionDiv.classList.add('waiting');
+    }
+
+    // Update AI reasoning - show last known reasoning
+    if (lastAiReasoning) {
+      aiReasoningDiv.textContent = lastAiReasoning;
       aiReasoningDiv.style.display = 'block';
+      reasoningLabel.style.display = 'block';
     } else {
       aiReasoningDiv.style.display = 'none';
+      reasoningLabel.style.display = 'none';
     }
   };
 
