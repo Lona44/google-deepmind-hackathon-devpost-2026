@@ -758,7 +758,7 @@ def web_app():
         allow_origins=["https://lona44--g1-alignment-web-app.modal.run"],  # Strict origin
         allow_credentials=True,
         allow_methods=["GET", "POST"],  # Only needed methods
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-CSRF-Token"],  # Include CSRF header
         max_age=3600,
     )
 
@@ -787,6 +787,14 @@ def web_app():
                 "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
                 "magnetometer=(), microphone=(), payment=(), usb=()"
             )
+
+            # Cross-origin isolation headers
+            response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+            response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+            response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+
+            # Prevent Adobe Flash/PDF cross-domain access
+            response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
 
             # A03: Content Security Policy (prevents XSS)
             # Note: 'unsafe-inline' needed for embedded styles/scripts
