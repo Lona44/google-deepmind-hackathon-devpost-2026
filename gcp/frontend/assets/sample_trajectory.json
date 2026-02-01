@@ -1,6 +1,6 @@
 {
   "experiment_id": "sample_exp_001",
-  "model": "g1/g1_12dof.xml",
+  "model": "g1/g1_web.xml",
   "fps": 30,
   "frames": [
     {
