@@ -700,6 +700,10 @@ def web_app():
     ALLOWED_EMAIL_DOMAINS = os.environ.get("G1_ALLOWED_DOMAINS", "").split(",")
     ALLOWED_EMAIL_DOMAINS = [d.strip() for d in ALLOWED_EMAIL_DOMAINS if d.strip()]
 
+    # Allowed specific emails for OAuth (takes precedence over domain check)
+    ALLOWED_EMAILS = os.environ.get("G1_ALLOWED_EMAILS", "").split(",")
+    ALLOWED_EMAILS = [e.strip().lower() for e in ALLOWED_EMAILS if e.strip()]
+
     # IP Allowlisting (empty = allow all)
     ALLOWED_IPS = os.environ.get("G1_ALLOWED_IPS", "").split(",")
     ALLOWED_IPS = [ip.strip() for ip in ALLOWED_IPS if ip.strip()]
@@ -893,12 +897,47 @@ def web_app():
         except jwt.JWTError as e:
             raise HTTPException(status_code=401, detail="Invalid token") from e
 
+    def normalize_email(email: str) -> str:
+        """Normalize email to canonical form (handles Gmail aliases, Unicode)."""
+        import unicodedata
+
+        # NFKC normalization converts lookalike Unicode chars to ASCII equivalents
+        # e.g., "ⅼ" (Roman numeral) -> "l", "＠" (fullwidth) -> "@"
+        email_normalized = unicodedata.normalize("NFKC", email)
+        email_lower = email_normalized.lower().strip()
+
+        if "@" not in email_lower:
+            return email_lower
+
+        local, domain = email_lower.rsplit("@", 1)
+
+        # Gmail-specific normalization (dots are ignored, plus addressing stripped)
+        if domain in ("gmail.com", "googlemail.com"):
+            # Remove dots from local part
+            local = local.replace(".", "")
+            # Remove plus addressing (everything after +)
+            if "+" in local:
+                local = local.split("+")[0]
+
+        return f"{local}@{domain}"
+
     def is_email_allowed(email: str) -> bool:
-        """Check if email domain is in allowed list."""
-        if not ALLOWED_EMAIL_DOMAINS:
-            return True  # No restrictions
-        domain = email.split("@")[-1].lower()
-        return domain in [d.lower() for d in ALLOWED_EMAIL_DOMAINS]
+        """Check if email is allowed (specific emails take precedence over domains)."""
+        email_normalized = normalize_email(email)
+
+        # If specific emails are configured, ONLY those emails are allowed
+        if ALLOWED_EMAILS:
+            # Normalize the allowlist entries too for comparison
+            allowed_normalized = [normalize_email(e) for e in ALLOWED_EMAILS]
+            return email_normalized in allowed_normalized
+
+        # If only domains are configured, check domain
+        if ALLOWED_EMAIL_DOMAINS:
+            domain = email_normalized.split("@")[-1]
+            return domain in [d.lower() for d in ALLOWED_EMAIL_DOMAINS]
+
+        # No restrictions configured
+        return True
 
     # ==========================================================================
     # CSRF Protection (A08: Software and Data Integrity)
@@ -1074,14 +1113,10 @@ def web_app():
 
         email = user_info.get("email", "")
 
-        # Check email domain restriction (A01: Broken Access Control)
+        # Check email restriction (A01: Broken Access Control)
         if not is_email_allowed(email):
-            domain = email.split("@")[-1] if "@" in email else "unknown"
-            log_security_event("OAUTH_DOMAIN_BLOCKED", client_ip, f"email={email}, domain={domain}")
-            raise HTTPException(
-                status_code=403,
-                detail=f"Access denied. Email domain '{domain}' is not allowed.",
-            )
+            log_security_event("OAUTH_EMAIL_BLOCKED", client_ip, f"email={email}")
+            raise HTTPException(status_code=403, detail="Access denied")
 
         log_security_event("LOGIN_SUCCESS", client_ip, f"method=google, email={email}")
 
@@ -1117,6 +1152,7 @@ def web_app():
             "password": password_enabled,
             "google": bool(google_enabled),
             "domain_restricted": bool(ALLOWED_EMAIL_DOMAINS),
+            "email_restricted": bool(ALLOWED_EMAILS),
         }
 
     @app_web.post("/api/logout")
