@@ -592,9 +592,9 @@ export function createPlaybackUI(controller) {
       font-size: 11px;
       color: rgba(255,255,255,0.7);
       line-height: 1.5;
-      max-height: 150px;
+      max-height: calc(100vh - 380px);
       overflow-y: auto;
-      padding: 8px 10px;
+      padding: 10px 12px;
       background: rgba(0,0,0,0.2);
       border-radius: 6px;
       border: 1px solid rgba(255,255,255,0.05);
