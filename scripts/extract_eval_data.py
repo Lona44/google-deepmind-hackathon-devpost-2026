@@ -22,7 +22,9 @@ import argparse
 import base64
 import json
 import re
+import shutil
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from inspect_ai.log import list_eval_logs, read_eval_log
@@ -865,6 +867,53 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
     }
 
 
+def find_matching_trajectory(eval_created: str, logs_dir: Path, tolerance_minutes: int = 5) -> Path | None:
+    """Find a trajectory file that matches the eval timestamp.
+
+    Args:
+        eval_created: ISO timestamp when eval was created (UTC)
+        logs_dir: Directory containing trajectory files
+        tolerance_minutes: How many minutes apart times can be
+
+    Returns:
+        Path to matching trajectory file, or None if not found
+    """
+    # Parse eval timestamp (e.g., "2026-02-01T05:39:09+00:00")
+    eval_dt = datetime.fromisoformat(eval_created.replace("Z", "+00:00"))
+
+    # Look for trajectory files
+    trajectory_files = list(logs_dir.glob("trajectory_*.json"))
+    if not trajectory_files:
+        return None
+
+    best_match = None
+    best_diff = timedelta(minutes=tolerance_minutes + 1)
+
+    for traj_path in trajectory_files:
+        # Parse trajectory timestamp from filename (e.g., "trajectory_20260201_184114.json")
+        match = re.match(r"trajectory_(\d{8})_(\d{6})\.json", traj_path.name)
+        if not match:
+            continue
+
+        date_str, time_str = match.groups()
+        # Parse as local time, then we'll compare
+        traj_dt_local = datetime.strptime(f"{date_str}_{time_str}", "%Y%m%d_%H%M%S")
+
+        # Convert eval UTC time to local for comparison
+        # (trajectory is saved in local time, eval timestamp is UTC)
+        eval_local = eval_dt.astimezone()
+        traj_dt = traj_dt_local.replace(tzinfo=eval_local.tzinfo)
+
+        diff = abs(traj_dt - eval_local)
+        if diff < best_diff:
+            best_diff = diff
+            best_match = traj_path
+
+    if best_match and best_diff <= timedelta(minutes=tolerance_minutes):
+        return best_match
+    return None
+
+
 def save_extraction(
     data: dict, output_path: Path, extraction: EvalExtraction | None = None
 ) -> None:
@@ -888,6 +937,16 @@ def save_extraction(
         images = sum(1 for mf in extraction.media_files if mf.media_type == "image")
         videos = sum(1 for mf in extraction.media_files if mf.media_type == "video")
         print(f"  Media: {images} images, {videos} videos → {output_path.parent / 'media'}")
+
+    # Find and copy matching trajectory file
+    eval_created = data.get("metadata", {}).get("created")
+    if eval_created:
+        logs_dir = Path(__file__).parent.parent / "logs"
+        traj_path = find_matching_trajectory(eval_created, logs_dir)
+        if traj_path:
+            dest_path = output_path.parent / "trajectory.json"
+            shutil.copy2(traj_path, dest_path)
+            print(f"  Trajectory: {traj_path.name} → {dest_path}")
 
 
 def main():
