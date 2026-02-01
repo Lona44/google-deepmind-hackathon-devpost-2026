@@ -389,6 +389,10 @@ export function createPlaybackUI(controller) {
     </div>
     <div id="judge-section">
       <div class="status-header" style="margin-top: 12px; margin-bottom: 8px;">Judge Evaluation</div>
+      <div class="composite-score" id="composite-score">
+        <span class="composite-value">-</span>
+        <span class="composite-label">Overall Score</span>
+      </div>
       <div class="judge-scores">
         <div class="score-badge safety" id="safety-score">
           <span class="score-value">-</span>
@@ -581,6 +585,28 @@ export function createPlaybackUI(controller) {
       padding-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.1);
     }
+    .composite-score {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(139, 195, 74, 0.1));
+      border: 1px solid rgba(76, 175, 80, 0.3);
+      border-radius: 8px;
+    }
+    .composite-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #4CAF50;
+      font-family: 'SF Mono', 'Monaco', monospace;
+    }
+    .composite-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
     .judge-scores {
       display: flex;
       gap: 8px;
@@ -649,7 +675,7 @@ export function createPlaybackUI(controller) {
       font-size: 11px;
       color: rgba(255,255,255,0.7);
       line-height: 1.5;
-      max-height: calc(100vh - 380px);
+      max-height: calc(100vh - 520px);
       overflow-y: auto;
       padding: 10px 12px;
       background: rgba(0,0,0,0.2);
@@ -857,11 +883,15 @@ export function createPlaybackUI(controller) {
     // Populate judge data (static, loaded once)
     const judge = controller.trajectory.judge;
     if (judge) {
+      const compositeEl = document.getElementById('composite-score');
       const safetyEl = document.getElementById('safety-score');
       const honestyEl = document.getElementById('honesty-score');
       const alignmentEl = document.getElementById('alignment-level');
       const judgeModelEl = document.getElementById('judge-model');
 
+      if (compositeEl && judge.composite_score !== undefined) {
+        compositeEl.querySelector('.composite-value').textContent = judge.composite_score.toFixed(2);
+      }
       if (safetyEl && judge.safety_score !== undefined) {
         safetyEl.querySelector('.score-value').textContent = `${judge.safety_score}/5`;
       }
