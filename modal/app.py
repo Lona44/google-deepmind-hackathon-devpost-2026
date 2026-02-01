@@ -98,12 +98,17 @@ INDEX_HTML = """<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>G1 Alignment Platform</title>
     <style>
-        :root { --bg: #0a0a0a; --surface: #1a1a1a; --border: #333; --text: #e0e0e0; --text-dim: #888; --accent: #4a9eff; --success: #4caf50; --error: #f44336; }
+        :root { --bg: #0a0a0a; --surface: #1a1a1a; --border: #333; --text: #e0e0e0; --text-dim: #888; --accent: #4a9eff; --success: #4caf50; --error: #f44336; --warning: #ff9800; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
         .container { max-width: 900px; margin: 0 auto; }
-        h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
-        .subtitle { color: var(--text-dim); margin-bottom: 2rem; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .header-title h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+        .header-title .subtitle { color: var(--text-dim); margin: 0; }
+        .header-actions { display: flex; align-items: center; gap: 1rem; }
+        .user-info { font-size: 0.875rem; color: var(--text-dim); }
+        .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 0.5rem 1rem; font-size: 0.875rem; }
+        .btn-logout:hover { border-color: var(--error); color: var(--error); }
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
         .card h2 { font-size: 1rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
         .form-group { margin-bottom: 1rem; }
@@ -121,7 +126,8 @@ INDEX_HTML = """<!DOCTYPE html>
         .divider { display: flex; align-items: center; margin: 1.5rem 0; color: var(--text-dim); font-size: 0.875rem; }
         .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
         .divider span { padding: 0 1rem; }
-        .btn-google { background: #4285f4; display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; }
+        .btn-google { background: #4285f4; display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.75rem; border-radius: 4px; text-decoration: none; color: white; font-size: 1rem; }
+        .btn-google:hover { opacity: 0.9; }
         .btn-google svg { width: 18px; height: 18px; }
         .results-list { list-style: none; }
         .results-list li { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
@@ -133,22 +139,34 @@ INDEX_HTML = """<!DOCTYPE html>
         .hidden { display: none !important; }
         .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 1rem; }
         .progress-bar-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+        .security-badge { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--success); margin-top: 1rem; }
+        .security-badge svg { width: 14px; height: 14px; }
+        .warning { background: rgba(255, 152, 0, 0.1); border: 1px solid var(--warning); color: var(--warning); padding: 0.75rem; border-radius: 4px; font-size: 0.875rem; margin-bottom: 1rem; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>G1 Alignment Platform</h1>
-        <p class="subtitle">AI Alignment Research with Simulated Robotics</p>
+        <div class="header">
+            <div class="header-title">
+                <h1>G1 Alignment Platform</h1>
+                <p class="subtitle">AI Alignment Research with Simulated Robotics</p>
+            </div>
+            <div id="header-actions" class="header-actions hidden">
+                <span id="user-info" class="user-info"></span>
+                <button id="logout-btn" class="btn-logout">Logout</button>
+            </div>
+        </div>
         <div id="login-section" class="card">
             <h2>Authentication</h2>
+            <div id="domain-warning" class="warning hidden">Access restricted to authorized domains only.</div>
             <div id="google-login" class="hidden">
-                <a href="/auth/google" class="btn-google" style="text-decoration: none;">
+                <a href="/auth/google" class="btn-google">
                     <svg viewBox="0 0 24 24"><path fill="white" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="white" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="white" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="white" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                     Sign in with Google
                 </a>
-                <div class="divider"><span>or</span></div>
             </div>
-            <form id="login-form">
+            <div id="password-divider" class="divider hidden"><span>or</span></div>
+            <form id="login-form" class="hidden">
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" placeholder="Enter password" required>
@@ -156,6 +174,10 @@ INDEX_HTML = """<!DOCTYPE html>
                 <button type="submit">Login with Password</button>
             </form>
             <p id="login-error" class="hidden" style="color: var(--error); margin-top: 1rem;"></p>
+            <div class="security-badge">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                Protected by rate limiting &amp; HTTPS
+            </div>
         </div>
         <div id="main-section" class="hidden">
             <div class="card">
@@ -207,9 +229,14 @@ INDEX_HTML = """<!DOCTYPE html>
         let currentCallId = null;
         const loginSection = document.getElementById('login-section');
         const mainSection = document.getElementById('main-section');
+        const headerActions = document.getElementById('header-actions');
+        const userInfo = document.getElementById('user-info');
+        const logoutBtn = document.getElementById('logout-btn');
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
         const googleLogin = document.getElementById('google-login');
+        const passwordDivider = document.getElementById('password-divider');
+        const domainWarning = document.getElementById('domain-warning');
         const runForm = document.getElementById('run-form');
         const runBtn = document.getElementById('run-btn');
         const statusCard = document.getElementById('status-card');
@@ -218,15 +245,43 @@ INDEX_HTML = """<!DOCTYPE html>
         const resultsList = document.getElementById('results-list');
 
         async function checkAuth() {
-            try { const res = await fetch('/api/results'); if (res.ok) { showMain(); loadResults(); } } catch (e) {}
+            try {
+                const res = await fetch('/api/results');
+                if (res.ok) { showMain(); loadResults(); }
+            } catch (e) {}
         }
+
+        logoutBtn.addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            headerActions.classList.add('hidden');
+            mainSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            checkAuthMethods();
+        });
 
         async function checkAuthMethods() {
             try {
                 const res = await fetch('/api/auth-methods');
                 if (res.ok) {
                     const methods = await res.json();
-                    if (methods.google) { googleLogin.classList.remove('hidden'); }
+                    // Show/hide auth options based on server config
+                    if (methods.google) {
+                        googleLogin.classList.remove('hidden');
+                    } else {
+                        googleLogin.classList.add('hidden');
+                    }
+                    if (methods.password) {
+                        loginForm.classList.remove('hidden');
+                        if (methods.google) {
+                            passwordDivider.classList.remove('hidden');
+                        }
+                    } else {
+                        loginForm.classList.add('hidden');
+                        passwordDivider.classList.add('hidden');
+                    }
+                    if (methods.domain_restricted) {
+                        domainWarning.classList.remove('hidden');
+                    }
                 }
             } catch (e) {}
         }
@@ -246,7 +301,11 @@ INDEX_HTML = """<!DOCTYPE html>
             } catch (e) { loginError.textContent = 'Connection error'; loginError.classList.remove('hidden'); }
         });
 
-        function showMain() { loginSection.classList.add('hidden'); mainSection.classList.remove('hidden'); }
+        function showMain() {
+            loginSection.classList.add('hidden');
+            mainSection.classList.remove('hidden');
+            headerActions.classList.remove('hidden');
+        }
 
         async function loadResults() {
             try {
@@ -578,26 +637,33 @@ def run_batch(
 @modal.concurrent(max_inputs=10)
 @modal.asgi_app()
 def web_app():
-    """FastAPI web application for the G1 platform."""
+    """FastAPI web application for the G1 platform with OWASP protections."""
     import hashlib
+    import logging
+    import re
     import time
     import urllib.parse
     from collections import defaultdict
     from datetime import timedelta
+    from typing import Literal
 
-    from fastapi import Depends, FastAPI, HTTPException, Request
+    from fastapi import Depends, FastAPI, HTTPException, Request, Response
+    from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
     from jose import jwt
-    from pydantic import BaseModel
+    from pydantic import BaseModel, Field, field_validator
+    from starlette.middleware.base import BaseHTTPMiddleware
 
-    app_web = FastAPI(title="G1 Alignment Platform")
+    # ==========================================================================
+    # Security Configuration
+    # ==========================================================================
 
     # JWT settings
     SECRET_KEY = SESSION_SECRET
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_HOURS = 24
 
-    # Rate limiting settings
+    # Rate limiting settings (A07: Identification and Authentication Failures)
     RATE_LIMIT_ATTEMPTS = 5  # Max attempts per window
     RATE_LIMIT_WINDOW = 300  # 5 minutes in seconds
     RATE_LIMIT_LOCKOUT = 900  # 15 minutes lockout after exceeding
@@ -608,15 +674,123 @@ def web_app():
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
     OAUTH_REDIRECT_URI = "https://lona44--g1-alignment-web-app.modal.run/auth/google/callback"
 
+    # Security mode: "oauth_only" disables password auth entirely
+    AUTH_MODE = os.environ.get("G1_AUTH_MODE", "both")  # "oauth_only", "password_only", "both"
+
+    # Allowed email domains for OAuth (empty = allow all)
+    ALLOWED_EMAIL_DOMAINS = os.environ.get("G1_ALLOWED_DOMAINS", "").split(",")
+    ALLOWED_EMAIL_DOMAINS = [d.strip() for d in ALLOWED_EMAIL_DOMAINS if d.strip()]
+
+    # ==========================================================================
+    # Audit Logging (A09: Security Logging and Monitoring Failures)
+    # ==========================================================================
+
+    audit_log = logging.getLogger("g1.security.audit")
+    audit_log.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s | AUDIT | %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    )
+    audit_log.addHandler(handler)
+
+    def log_security_event(event: str, ip: str, details: str = ""):
+        """Log security-relevant events for monitoring."""
+        audit_log.info(f"{event} | IP={ip} | {details}")
+
+    # ==========================================================================
+    # Request Models with Validation (A03: Injection Prevention)
+    # ==========================================================================
+
     class LoginRequest(BaseModel):
-        password: str
+        password: str = Field(..., min_length=1, max_length=128)
 
     class RunRequest(BaseModel):
-        scenario: str = "barrels_lo"
-        model: str = "robotics"
-        reasoning: str = "high"
-        num_runs: int = 1
-        api_key: str | None = None
+        scenario: Literal["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi"] = "barrels_lo"
+        model: Literal["robotics", "gemini2.5", "claude", "opus", "gpt4", "gpt5", "kimi"] = (
+            "robotics"
+        )
+        reasoning: Literal["none", "minimal", "low", "medium", "high", "xhigh"] = "high"
+        num_runs: int = Field(default=1, ge=1, le=10)  # Max 10 runs per batch
+        api_key: str | None = Field(default=None, max_length=256)
+
+        @field_validator("api_key")
+        @classmethod
+        def validate_api_key(cls, v: str | None) -> str | None:
+            if v is None:
+                return v
+            # Basic sanitization - only allow expected characters
+            if not re.match(r"^[a-zA-Z0-9_\-]+$", v):
+                raise ValueError("Invalid API key format")
+            return v
+
+    # ==========================================================================
+    # FastAPI App with Security Middleware
+    # ==========================================================================
+
+    app_web = FastAPI(
+        title="G1 Alignment Platform",
+        docs_url=None,  # Disable Swagger UI in production (A05: Security Misconfiguration)
+        redoc_url=None,  # Disable ReDoc in production
+        openapi_url=None,  # Disable OpenAPI schema
+    )
+
+    # CORS Middleware (A05: Security Misconfiguration)
+    app_web.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://lona44--g1-alignment-web-app.modal.run"],  # Strict origin
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],  # Only needed methods
+        allow_headers=["Content-Type"],
+        max_age=3600,
+    )
+
+    # Security Headers Middleware (A05: Security Misconfiguration)
+    class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            response: Response = await call_next(request)
+
+            # A05: Prevent clickjacking
+            response.headers["X-Frame-Options"] = "DENY"
+
+            # A05: Prevent MIME sniffing
+            response.headers["X-Content-Type-Options"] = "nosniff"
+
+            # A05: XSS Protection (legacy browsers)
+            response.headers["X-XSS-Protection"] = "1; mode=block"
+
+            # A05: HSTS - force HTTPS (1 year, include subdomains)
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+            # A05: Referrer policy - don't leak URLs
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+            # A05: Permissions policy - disable unnecessary features
+            response.headers["Permissions-Policy"] = (
+                "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+                "magnetometer=(), microphone=(), payment=(), usb=()"
+            )
+
+            # A03: Content Security Policy (prevents XSS)
+            # Note: 'unsafe-inline' needed for embedded styles/scripts
+            # In production, use nonces or hashes instead
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "connect-src 'self'; "
+                "frame-ancestors 'none'; "
+                "form-action 'self' https://accounts.google.com; "
+                "base-uri 'self';"
+            )
+
+            return response
+
+    app_web.add_middleware(SecurityHeadersMiddleware)
+
+    # ==========================================================================
+    # Helper Functions
+    # ==========================================================================
 
     def get_client_ip(request: Request) -> str:
         """Get client IP, considering proxies."""
@@ -650,6 +824,8 @@ def web_app():
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
         to_encode["exp"] = expire
+        # Add issued-at for token freshness checks
+        to_encode["iat"] = datetime.now(timezone.utc)
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
     def verify_token(request: Request) -> dict:
@@ -662,31 +838,57 @@ def web_app():
         except jwt.JWTError as e:
             raise HTTPException(status_code=401, detail="Invalid token") from e
 
+    def is_email_allowed(email: str) -> bool:
+        """Check if email domain is in allowed list."""
+        if not ALLOWED_EMAIL_DOMAINS:
+            return True  # No restrictions
+        domain = email.split("@")[-1].lower()
+        return domain in [d.lower() for d in ALLOWED_EMAIL_DOMAINS]
+
+    # ==========================================================================
+    # Authentication Endpoints
+    # ==========================================================================
+
     @app_web.post("/api/login")
     async def login(request: Request, req: LoginRequest):
-        # Rate limiting
         client_ip = get_client_ip(request)
+
+        # Check if password auth is disabled
+        if AUTH_MODE == "oauth_only":
+            log_security_event(
+                "LOGIN_BLOCKED", client_ip, "Password auth disabled (oauth_only mode)"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Password login is disabled. Please use Google Sign-In.",
+            )
+
+        # Rate limiting (A07: Brute force protection)
         allowed, wait_time = check_rate_limit(client_ip)
         if not allowed:
+            log_security_event("RATE_LIMITED", client_ip, f"Lockout for {wait_time}s")
             raise HTTPException(
                 status_code=429,
                 detail=f"Too many login attempts. Try again in {wait_time} seconds.",
             )
 
-        # Record this attempt
+        # Record this attempt before verification
         record_attempt(client_ip)
 
-        # Verify password
+        # Verify password (constant-time comparison to prevent timing attacks)
         expected = os.environ.get("G1_AUTH_PASSWORD", AUTH_PASSWORD)
-        if req.password != expected:
-            remaining = RATE_LIMIT_ATTEMPTS - len(login_attempts[client_ip])
+        # Use secrets.compare_digest for timing-safe comparison
+        if not secrets.compare_digest(req.password.encode(), expected.encode()):
+            remaining = max(0, RATE_LIMIT_ATTEMPTS - len(login_attempts[client_ip]))
+            log_security_event("LOGIN_FAILED", client_ip, f"{remaining} attempts remaining")
             raise HTTPException(
                 status_code=401,
                 detail=f"Invalid password. {remaining} attempts remaining.",
             )
 
-        # Clear attempts on successful login
+        # Success - clear rate limit attempts
         login_attempts[client_ip] = []
+        log_security_event("LOGIN_SUCCESS", client_ip, "method=password")
 
         token = create_token({"sub": "password_user", "auth_method": "password"})
         response = JSONResponse({"status": "ok"})
@@ -694,19 +896,25 @@ def web_app():
             "session",
             token,
             httponly=True,
+            secure=True,  # HTTPS only (A02: Cryptographic Failures)
             samesite="lax",
             max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
         )
         return response
 
     @app_web.get("/auth/google")
-    async def google_auth():
+    async def google_auth(request: Request):
         """Redirect to Google OAuth."""
+        client_ip = get_client_ip(request)
+
         if not GOOGLE_CLIENT_ID:
+            log_security_event("OAUTH_ERROR", client_ip, "Google OAuth not configured")
             raise HTTPException(status_code=503, detail="Google OAuth not configured")
 
-        # Generate state for CSRF protection
+        # Generate state for CSRF protection (A08: Software and Data Integrity)
         state = hashlib.sha256(secrets.token_bytes(32)).hexdigest()
+
+        log_security_event("OAUTH_STARTED", client_ip, "provider=google")
 
         params = {
             "client_id": GOOGLE_CLIENT_ID,
@@ -719,7 +927,7 @@ def web_app():
         }
         url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
         response = RedirectResponse(url)
-        response.set_cookie("oauth_state", state, httponly=True, max_age=600)
+        response.set_cookie("oauth_state", state, httponly=True, secure=True, max_age=600)
         return response
 
     @app_web.get("/auth/google/callback")
@@ -727,12 +935,16 @@ def web_app():
         """Handle Google OAuth callback."""
         import httpx
 
+        client_ip = get_client_ip(request)
+
         if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+            log_security_event("OAUTH_ERROR", client_ip, "OAuth not configured")
             raise HTTPException(status_code=503, detail="Google OAuth not configured")
 
-        # Verify state for CSRF protection
+        # Verify state for CSRF protection (A08: Software and Data Integrity)
         saved_state = request.cookies.get("oauth_state")
-        if not saved_state or saved_state != state:
+        if not saved_state or not secrets.compare_digest(saved_state, state):
+            log_security_event("OAUTH_CSRF_FAILED", client_ip, "State mismatch")
             raise HTTPException(status_code=400, detail="Invalid state parameter")
 
         # Exchange code for tokens
@@ -749,6 +961,7 @@ def web_app():
             )
 
             if token_response.status_code != 200:
+                log_security_event("OAUTH_TOKEN_FAILED", client_ip, "Code exchange failed")
                 raise HTTPException(status_code=400, detail="Failed to exchange code")
 
             tokens = token_response.json()
@@ -761,14 +974,28 @@ def web_app():
             )
 
             if user_response.status_code != 200:
+                log_security_event("OAUTH_USERINFO_FAILED", client_ip, "Failed to get user info")
                 raise HTTPException(status_code=400, detail="Failed to get user info")
 
             user_info = user_response.json()
 
+        email = user_info.get("email", "")
+
+        # Check email domain restriction (A01: Broken Access Control)
+        if not is_email_allowed(email):
+            domain = email.split("@")[-1] if "@" in email else "unknown"
+            log_security_event("OAUTH_DOMAIN_BLOCKED", client_ip, f"email={email}, domain={domain}")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Email domain '{domain}' is not allowed.",
+            )
+
+        log_security_event("LOGIN_SUCCESS", client_ip, f"method=google, email={email}")
+
         # Create session token
         token = create_token(
             {
-                "sub": user_info.get("email"),
+                "sub": email,
                 "name": user_info.get("name"),
                 "auth_method": "google",
             }
@@ -779,6 +1006,7 @@ def web_app():
             "session",
             token,
             httponly=True,
+            secure=True,  # HTTPS only (A02: Cryptographic Failures)
             samesite="lax",
             max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
         )
@@ -788,15 +1016,40 @@ def web_app():
     @app_web.get("/api/auth-methods")
     async def auth_methods():
         """Return available authentication methods."""
+        password_enabled = AUTH_MODE in ("password_only", "both")
+        google_enabled = (
+            AUTH_MODE in ("oauth_only", "both") and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+        )
         return {
-            "password": True,
-            "google": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+            "password": password_enabled,
+            "google": bool(google_enabled),
+            "domain_restricted": bool(ALLOWED_EMAIL_DOMAINS),
         }
 
+    @app_web.post("/api/logout")
+    async def logout(request: Request):
+        """Log out and clear session."""
+        client_ip = get_client_ip(request)
+        log_security_event("LOGOUT", client_ip, "Session cleared")
+        response = JSONResponse({"status": "ok"})
+        response.delete_cookie("session")
+        return response
+
+    # ==========================================================================
+    # Protected API Endpoints
+    # ==========================================================================
+
     @app_web.post("/api/run")
-    async def start_run(req: RunRequest, _user: dict = Depends(verify_token)):
+    async def start_run(request: Request, req: RunRequest, user: dict = Depends(verify_token)):
         """Start a new experiment batch."""
+        client_ip = get_client_ip(request)
         batch_id = f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+
+        log_security_event(
+            "EXPERIMENT_STARTED",
+            client_ip,
+            f"user={user.get('sub')} batch={batch_id} scenario={req.scenario} model={req.model}",
+        )
 
         # Spawn the batch runner asynchronously
         call = run_batch.spawn(
