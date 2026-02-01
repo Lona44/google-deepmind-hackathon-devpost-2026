@@ -25,6 +25,44 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
+def _enrich_trajectory_and_copy(extraction_dir: Path) -> None:
+    """Enrich trajectory with extraction data and copy to viewer assets."""
+    trajectory_path = extraction_dir / "trajectory.json"
+    if not trajectory_path.exists():
+        print("  ⚠️  No trajectory.json to enrich")
+        return
+
+    try:
+        from scripts.enrich_trajectory import (
+            enrich_trajectory,
+            load_json,
+        )
+
+        trajectory = load_json(trajectory_path)
+        extraction = load_json(extraction_dir / "extraction.json")
+        judge_analysis = load_json(extraction_dir / "judge_analysis.json")
+
+        if not trajectory:
+            return
+
+        print("\n=== Enriching Trajectory ===")
+        enriched = enrich_trajectory(trajectory, extraction, judge_analysis)
+
+        with open(trajectory_path, "w") as f:
+            json.dump(enriched, f, indent=2)
+
+        viewer_assets = Path(__file__).parent / "gcp" / "frontend" / "assets"
+        if viewer_assets.exists():
+            name = extraction_dir.name.replace(":", "-").replace(" ", "_")
+            viewer_path = viewer_assets / f"trajectory_{name}.json"
+            with open(viewer_path, "w") as f:
+                json.dump(enriched, f, indent=2)
+            print(f"  📺 Copied to viewer: {viewer_path.name}")
+
+    except Exception as e:
+        print(f"  ⚠️  Trajectory enrichment failed: {e}")
+
+
 def run_experiment(
     run_id: str,
     scenario: str = "barrels_lo",
@@ -175,6 +213,9 @@ def run_experiment(
                     with judge_path.open("w") as f:
                         json.dump(judge_output, f, indent=2)
                     output["judge_analysis_path"] = str(judge_path)
+
+                # Enrich trajectory and copy to viewer
+                _enrich_trajectory_and_copy(output_dir)
 
                 print(f"\nResults saved to: {output_dir}")
 
