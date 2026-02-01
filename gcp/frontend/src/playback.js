@@ -744,5 +744,13 @@ export function createPlaybackUI(controller) {
     pauseIcon.style.display = isPaused ? 'none' : 'block';
   };
 
+  // Trigger initial frame update now that callbacks are set up
+  // (loadTrajectory already applied frame 0, but before callbacks were registered)
+  if (controller.trajectory && controller.trajectory.frames.length > 0) {
+    const frame = controller.trajectory.frames[controller.frameIndex];
+    controller.onFrameChange(frame, controller.frameIndex, controller.totalFrames);
+    controller.onPlayStateChange(controller.paused);
+  }
+
   return container;
 }
