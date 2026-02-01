@@ -5,6 +5,33 @@
  * allowing users to view experiments with full camera control.
  */
 
+// Linear interpolation helper
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+// Lerp arrays element-wise
+function lerpArray(arrA, arrB, t) {
+  const result = new Float64Array(arrA.length);
+  for (let i = 0; i < arrA.length; i++) {
+    result[i] = lerp(arrA[i], arrB[i], t);
+  }
+  return result;
+}
+
+// Lerp quaternion (simple linear + normalize, good enough for small deltas)
+function lerpQuat(q1, q2, t) {
+  const result = [
+    lerp(q1[0], q2[0], t),
+    lerp(q1[1], q2[1], t),
+    lerp(q1[2], q2[2], t),
+    lerp(q1[3], q2[3], t)
+  ];
+  // Normalize
+  const len = Math.sqrt(result[0]**2 + result[1]**2 + result[2]**2 + result[3]**2);
+  return result.map(v => v / len);
+}
+
 export class PlaybackController {
   constructor(demo) {
     this.demo = demo;
@@ -14,6 +41,7 @@ export class PlaybackController {
     this.playbackSpeed = 1;
     this.lastUpdateTime = 0;
     this.frameInterval = 1000 / 30; // 30 FPS default
+    this.playbackTime = 0; // Continuous time position in ms
 
     // Event callbacks
     this.onFrameChange = null;
@@ -36,6 +64,7 @@ export class PlaybackController {
     }
 
     this.frameIndex = 0;
+    this.playbackTime = 0; // Reset playback time
     this.frameInterval = 1000 / (this.trajectory.fps || 30);
 
     if (this.onTrajectoryLoaded) {
@@ -99,7 +128,8 @@ export class PlaybackController {
     if (!this.demo.model || !this.demo.data) return;
 
     // Build name-to-body-id map on first call
-    if (!this._bodyNameMap) {
+    // Note: model.body() may not be available until model is fully loaded
+    if (!this._bodyNameMap && typeof this.demo.model.body === 'function') {
       this._bodyNameMap = {};
       for (let i = 0; i < this.demo.model.nbody; i++) {
         const name = this.demo.model.body(i).name;
@@ -108,6 +138,9 @@ export class PlaybackController {
         }
       }
     }
+
+    // Skip if we couldn't build the map yet
+    if (!this._bodyNameMap) return;
 
     // Apply each object's position
     for (const obj of objects) {
@@ -130,23 +163,136 @@ export class PlaybackController {
   }
 
   /**
+   * Apply interpolated state between two frames.
+   * @param {number} frameA - Index of first frame
+   * @param {number} frameB - Index of second frame
+   * @param {number} t - Interpolation factor (0 = frameA, 1 = frameB)
+   */
+  applyInterpolatedFrame(frameA, frameB, t) {
+    if (!this.trajectory || !this.trajectory.frames) return false;
+
+    const fA = this.trajectory.frames[frameA];
+    const fB = this.trajectory.frames[frameB];
+    if (!fA || !fB) return false;
+
+    // Interpolate joint positions
+    if (fA.qpos && fB.qpos && this.demo.data) {
+      const qposA = fA.qpos;
+      const qposB = fB.qpos;
+      for (let i = 0; i < qposA.length && i < this.demo.data.qpos.length; i++) {
+        this.demo.data.qpos[i] = lerp(qposA[i], qposB[i], t);
+      }
+
+      // Interpolate velocities
+      if (fA.qvel && fB.qvel) {
+        for (let i = 0; i < fA.qvel.length && i < this.demo.data.qvel.length; i++) {
+          this.demo.data.qvel[i] = lerp(fA.qvel[i], fB.qvel[i], t);
+        }
+      }
+
+      // Run forward kinematics
+      this.demo.mujoco.mj_forward(this.demo.model, this.demo.data);
+
+      // Interpolate object positions (barrels, etc.)
+      if (fA.objects && fB.objects && fA.objects.length > 0) {
+        this.applyInterpolatedObjects(fA.objects, fB.objects, t);
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Interpolate object positions between two frames.
+   */
+  applyInterpolatedObjects(objectsA, objectsB, t) {
+    if (!this.demo.model || !this.demo.data) return;
+
+    // Build name-to-body-id map on first call
+    // Note: model.body() may not be available until model is fully loaded
+    if (!this._bodyNameMap && typeof this.demo.model.body === 'function') {
+      this._bodyNameMap = {};
+      for (let i = 0; i < this.demo.model.nbody; i++) {
+        const name = this.demo.model.body(i).name;
+        if (name) {
+          this._bodyNameMap[name] = i;
+        }
+      }
+    }
+
+    // Skip if we couldn't build the map yet
+    if (!this._bodyNameMap) return;
+
+    // Create lookup for objectsB by name
+    const objBMap = {};
+    for (const obj of objectsB) {
+      objBMap[obj.name] = obj;
+    }
+
+    // Interpolate each object
+    for (const objA of objectsA) {
+      const objB = objBMap[objA.name];
+      if (!objB) continue;
+
+      const bodyId = this._bodyNameMap[objA.name];
+      if (bodyId !== undefined && objA.pos && objB.pos) {
+        // Interpolate position
+        const posOffset = bodyId * 3;
+        this.demo.data.xpos[posOffset] = lerp(objA.pos[0], objB.pos[0], t);
+        this.demo.data.xpos[posOffset + 1] = lerp(objA.pos[1], objB.pos[1], t);
+        this.demo.data.xpos[posOffset + 2] = lerp(objA.pos[2], objB.pos[2], t);
+
+        // Interpolate quaternion
+        if (objA.quat && objB.quat) {
+          const quatOffset = bodyId * 4;
+          const q = lerpQuat(objA.quat, objB.quat, t);
+          this.demo.data.xquat[quatOffset] = q[0];
+          this.demo.data.xquat[quatOffset + 1] = q[1];
+          this.demo.data.xquat[quatOffset + 2] = q[2];
+          this.demo.data.xquat[quatOffset + 3] = q[3];
+        }
+      }
+    }
+  }
+
+  /**
    * Update playback - call this in the render loop.
+   * Uses interpolation for smooth motion between frames.
    */
   update(currentTime) {
     if (this.paused || !this.trajectory) return;
 
+    // Advance playback time
     const elapsed = currentTime - this.lastUpdateTime;
-    const frameTime = this.frameInterval / this.playbackSpeed;
+    this.lastUpdateTime = currentTime;
+    this.playbackTime += elapsed * this.playbackSpeed;
 
-    if (elapsed >= frameTime) {
-      this.lastUpdateTime = currentTime;
+    // Calculate which frames we're between
+    const totalDuration = (this.totalFrames - 1) * this.frameInterval;
 
-      const nextFrame = this.frameIndex + 1;
-      if (nextFrame < this.totalFrames) {
-        this.applyFrame(nextFrame);
-      } else {
-        // End of trajectory - pause
-        this.pause();
+    if (this.playbackTime >= totalDuration) {
+      // End of trajectory - apply last frame and pause
+      this.applyFrame(this.totalFrames - 1);
+      this.pause();
+      return;
+    }
+
+    // Find frame indices and interpolation factor
+    const exactFrame = this.playbackTime / this.frameInterval;
+    const frameA = Math.floor(exactFrame);
+    const frameB = Math.min(frameA + 1, this.totalFrames - 1);
+    const t = exactFrame - frameA; // 0.0 to 1.0
+
+    // Apply interpolated state
+    this.applyInterpolatedFrame(frameA, frameB, t);
+
+    // Update frame index for UI (use the primary frame)
+    const newFrameIndex = frameA;
+    if (newFrameIndex !== this.frameIndex) {
+      this.frameIndex = newFrameIndex;
+      const frame = this.trajectory.frames[this.frameIndex];
+      if (this.onFrameChange) {
+        this.onFrameChange(frame, this.frameIndex, this.totalFrames);
       }
     }
   }
@@ -192,6 +338,7 @@ export class PlaybackController {
    */
   seek(frame) {
     frame = Math.max(0, Math.min(frame, this.totalFrames - 1));
+    this.playbackTime = frame * this.frameInterval; // Sync playback time
     this.applyFrame(Math.floor(frame));
   }
 

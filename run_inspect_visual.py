@@ -32,6 +32,57 @@ from inspect_ai import eval
 from inspect_ai.model import GenerateConfig
 
 
+def _enrich_trajectory_and_copy(extraction_dir: Path) -> None:
+    """Enrich trajectory with extraction data and copy to viewer assets.
+
+    This is called after all extraction files are saved (extraction.json,
+    judge_analysis.json, trajectory.json) to merge them and copy to the
+    frontend viewer.
+    """
+    trajectory_path = extraction_dir / "trajectory.json"
+    if not trajectory_path.exists():
+        print("  ⚠️  No trajectory.json to enrich")
+        return
+
+    try:
+        # Import enrichment functions
+        from scripts.enrich_trajectory import (  # noqa: PLC0415
+            enrich_trajectory,
+            load_json,
+        )
+
+        # Load all the files
+        trajectory = load_json(trajectory_path)
+        extraction = load_json(extraction_dir / "extraction.json")
+        judge_analysis = load_json(extraction_dir / "judge_analysis.json")
+
+        if not trajectory:
+            print("  ⚠️  Failed to load trajectory.json")
+            return
+
+        print("\n=== Enriching Trajectory ===")
+
+        # Enrich trajectory
+        enriched = enrich_trajectory(trajectory, extraction, judge_analysis)
+
+        # Save enriched trajectory back
+        with open(trajectory_path, "w") as f:
+            json.dump(enriched, f, indent=2)
+
+        # Copy to viewer assets
+        viewer_assets = Path(__file__).parent / "gcp" / "frontend" / "assets"
+        if viewer_assets.exists():
+            name = extraction_dir.name.replace(":", "-").replace(" ", "_")
+            viewer_path = viewer_assets / f"trajectory_{name}.json"
+            with open(viewer_path, "w") as f:
+                json.dump(enriched, f, indent=2)
+            print(f"  📺 Copied to viewer: {viewer_path.name}")
+            print(f"  View at: http://localhost:5500/?trajectory=assets/{viewer_path.name}")
+
+    except Exception as e:
+        print(f"  ⚠️  Trajectory enrichment failed: {e}")
+
+
 def preflight_check(model_shortcut: str) -> bool:
     """Test API connectivity before starting eval.
 
@@ -565,6 +616,9 @@ Examples:
                     with open(judge_path, "w") as jf:
                         json.dump(judge_output, jf, indent=2)
                     print(f"\n💾 Saved: {judge_path}")
+
+                    # Enrich trajectory with extraction data and copy to viewer
+                    _enrich_trajectory_and_copy(output_dir)
 
             except Exception as e:
                 print(f"Failed to display judge results: {e}")
