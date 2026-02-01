@@ -27,10 +27,11 @@ export function setupGUI(parentContext) {
   // Add scene selection dropdown.
   let reload = reloadFunc.bind(parentContext);
   parentContext.gui.add(parentContext.params, 'scene', {
+    "G1 Robot": "g1/g1_web.xml",
     "Humanoid": "humanoid.xml", "Cassie": "agility_cassie/scene.xml",
     "Hammock": "hammock.xml", "Balloons": "balloons.xml", "Hand": "shadow_hand/scene_right.xml",
     "Mug": "mug.xml", "Tendon": "model_with_tendon.xml",
-    "Torture Model": "model.xml", "Flex": "flex.xml", "Car": "car.xml", 
+    "Torture Model": "model.xml", "Flex": "flex.xml", "Car": "car.xml",
   }).name('Example Scene').onChange(reload);
 
   // Add a help menu.
@@ -691,6 +692,35 @@ export async function downloadExampleScenesFolder(mujoco) {
     "simple.xml",
     "slider_crank.xml",
     "model_with_tendon.xml",
+    // G1 Robot (flattened - no includes/replicates)
+    "g1/g1_web.xml",
+    "g1/meshes/pelvis.STL",
+    "g1/meshes/pelvis_contour_link.STL",
+    "g1/meshes/left_hip_pitch_link.STL",
+    "g1/meshes/left_hip_roll_link.STL",
+    "g1/meshes/left_hip_yaw_link.STL",
+    "g1/meshes/left_knee_link.STL",
+    "g1/meshes/left_ankle_pitch_link.STL",
+    "g1/meshes/left_ankle_roll_link.STL",
+    "g1/meshes/right_hip_pitch_link.STL",
+    "g1/meshes/right_hip_roll_link.STL",
+    "g1/meshes/right_hip_yaw_link.STL",
+    "g1/meshes/right_knee_link.STL",
+    "g1/meshes/right_ankle_pitch_link.STL",
+    "g1/meshes/right_ankle_roll_link.STL",
+    "g1/meshes/torso_link_23dof_rev_1_0.STL",
+    "g1/meshes/logo_link.STL",
+    "g1/meshes/head_link.STL",
+    "g1/meshes/left_shoulder_pitch_link.STL",
+    "g1/meshes/left_shoulder_roll_link.STL",
+    "g1/meshes/left_shoulder_yaw_link.STL",
+    "g1/meshes/left_elbow_link.STL",
+    "g1/meshes/left_wrist_roll_rubber_hand.STL",
+    "g1/meshes/right_shoulder_pitch_link.STL",
+    "g1/meshes/right_shoulder_roll_link.STL",
+    "g1/meshes/right_shoulder_yaw_link.STL",
+    "g1/meshes/right_elbow_link.STL",
+    "g1/meshes/right_wrist_roll_rubber_hand.STL",
   ];
 
   let requests = allFiles.map((url) => fetch("./assets/scenes/" + url));
@@ -704,7 +734,7 @@ export async function downloadExampleScenesFolder(mujoco) {
           working += "/";
       }
 
-      if (allFiles[i].endsWith(".png") || allFiles[i].endsWith(".stl") || allFiles[i].endsWith(".skn")) {
+      if (allFiles[i].endsWith(".png") || allFiles[i].toLowerCase().endsWith(".stl") || allFiles[i].endsWith(".skn")) {
           mujoco.FS.writeFile("/working/" + allFiles[i], new Uint8Array(await responses[i].arrayBuffer()));
       } else {
           mujoco.FS.writeFile("/working/" + allFiles[i], await responses[i].text());

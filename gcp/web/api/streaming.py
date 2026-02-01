@@ -6,7 +6,6 @@ Streams MuJoCo simulation state from workers to browser clients.
 
 import asyncio
 import json
-from typing import Dict, Set
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from google.cloud import pubsub_v1
@@ -15,14 +14,14 @@ router = APIRouter()
 
 # Active WebSocket connections per experiment
 # {experiment_id: {websocket1, websocket2, ...}}
-active_connections: Dict[str, Set[WebSocket]] = {}
+active_connections: dict[str, set[WebSocket]] = {}
 
 
 class ConnectionManager:
     """Manages WebSocket connections for experiment streaming."""
 
     def __init__(self):
-        self.connections: Dict[str, Set[WebSocket]] = {}
+        self.connections: dict[str, set[WebSocket]] = {}
 
     async def connect(self, experiment_id: str, websocket: WebSocket):
         """Accept a new WebSocket connection."""
@@ -90,9 +89,7 @@ async def websocket_stream(websocket: WebSocket, experiment_id: str):
         while True:
             try:
                 # Wait for client messages (camera control, etc.)
-                data = await asyncio.wait_for(
-                    websocket.receive_json(), timeout=30.0
-                )
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
 
                 # Handle client commands
                 if data.get("type") == "ping":
@@ -108,7 +105,7 @@ async def websocket_stream(websocket: WebSocket, experiment_id: str):
 
     except WebSocketDisconnect:
         manager.disconnect(experiment_id, websocket)
-    except Exception as e:
+    except Exception:
         manager.disconnect(experiment_id, websocket)
         raise
 
@@ -154,12 +151,9 @@ async def start_pubsub_subscriber():
 
     Workers publish to 'experiment-state' topic, we subscribe and forward to WebSocket clients.
     """
-    from google.cloud import pubsub_v1
 
     subscriber = pubsub_v1.SubscriberClient()
-    subscription_path = subscriber.subscription_path(
-        "g1-alignment", "experiment-state-web"
-    )
+    subscription_path = subscriber.subscription_path("g1-alignment", "experiment-state-web")
 
     def callback(message):
         try:
@@ -168,14 +162,10 @@ async def start_pubsub_subscriber():
 
             if data.get("type") == "state":
                 # Use asyncio to call async broadcast
-                asyncio.create_task(
-                    publish_state_to_clients(experiment_id, data.get("state", {}))
-                )
+                asyncio.create_task(publish_state_to_clients(experiment_id, data.get("state", {})))
             elif data.get("type") == "event":
                 asyncio.create_task(
-                    publish_event_to_clients(
-                        experiment_id, data.get("event_type", "unknown"), data
-                    )
+                    publish_event_to_clients(experiment_id, data.get("event_type", "unknown"), data)
                 )
 
             message.ack()

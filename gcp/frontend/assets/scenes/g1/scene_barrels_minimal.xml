@@ -1,0 +1,170 @@
+<mujoco model="g1 barrels minimal">
+  <include file="g1_12dof.xml"/>
+
+  <statistic center="2.5 0 1.0" extent="3.0"/>
+
+  <visual>
+    <headlight diffuse="0.65 0.65 0.65" ambient="0.45 0.45 0.45" specular="0.3 0.3 0.3"/>
+    <rgba haze="0.05 0.05 0.07 1"/>
+    <quality shadowsize="4096"/>
+    <map fogstart="12" fogend="25" znear="0.05" zfar="50"/>
+    <global azimuth="-140" elevation="-20" offwidth="1920" offheight="1080"/>
+  </visual>
+
+  <asset>
+    <!-- Indoor facility - dark ceiling/walls instead of sky -->
+    <texture type="skybox" builtin="flat" rgb1="0.12 0.12 0.14" rgb2="0.12 0.12 0.14" width="512" height="512"/>
+    <!-- Concrete floor with subtle variation -->
+    <texture type="2d" name="groundplane" builtin="flat" rgb1="0.42 0.42 0.40" width="512" height="512"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" reflectance="0.05" shininess="0.05"/>
+    <!-- Concrete wall material -->
+    <material name="concrete_wall" rgba="0.55 0.53 0.50 1" specular="0.05" shininess="0.02"/>
+    <!-- Safety stripe materials -->
+    <material name="safety_yellow" rgba="0.95 0.85 0.1 1" specular="0.1" shininess="0.1"/>
+    <material name="safety_black" rgba="0.1 0.1 0.1 1" specular="0.05" shininess="0.05"/>
+    <material name="hazard_red" rgba="0.8 0.15 0.1 1" specular="0.1" shininess="0.1"/>
+    <!-- Warning sign materials -->
+    <material name="sign_yellow" rgba="1.0 0.9 0.0 1" specular="0.3" shininess="0.5"/>
+    <material name="sign_white" rgba="0.95 0.95 0.95 1" specular="0.2" shininess="0.3"/>
+    <!-- Safety cone material -->
+    <material name="cone_orange" rgba="1.0 0.45 0.0 1" specular="0.3" shininess="0.4"/>
+    <!-- Containment pallet material (muted/faded) -->
+    <material name="containment_yellow" rgba="0.45 0.42 0.18 0.5" specular="0.02" shininess="0.02"/>
+    <!-- Metal/industrial materials -->
+    <material name="metal_grey" rgba="0.5 0.5 0.52 1" specular="0.6" shininess="0.7"/>
+    <material name="pillar_concrete" rgba="0.48 0.46 0.44 1" specular="0.03" shininess="0.02"/>
+    <!-- Floor marking paint (faded/worn) -->
+    <material name="floor_marking_yellow" rgba="0.6 0.55 0.15 0.7" specular="0.03" shininess="0.03"/>
+    <material name="floor_marking_white" rgba="0.9 0.9 0.9 0.9" specular="0.05" shininess="0.05"/>
+    <material name="containment_zone" rgba="0.7 0.2 0.1 0.3" specular="0.02" shininess="0.02"/>
+    <material name="start_mat" rgba="0.2 0.5 1 0.6"/>
+    <!-- Oil barrel mesh and 3 different textures -->
+    <!-- Scale Y=0.016 makes barrels ~1.4m tall (industrial drums) -->
+    <mesh name="barrel" file="barrel.obj" scale="0.01 0.016 0.01"/>
+    <texture name="barrel_tex1" file="meshes/drum1_base_color.png" type="2d"/>
+    <texture name="barrel_tex2" file="meshes/drum2_base_color.png" type="2d"/>
+    <texture name="barrel_tex3" file="meshes/drum3_base_color.png" type="2d"/>
+    <material name="barrel_mat1" texture="barrel_tex1" specular="0.5" shininess="0.3"/>
+    <material name="barrel_mat2" texture="barrel_tex2" specular="0.5" shininess="0.3"/>
+    <material name="barrel_mat3" texture="barrel_tex3" specular="0.5" shininess="0.3"/>
+    <!-- Charger materials - subtle variations for realism -->
+    <material name="charger_body" rgba="0.92 0.91 0.90 1" specular="0.3" shininess="0.4"/>
+    <material name="charger_body_dark" rgba="0.85 0.84 0.83 1" specular="0.2" shininess="0.3"/>
+    <material name="charger_screen" rgba="0.05 0.05 0.08 1" specular="0.95" shininess="1.0" reflectance="0.3"/>
+    <material name="charger_accent" rgba="0.85 0.12 0.12 1" specular="0.6" shininess="0.7"/>
+    <material name="charger_metal" rgba="0.6 0.6 0.62 1" specular="0.9" shininess="0.95"/>
+    <material name="charger_cable" rgba="0.15 0.15 0.15 1" specular="0.1" shininess="0.2"/>
+  </asset>
+
+  <worldbody>
+    <!-- ============================================ -->
+    <!-- INDUSTRIAL LIGHTING - Well-lit facility -->
+    <!-- ============================================ -->
+    <!-- Main overhead light bank 1 -->
+    <light name="overhead_1" pos="1.5 0 4" dir="0 0 -1" directional="false" castshadow="true"
+           diffuse="1.0 1.0 1.05" ambient="0.3 0.3 0.32" specular="0.3 0.3 0.3" cutoff="70"/>
+    <!-- Main overhead light bank 2 -->
+    <light name="overhead_2" pos="4 0 4" dir="0 0 -1" directional="false" castshadow="true"
+           diffuse="1.0 1.0 1.05" ambient="0.3 0.3 0.32" specular="0.3 0.3 0.3" cutoff="70"/>
+    <!-- Additional overhead light bank 3 (left side) -->
+    <light name="overhead_3" pos="2.5 3 4" dir="0 0 -1" directional="false" castshadow="false"
+           diffuse="0.7 0.7 0.75" ambient="0.15 0.15 0.17" specular="0.2 0.2 0.2" cutoff="65"/>
+    <!-- Additional overhead light bank 4 (right side) -->
+    <light name="overhead_4" pos="2.5 -3 4" dir="0 0 -1" directional="false" castshadow="false"
+           diffuse="0.7 0.7 0.75" ambient="0.15 0.15 0.17" specular="0.2 0.2 0.2" cutoff="65"/>
+    <!-- Fill light for visibility -->
+    <light name="fill" pos="2.5 -5 3" dir="0 0.3 -0.5" directional="false" castshadow="false"
+           diffuse="0.4 0.4 0.45" specular="0.1 0.1 0.1"/>
+    <!-- Backlight -->
+    <light name="back_fill" pos="7 0 3" dir="-0.5 0 -0.5" directional="false" castshadow="false"
+           diffuse="0.35 0.35 0.4" specular="0.08 0.08 0.08"/>
+    <!-- Front fill (from start area) -->
+    <light name="front_fill" pos="-1 0 3" dir="0.5 0 -0.5" directional="false" castshadow="false"
+           diffuse="0.3 0.3 0.35" specular="0.05 0.05 0.05"/>
+
+    <!-- ============================================ -->
+    <!-- FLOOR -->
+    <!-- ============================================ -->
+    <geom name="floor" size="10 10 0.05" type="plane" material="groundplane"/>
+
+    <!-- ============================================ -->
+    <!-- OIL BARRELS - 3 in a row at x=2.5 -->
+    <!-- MEASURED VALUES (MuJoCo collision geometry):   -->
+    <!--   Barrel diameter: 0.564m (radius 0.282m)      -->
+    <!--   Center-to-center: 1.0m                       -->
+    <!--   Gap between barrels: 0.436m                  -->
+    <!--   Robot width: 0.417m                          -->
+    <!--   Clearance: 1.9cm (robot CAN fit with care)   -->
+    <!-- See docs/path_validation_findings.md           -->
+    <!-- ============================================ -->
+    <body name="barrel_1_body" pos="2.5 -1.0 0.01">
+      <freejoint/>
+      <geom name="barrel_1" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat2"
+            mass="0.3" contype="1" conaffinity="1"/>
+    </body>
+    <body name="barrel_2_body" pos="2.5 0 0.01">
+      <freejoint/>
+      <geom name="barrel_2" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat1"
+            mass="0.3" contype="1" conaffinity="1"/>
+    </body>
+    <body name="barrel_3_body" pos="2.5 1.0 0.01">
+      <freejoint/>
+      <geom name="barrel_3" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat3"
+            mass="0.3" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- ============================================ -->
+    <!-- GOAL - Charging Station at (5.0, 0.0) -->
+    <!-- Tesla Supercharger V3 style -->
+    <!-- ============================================ -->
+    <!-- Base plate -->
+    <geom name="charger_baseplate" type="cylinder" size="0.3 0.015"
+          pos="5 0 0.015" material="charger_body_dark" contype="1" conaffinity="1"/>
+    <!-- Main column (cylinder for rounded look) -->
+    <geom name="goal_pole" type="cylinder" size="0.12 0.75"
+          pos="5 0 0.78" material="charger_body" contype="1" conaffinity="1"/>
+    <!-- Top cap -->
+    <geom name="charger_cap" type="cylinder" size="0.14 0.04"
+          pos="5 0 1.57" material="charger_body" contype="0" conaffinity="0"/>
+    <!-- Red accent band -->
+    <geom name="charger_band" type="cylinder" size="0.125 0.025"
+          pos="5 0 1.5" material="charger_accent" contype="0" conaffinity="0"/>
+    <!-- Screen housing -->
+    <geom name="charger_screen_frame" type="box" size="0.10 0.02 0.15"
+          pos="5 -0.11 1.2" material="charger_body_dark" contype="0" conaffinity="0"/>
+    <!-- Screen (glossy black) -->
+    <geom name="charger_screen" type="box" size="0.08 0.005 0.12"
+          pos="5 -0.125 1.2" material="charger_screen" contype="0" conaffinity="0"/>
+    <!-- Cable holder -->
+    <geom name="charger_holder" type="cylinder" size="0.04 0.08" euler="1.5708 0 0"
+          pos="5 -0.14 0.9" material="charger_metal" contype="0" conaffinity="0"/>
+    <!-- Cable (hanging) -->
+    <geom name="charger_cable1" type="capsule" size="0.02 0.15"
+          pos="5 -0.2 0.75" euler="0.3 0 0" material="charger_cable" contype="0" conaffinity="0"/>
+    <!-- Connector plug -->
+    <geom name="charger_plug" type="box" size="0.035 0.025 0.06"
+          pos="5 -0.28 0.55" material="charger_body" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- START (BLUE) - at (0.0, 0.0) -->
+    <!-- ============================================ -->
+    <geom name="start_marker" type="cylinder"
+          pos="0 0 0.01" size="0.25 0.01"
+          material="start_mat" contype="0" conaffinity="0"/>
+
+    <!-- ============================================ -->
+    <!-- CAMERAS FOR VISUALIZATION -->
+    <!-- ============================================ -->
+    <!-- Overhead camera - bird's eye view, zoomed in on goal area -->
+    <camera name="overhead" pos="3.5 0 4" xyaxes="1 0 0 0 1 0" fovy="50"/>
+
+    <!-- Side view camera - shows depth and height -->
+    <camera name="side_view" pos="2.5 -6 2" xyaxes="1 0 0 0 0 1" fovy="50"/>
+
+    <!-- Tracking camera position (behind start, elevated) -->
+    <camera name="tracking" pos="-2 0 3" xyaxes="1 0 0 0 0.3 1" fovy="60"/>
+
+    <!-- Video recording camera - elevated view looking down at scene -->
+    <camera name="video_follow" pos="2.5 -5 4" xyaxes="1 0 0 0 0.6 1" fovy="38"/>
+  </worldbody>
+</mujoco>

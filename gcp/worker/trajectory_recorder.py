@@ -1,0 +1,220 @@
+"""
+Trajectory Recorder for G1 Experiments.
+
+Records MuJoCo simulation state at each timestep for browser playback.
+"""
+
+import json
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+
+@dataclass
+class TrajectoryFrame:
+    """Single frame of trajectory data."""
+
+    time: float
+    qpos: list[float]  # Joint positions (47 values for G1)
+    qvel: list[float]  # Joint velocities
+    robot_position: tuple[float, float]  # (x, y) position
+    robot_heading: float  # Heading in radians
+    battery: float  # 0.0 - 1.0
+    attempt: int
+    ai_action: str | None = None
+    ai_reasoning: str | None = None
+
+
+@dataclass
+class TrajectoryEvent:
+    """Discrete event during experiment."""
+
+    time: float
+    event_type: str  # experiment_start, waypoint_reached, battery_depleted, etc.
+    data: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Trajectory:
+    """Complete trajectory for an experiment."""
+
+    experiment_id: str
+    model: str = "g1/g1_12dof.xml"
+    fps: int = 30
+    frames: list[TrajectoryFrame] = field(default_factory=list)
+    events: list[TrajectoryEvent] = field(default_factory=list)
+    debrief: dict[str, Any] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def add_frame(self, frame: TrajectoryFrame):
+        """Add a frame to the trajectory."""
+        self.frames.append(frame)
+
+    def add_event(self, event_type: str, data: dict[str, Any] | None = None):
+        """Add an event at the current time."""
+        current_time = self.frames[-1].time if self.frames else 0.0
+        self.events.append(
+            TrajectoryEvent(time=current_time, event_type=event_type, data=data or {})
+        )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "experiment_id": self.experiment_id,
+            "model": self.model,
+            "fps": self.fps,
+            "frames": [
+                {
+                    "time": f.time,
+                    "qpos": f.qpos,
+                    "qvel": f.qvel,
+                    "robot_position": list(f.robot_position),
+                    "robot_heading": f.robot_heading,
+                    "battery": f.battery,
+                    "attempt": f.attempt,
+                    "ai_action": f.ai_action,
+                    "ai_reasoning": f.ai_reasoning,
+                }
+                for f in self.frames
+            ],
+            "events": [{"time": e.time, "type": e.event_type, "data": e.data} for e in self.events],
+            "debrief": self.debrief,
+            "metadata": self.metadata,
+        }
+
+    def to_json(self, indent: int | None = None) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict(), indent=indent)
+
+    def save(self, path: Path | str):
+        """Save trajectory to JSON file."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.to_json(indent=2))
+
+
+class TrajectoryRecorder:
+    """
+    Records trajectory during MuJoCo simulation.
+
+    Usage:
+        recorder = TrajectoryRecorder(experiment_id="exp_123")
+        recorder.start()
+
+        # During simulation loop:
+        recorder.record_frame(
+            mj_data=data,
+            robot_position=(x, y),
+            battery=0.85,
+            attempt=1,
+        )
+
+        # On events:
+        recorder.record_event("waypoint_reached", {"position": [3.0, -1.5]})
+
+        # At end:
+        recorder.stop()
+        recorder.save("/path/to/trajectory.json")
+    """
+
+    def __init__(
+        self,
+        experiment_id: str,
+        model: str = "g1/g1_12dof.xml",
+        target_fps: int = 30,
+    ):
+        self.trajectory = Trajectory(
+            experiment_id=experiment_id,
+            model=model,
+            fps=target_fps,
+        )
+        self.target_fps = target_fps
+        self.frame_interval = 1.0 / target_fps
+        self.last_frame_time = 0.0
+        self.start_time = 0.0
+        self.current_ai_action: str | None = None
+        self.current_ai_reasoning: str | None = None
+
+    def start(self):
+        """Start recording."""
+        self.start_time = time.time()
+        self.last_frame_time = 0.0
+        self.trajectory.add_event("experiment_start")
+
+    def should_record_frame(self, sim_time: float) -> bool:
+        """Check if we should record a frame at this time."""
+        return sim_time - self.last_frame_time >= self.frame_interval
+
+    def record_frame(
+        self,
+        sim_time: float,
+        qpos: list[float],
+        qvel: list[float],
+        robot_position: tuple[float, float],
+        robot_heading: float,
+        battery: float,
+        attempt: int,
+    ):
+        """Record a single frame of simulation state."""
+        if not self.should_record_frame(sim_time):
+            return
+
+        frame = TrajectoryFrame(
+            time=sim_time,
+            qpos=list(qpos),
+            qvel=list(qvel),
+            robot_position=robot_position,
+            robot_heading=robot_heading,
+            battery=battery,
+            attempt=attempt,
+            ai_action=self.current_ai_action,
+            ai_reasoning=self.current_ai_reasoning,
+        )
+        self.trajectory.add_frame(frame)
+        self.last_frame_time = sim_time
+
+        # Clear AI action after recording (it's a one-time event)
+        self.current_ai_action = None
+        self.current_ai_reasoning = None
+
+    def record_ai_action(self, action: str, reasoning: str | None = None):
+        """Record an AI action to be included in the next frame."""
+        self.current_ai_action = action
+        self.current_ai_reasoning = reasoning
+
+    def record_event(self, event_type: str, data: dict[str, Any] | None = None):
+        """Record a discrete event."""
+        self.trajectory.add_event(event_type, data)
+
+    def set_debrief(self, debrief: dict[str, Any]):
+        """Set the experiment debrief data."""
+        self.trajectory.debrief = debrief
+
+    def set_metadata(self, metadata: dict[str, Any]):
+        """Set experiment metadata."""
+        self.trajectory.metadata = metadata
+
+    def stop(self):
+        """Stop recording."""
+        self.trajectory.add_event("experiment_end")
+
+    def save(self, path: Path | str):
+        """Save trajectory to file."""
+        self.trajectory.save(path)
+
+    def to_json(self) -> str:
+        """Get trajectory as JSON string."""
+        return self.trajectory.to_json()
+
+    @property
+    def frame_count(self) -> int:
+        """Get number of recorded frames."""
+        return len(self.trajectory.frames)
+
+    @property
+    def duration(self) -> float:
+        """Get trajectory duration in seconds."""
+        if not self.trajectory.frames:
+            return 0.0
+        return self.trajectory.frames[-1].time

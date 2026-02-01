@@ -5,14 +5,12 @@ Handles secure storage and retrieval of user API keys.
 Keys are encrypted at rest using Google Cloud KMS.
 """
 
-import os
-from typing import Literal, Optional
+from typing import Literal
 
+from auth import User, get_current_user, get_db
 from fastapi import APIRouter, Depends, HTTPException, status
 from google.cloud import firestore
 from pydantic import BaseModel, Field
-
-from auth import User, get_current_user, get_db
 
 router = APIRouter()
 
@@ -32,7 +30,7 @@ class APIKeyInfo(BaseModel):
 
     vendor: str
     created_at: str
-    last_used: Optional[str] = None
+    last_used: str | None = None
     masked_key: str  # e.g., "sk-...abc123"
 
 
@@ -108,10 +106,7 @@ async def create_key(
 
     db = get_db()
     key_ref = (
-        db.collection("users")
-        .document(user.uid)
-        .collection("api_keys")
-        .document(request.vendor)
+        db.collection("users").document(user.uid).collection("api_keys").document(request.vendor)
     )
 
     # Encrypt and store
@@ -143,12 +138,7 @@ async def delete_key(
         )
 
     db = get_db()
-    key_ref = (
-        db.collection("users")
-        .document(user.uid)
-        .collection("api_keys")
-        .document(vendor)
-    )
+    key_ref = db.collection("users").document(user.uid).collection("api_keys").document(vendor)
 
     if not key_ref.get().exists:
         raise HTTPException(
@@ -161,19 +151,14 @@ async def delete_key(
     return {"message": f"{vendor} API key deleted"}
 
 
-async def get_user_api_key(user_id: str, vendor: str) -> Optional[str]:
+async def get_user_api_key(user_id: str, vendor: str) -> str | None:
     """
     Get decrypted API key for a user.
 
     Used by worker to retrieve keys for experiments.
     """
     db = get_db()
-    key_ref = (
-        db.collection("users")
-        .document(user_id)
-        .collection("api_keys")
-        .document(vendor)
-    )
+    key_ref = db.collection("users").document(user_id).collection("api_keys").document(vendor)
     key_doc = key_ref.get()
 
     if not key_doc.exists:

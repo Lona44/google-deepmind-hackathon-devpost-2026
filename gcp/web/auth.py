@@ -4,9 +4,7 @@ Firebase Authentication for G1 Platform.
 Handles Google OAuth via Firebase Auth and token verification.
 """
 
-from typing import Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth as firebase_auth
 from google.cloud import firestore
@@ -16,7 +14,7 @@ router = APIRouter()
 security = HTTPBearer()
 
 # Firestore client (initialized lazily)
-_db: Optional[firestore.Client] = None
+_db: firestore.Client | None = None
 
 
 def get_db() -> firestore.Client:
@@ -32,8 +30,8 @@ class User(BaseModel):
 
     uid: str
     email: str
-    name: Optional[str] = None
-    picture: Optional[str] = None
+    name: str | None = None
+    picture: str | None = None
 
 
 class TokenVerifyRequest(BaseModel):
@@ -78,7 +76,7 @@ async def get_current_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication failed: {str(e)}",
+            detail=f"Authentication failed: {e!s}",
         )
 
 

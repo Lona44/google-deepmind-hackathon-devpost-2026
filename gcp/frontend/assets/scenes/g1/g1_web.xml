@@ -1,0 +1,553 @@
+<mujoco model="g1 scene">
+  <compiler angle="radian" meshdir="meshes/"/>
+
+  <visual>
+    <global azimuth="-140" elevation="-20"/>
+    <headlight diffuse="0.6 0.6 0.6" specular="0.9 0.9 0.9"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+  </visual>
+
+  <statistic meansize="0.144785" extent="0.8" center="1 0.7 1"/>
+
+  <default>
+    <joint armature="0.01" damping="0.001" frictionloss="0.1"/>
+  </default>
+
+  <asset>
+    <texture type="skybox" colorspace="auto" builtin="flat" rgb1="0 0 0" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" colorspace="auto" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    <mesh name="pelvis" content_type="model/stl" file="pelvis.STL"/>
+    <mesh name="pelvis_contour_link" content_type="model/stl" file="pelvis_contour_link.STL"/>
+    <mesh name="left_hip_pitch_link" content_type="model/stl" file="left_hip_pitch_link.STL"/>
+    <mesh name="left_hip_roll_link" content_type="model/stl" file="left_hip_roll_link.STL"/>
+    <mesh name="left_hip_yaw_link" content_type="model/stl" file="left_hip_yaw_link.STL"/>
+    <mesh name="left_knee_link" content_type="model/stl" file="left_knee_link.STL"/>
+    <mesh name="left_ankle_pitch_link" content_type="model/stl" file="left_ankle_pitch_link.STL"/>
+    <mesh name="left_ankle_roll_link" content_type="model/stl" file="left_ankle_roll_link.STL"/>
+    <mesh name="right_hip_pitch_link" content_type="model/stl" file="right_hip_pitch_link.STL"/>
+    <mesh name="right_hip_roll_link" content_type="model/stl" file="right_hip_roll_link.STL"/>
+    <mesh name="right_hip_yaw_link" content_type="model/stl" file="right_hip_yaw_link.STL"/>
+    <mesh name="right_knee_link" content_type="model/stl" file="right_knee_link.STL"/>
+    <mesh name="right_ankle_pitch_link" content_type="model/stl" file="right_ankle_pitch_link.STL"/>
+    <mesh name="right_ankle_roll_link" content_type="model/stl" file="right_ankle_roll_link.STL"/>
+    <mesh name="torso_link_23dof_rev_1_0" content_type="model/stl" file="torso_link_23dof_rev_1_0.STL"/>
+    <mesh name="logo_link" content_type="model/stl" file="logo_link.STL"/>
+    <mesh name="head_link" content_type="model/stl" file="head_link.STL"/>
+    <mesh name="left_shoulder_pitch_link" content_type="model/stl" file="left_shoulder_pitch_link.STL"/>
+    <mesh name="left_shoulder_roll_link" content_type="model/stl" file="left_shoulder_roll_link.STL"/>
+    <mesh name="left_shoulder_yaw_link" content_type="model/stl" file="left_shoulder_yaw_link.STL"/>
+    <mesh name="left_elbow_link" content_type="model/stl" file="left_elbow_link.STL"/>
+    <mesh name="left_wrist_roll_rubber_hand" content_type="model/stl" file="left_wrist_roll_rubber_hand.STL"/>
+    <mesh name="right_shoulder_pitch_link" content_type="model/stl" file="right_shoulder_pitch_link.STL"/>
+    <mesh name="right_shoulder_roll_link" content_type="model/stl" file="right_shoulder_roll_link.STL"/>
+    <mesh name="right_shoulder_yaw_link" content_type="model/stl" file="right_shoulder_yaw_link.STL"/>
+    <mesh name="right_elbow_link" content_type="model/stl" file="right_elbow_link.STL"/>
+    <mesh name="right_wrist_roll_rubber_hand" content_type="model/stl" file="right_wrist_roll_rubber_hand.STL"/>
+  </asset>
+
+  <worldbody>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+    <light pos="1 0 3.5" dir="0 0 -1" type="directional"/>
+    <body name="pelvis" pos="0 0 0.793">
+      <inertial pos="0.0144905 0.000151462 0.144068" quat="0.999881 -0.000505543 -0.0154276 0.000328408" mass="17.7349" diaginertia="0.552723 0.454092 0.211762"/>
+      <joint name="floating_base_joint" type="free"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="pelvis"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="pelvis_contour_link"/>
+      <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="pelvis_contour_link"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="torso_link_23dof_rev_1_0"/>
+      <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="torso_link_23dof_rev_1_0"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="logo_link"/>
+      <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="logo_link"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="head_link"/>
+      <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="head_link"/>
+      <geom pos="-7.2e-06 0.10022 0.29178" quat="0.990264 0.139201 1.38722e-05 -9.86868e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_pitch_link"/>
+      <geom size="0.03 0.025" pos="7.72569e-07 0.141427 0.293195" quat="0.700213 0.0985001 0.700232 0.0983605" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="3.73942e-07 0.14056 0.288961" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_roll_link"/>
+      <geom size="0.03 0.015" pos="-0.00400139 0.146564 0.235962" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="-4.10007e-06 0.146807 0.185762" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_yaw_link"/>
+      <geom pos="-4.10007e-06 0.146807 0.185762" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_shoulder_yaw_link"/>
+      <geom pos="0.0157745 0.146808 0.105243" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_elbow_link"/>
+      <geom pos="0.0157745 0.146808 0.105243" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_elbow_link"/>
+      <geom pos="0.115774 0.148678 0.0952374" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_wrist_roll_rubber_hand"/>
+      <geom pos="0.115774 0.148678 0.0952374" quat="1 3.00026e-05 2.74716e-05 -9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_wrist_roll_rubber_hand"/>
+      <geom pos="-7.2e-06 -0.10021 0.29178" quat="0.990264 -0.139201 1.38722e-05 9.86868e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_pitch_link"/>
+      <geom size="0.03 0.025" pos="7.72569e-07 -0.141417 0.293195" quat="0.700213 -0.0985001 0.700232 -0.0983605" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="3.73942e-07 -0.14055 0.288961" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_roll_link"/>
+      <geom size="0.03 0.015" pos="-0.00400139 -0.146554 0.235962" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="cylinder" rgba="0.7 0.7 0.7 1"/>
+      <geom pos="-4.10007e-06 -0.146797 0.185762" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_yaw_link"/>
+      <geom pos="-4.10007e-06 -0.146797 0.185762" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_shoulder_yaw_link"/>
+      <geom pos="0.0157745 -0.146798 0.105243" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_elbow_link"/>
+      <geom pos="0.0157745 -0.146798 0.105243" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_elbow_link"/>
+      <geom pos="0.115774 -0.148668 0.0952374" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_wrist_roll_rubber_hand"/>
+      <geom pos="0.115774 -0.148668 0.0952374" quat="1 -3.00026e-05 2.74716e-05 9.57958e-05" type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_wrist_roll_rubber_hand"/>
+      <site name="imu_site" pos="0 0 0.1" size="0.01"/>
+      <camera name="head_camera" pos="0.05 0 0.35" quat="0.561019 0.430416 -0.430416 -0.561019" fovy="90"/>
+      <camera name="head_camera_left" pos="0 0.05 0.35" quat="0.793401 0.6087 0 0" fovy="90"/>
+      <camera name="head_camera_back" pos="-0.05 0 0.35" quat="0.561019 0.430416 0.430416 0.561019" fovy="90"/>
+      <camera name="head_camera_right" pos="0 -0.05 0.35" quat="0 0 0.6087 0.793401" fovy="90"/>
+      <body name="left_hip_pitch_link" pos="0 0.064452 -0.1027">
+        <inertial pos="0.002741 0.047791 -0.02606" quat="0.954862 0.293964 0.0302556 0.030122" mass="1.35" diaginertia="0.00181517 0.00153422 0.00116212"/>
+        <joint name="left_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-2.5307 2.8798" actuatorfrcrange="-88 88"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="left_hip_pitch_link"/>
+        <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="left_hip_pitch_link"/>
+        <body name="left_hip_roll_link" pos="0 0.052 -0.030465" quat="0.996179 0 -0.0873386 0">
+          <inertial pos="0.029812 -0.001045 -0.087934" quat="0.977808 -1.97119e-05 0.205576 -0.0403793" mass="1.52" diaginertia="0.00254986 0.00241169 0.00148755"/>
+          <joint name="left_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.5236 2.9671" actuatorfrcrange="-139 139"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_hip_roll_link"/>
+          <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_hip_roll_link"/>
+          <body name="left_hip_yaw_link" pos="0.025001 0 -0.12412">
+            <inertial pos="-0.057709 -0.010981 -0.15078" quat="0.600598 0.15832 0.223482 0.751181" mass="1.702" diaginertia="0.00776166 0.00717575 0.00160139"/>
+            <joint name="left_hip_yaw_joint" pos="0 0 0" axis="0 0 1" range="-2.7576 2.7576" actuatorfrcrange="-88 88"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_hip_yaw_link"/>
+            <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_hip_yaw_link"/>
+            <body name="left_knee_link" pos="-0.078273 0.0021489 -0.17734" quat="0.996179 0 0.0873386 0">
+              <inertial pos="0.005457 0.003964 -0.12074" quat="0.923418 -0.0327699 0.0158246 0.382067" mass="1.932" diaginertia="0.0113804 0.0112778 0.00146458"/>
+              <joint name="left_knee_joint" pos="0 0 0" axis="0 1 0" range="-0.087267 2.8798" actuatorfrcrange="-139 139"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_knee_link"/>
+              <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_knee_link"/>
+              <body name="left_ankle_pitch_link" pos="0 -9.4445e-05 -0.30001">
+                <inertial pos="-0.007269 0 0.011137" quat="0.603053 0.369225 0.369225 0.603053" mass="0.074" diaginertia="1.89e-05 1.40805e-05 6.9195e-06"/>
+                <joint name="left_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.87267 0.5236" actuatorfrcrange="-50 50"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="left_ankle_pitch_link"/>
+                <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="left_ankle_pitch_link"/>
+                <body name="left_ankle_roll_link" pos="0 0 -0.017558">
+                  <inertial pos="0.026505 0 -0.016425" quat="-0.000481092 0.728482 -0.000618967 0.685065" mass="0.608" diaginertia="0.00167218 0.0016161 0.000217621"/>
+                  <joint name="left_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.2618 0.2618" actuatorfrcrange="-50 50"/>
+                  <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="left_ankle_roll_link"/>
+                  <geom size="0.005" pos="-0.05 0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="-0.05 -0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 -0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <site name="left_foot_site" pos="0.03 0 -0.03" size="0.01"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="right_hip_pitch_link" pos="0 -0.064452 -0.1027">
+        <inertial pos="0.002741 -0.047791 -0.02606" quat="0.954862 -0.293964 0.0302556 -0.030122" mass="1.35" diaginertia="0.00181517 0.00153422 0.00116212"/>
+        <joint name="right_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-2.5307 2.8798" actuatorfrcrange="-88 88"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="right_hip_pitch_link"/>
+        <geom type="mesh" rgba="0.2 0.2 0.2 1" mesh="right_hip_pitch_link"/>
+        <body name="right_hip_roll_link" pos="0 -0.052 -0.030465" quat="0.996179 0 -0.0873386 0">
+          <inertial pos="0.029812 0.001045 -0.087934" quat="0.977808 1.97119e-05 0.205576 0.0403793" mass="1.52" diaginertia="0.00254986 0.00241169 0.00148755"/>
+          <joint name="right_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-2.9671 0.5236" actuatorfrcrange="-139 139"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_hip_roll_link"/>
+          <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_hip_roll_link"/>
+          <body name="right_hip_yaw_link" pos="0.025001 0 -0.12412">
+            <inertial pos="-0.057709 0.010981 -0.15078" quat="0.751181 0.223482 0.15832 0.600598" mass="1.702" diaginertia="0.00776166 0.00717575 0.00160139"/>
+            <joint name="right_hip_yaw_joint" pos="0 0 0" axis="0 0 1" range="-2.7576 2.7576" actuatorfrcrange="-88 88"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_hip_yaw_link"/>
+            <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_hip_yaw_link"/>
+            <body name="right_knee_link" pos="-0.078273 -0.0021489 -0.17734" quat="0.996179 0 0.0873386 0">
+              <inertial pos="0.005457 -0.003964 -0.12074" quat="0.923439 0.0345276 0.0116333 -0.382012" mass="1.932" diaginertia="0.011374 0.0112843 0.00146452"/>
+              <joint name="right_knee_joint" pos="0 0 0" axis="0 1 0" range="-0.087267 2.8798" actuatorfrcrange="-139 139"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_knee_link"/>
+              <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_knee_link"/>
+              <body name="right_ankle_pitch_link" pos="0 9.4445e-05 -0.30001">
+                <inertial pos="-0.007269 0 0.011137" quat="0.603053 0.369225 0.369225 0.603053" mass="0.074" diaginertia="1.89e-05 1.40805e-05 6.9195e-06"/>
+                <joint name="right_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.87267 0.5236" actuatorfrcrange="-50 50"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.7 0.7 0.7 1" mesh="right_ankle_pitch_link"/>
+                <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="right_ankle_pitch_link"/>
+                <body name="right_ankle_roll_link" pos="0 0 -0.017558">
+                  <inertial pos="0.026505 0 -0.016425" quat="0.000481092 0.728482 0.000618967 0.685065" mass="0.608" diaginertia="0.00167218 0.0016161 0.000217621"/>
+                  <joint name="right_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.2618 0.2618" actuatorfrcrange="-50 50"/>
+                  <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.2 0.2 0.2 1" mesh="right_ankle_roll_link"/>
+                  <geom size="0.005" pos="-0.05 0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="-0.05 -0.025 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <geom size="0.005" pos="0.12 -0.03 -0.03" rgba="0.2 0.2 0.2 1"/>
+                  <site name="right_foot_site" pos="0.03 0 -0.03" size="0.01"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <site name="lidar_gnd-000" pos="0.05 0 0" quat="0.707105 0 0.707108 0" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-001" pos="0.0499695 0.00174498 0" quat="0.706998 -0.0123407 0.707 0.0123407" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-002" pos="0.0498782 0.00348783 0" quat="0.706675 -0.0246777 0.706677 0.0246776" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-003" pos="0.0497261 0.00522643 0" quat="0.706136 -0.0370072 0.706139 0.0370071" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-004" pos="0.0495134 0.00695866 0" quat="0.705383 -0.0493254 0.705386 0.0493252" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-005" pos="0.0492404 0.00868241 0" quat="0.704415 -0.0616286 0.704417 0.0616283" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-006" pos="0.0489074 0.0103956 0" quat="0.703232 -0.073913 0.703234 0.0739127" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-007" pos="0.0485148 0.0120961 0" quat="0.701835 -0.0861748 0.701837 0.0861745" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-008" pos="0.0480631 0.0137819 0" quat="0.700224 -0.0984105 0.700227 0.0984101" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-009" pos="0.0475528 0.0154509 0" quat="0.6984 -0.110616 0.698402 0.110616" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-010" pos="0.0469846 0.017101 0" quat="0.696363 -0.122788 0.696366 0.122788" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-011" pos="0.0463592 0.0187303 0" quat="0.694114 -0.134923 0.694117 0.134922" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-012" pos="0.0456773 0.0203368 0" quat="0.691654 -0.147016 0.691656 0.147016" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-013" pos="0.0449397 0.0219186 0" quat="0.688982 -0.159065 0.688985 0.159064" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-014" pos="0.0441474 0.0234736 0" quat="0.686101 -0.171065 0.686104 0.171064" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-015" pos="0.0433013 0.025 0" quat="0.683011 -0.183013 0.683014 0.183012" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-016" pos="0.0424024 0.026496 0" quat="0.679713 -0.194905 0.679716 0.194905" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-017" pos="0.0414519 0.0279597 0" quat="0.676208 -0.206738 0.676211 0.206738" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-018" pos="0.0404508 0.0293893 0" quat="0.672497 -0.218509 0.6725 0.218508" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-019" pos="0.0394005 0.0307831 0" quat="0.668581 -0.230212 0.668584 0.230211" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-020" pos="0.0383022 0.0321394 0" quat="0.664462 -0.241845 0.664464 0.241844" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-021" pos="0.0371572 0.0334565 0" quat="0.66014 -0.253405 0.660142 0.253404" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-022" pos="0.035967 0.0347329 0" quat="0.655617 -0.264887 0.655619 0.264886" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-023" pos="0.0347329 0.035967 0" quat="0.650894 -0.276289 0.650896 0.276288" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-024" pos="0.0334565 0.0371573 0" quat="0.645973 -0.287607 0.645975 0.287606" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-025" pos="0.0321394 0.0383022 0" quat="0.640855 -0.298837 0.640858 0.298836" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-026" pos="0.0307831 0.0394005 0" quat="0.635542 -0.309976 0.635544 0.309975" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-027" pos="0.0293892 0.0404509 0" quat="0.630036 -0.32102 0.630038 0.321019" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-028" pos="0.0279596 0.0414519 0" quat="0.624337 -0.331967 0.624339 0.331966" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-029" pos="0.0264959 0.0424024 0" quat="0.618448 -0.342813 0.618451 0.342812" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-030" pos="0.025 0.0433013 0" quat="0.612371 -0.353554 0.612373 0.353553" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-031" pos="0.0234736 0.0441474 0" quat="0.606108 -0.364188 0.60611 0.364186" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-032" pos="0.0219185 0.0449397 0" quat="0.599659 -0.37471 0.599662 0.374709" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-033" pos="0.0203368 0.0456773 0" quat="0.593028 -0.385119 0.593031 0.385117" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-034" pos="0.0187303 0.0463592 0" quat="0.586217 -0.39541 0.586219 0.395409" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-035" pos="0.017101 0.0469846 0" quat="0.579227 -0.405581 0.579229 0.405579" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-036" pos="0.0154508 0.0475528 0" quat="0.57206 -0.415628 0.572062 0.415626" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-037" pos="0.0137818 0.0480631 0" quat="0.564719 -0.425548 0.564722 0.425547" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-038" pos="0.0120961 0.0485148 0" quat="0.557207 -0.435339 0.557209 0.435338" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-039" pos="0.0103956 0.0489074 0" quat="0.549524 -0.444998 0.549526 0.444996" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-040" pos="0.00868238 0.0492404 0" quat="0.541674 -0.45452 0.541676 0.454519" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-041" pos="0.00695862 0.0495134 0" quat="0.533659 -0.463905 0.533661 0.463903" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-042" pos="0.00522639 0.0497261 0" quat="0.525482 -0.473148 0.525484 0.473146" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-043" pos="0.00348779 0.0498782 0" quat="0.517144 -0.482247 0.517146 0.482245" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-044" pos="0.00174494 0.0499695 0" quat="0.508649 -0.491199 0.508651 0.491197" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-045" pos="-3.36603e-08 0.05 0" quat="0.499999 -0.500001 0.500001 0.499999" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-046" pos="-0.00174501 0.0499695 0" quat="0.491197 -0.508651 0.491198 0.508649" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-047" pos="-0.00348786 0.0498782 0" quat="0.482245 -0.517146 0.482246 0.517144" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-048" pos="-0.00522646 0.0497261 0" quat="0.473146 -0.525484 0.473147 0.525482" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-049" pos="-0.00695869 0.0495134 0" quat="0.463903 -0.533661 0.463904 0.533659" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-050" pos="-0.00868245 0.0492404 0" quat="0.454518 -0.541676 0.45452 0.541674" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-051" pos="-0.0103956 0.0489074 0" quat="0.444996 -0.549526 0.444997 0.549524" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-052" pos="-0.0120961 0.0485148 0" quat="0.435337 -0.557209 0.435339 0.557207" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-053" pos="-0.0137819 0.0480631 0" quat="0.425546 -0.564722 0.425548 0.56472" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-054" pos="-0.0154509 0.0475528 0" quat="0.415626 -0.572063 0.415627 0.572061" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-055" pos="-0.017101 0.0469846 0" quat="0.405579 -0.579229 0.40558 0.579227" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-056" pos="-0.0187304 0.0463592 0" quat="0.395408 -0.586219 0.39541 0.586217" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-057" pos="-0.0203369 0.0456773 0" quat="0.385117 -0.593031 0.385118 0.593029" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-058" pos="-0.0219186 0.0449397 0" quat="0.374709 -0.599662 0.37471 0.59966" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-059" pos="-0.0234736 0.0441474 0" quat="0.364186 -0.60611 0.364187 0.606108" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-060" pos="-0.025 0.0433012 0" quat="0.353552 -0.612374 0.353554 0.612371" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-061" pos="-0.026496 0.0424024 0" quat="0.342811 -0.618451 0.342813 0.618449" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-062" pos="-0.0279597 0.0414519 0" quat="0.331966 -0.62434 0.331967 0.624337" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-063" pos="-0.0293893 0.0404508 0" quat="0.321019 -0.630038 0.32102 0.630036" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-064" pos="-0.0307831 0.0394005 0" quat="0.309974 -0.635545 0.309975 0.635542" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-065" pos="-0.0321394 0.0383022 0" quat="0.298835 -0.640858 0.298836 0.640855" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-066" pos="-0.0334566 0.0371572 0" quat="0.287605 -0.645976 0.287606 0.645973" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-067" pos="-0.034733 0.035967 0" quat="0.276288 -0.650897 0.276289 0.650894" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-068" pos="-0.035967 0.0347329 0" quat="0.264886 -0.655619 0.264887 0.655617" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-069" pos="-0.0371573 0.0334565 0" quat="0.253404 -0.660142 0.253405 0.66014" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-070" pos="-0.0383023 0.0321393 0" quat="0.241844 -0.664464 0.241845 0.664462" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-071" pos="-0.0394006 0.030783 0" quat="0.230211 -0.668584 0.230212 0.668581" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-072" pos="-0.0404509 0.0293892 0" quat="0.218507 -0.6725 0.218508 0.672497" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-073" pos="-0.0414519 0.0279596 0" quat="0.206737 -0.676211 0.206738 0.676208" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-074" pos="-0.0424024 0.0264959 0" quat="0.194904 -0.679716 0.194905 0.679714" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-075" pos="-0.0433013 0.025 0" quat="0.183012 -0.683014 0.183013 0.683012" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-076" pos="-0.0441474 0.0234735 0" quat="0.171064 -0.686104 0.171065 0.686102" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-077" pos="-0.0449397 0.0219185 0" quat="0.159064 -0.688985 0.159064 0.688983" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-078" pos="-0.0456773 0.0203368 0" quat="0.147015 -0.691656 0.147016 0.691654" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-079" pos="-0.0463592 0.0187303 0" quat="0.134922 -0.694117 0.134922 0.694114" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-080" pos="-0.0469847 0.017101 0" quat="0.122787 -0.696366 0.122788 0.696363" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-081" pos="-0.0475528 0.0154508 0" quat="0.110615 -0.698402 0.110616 0.6984" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-082" pos="-0.0480631 0.0137818 0" quat="0.0984096 -0.700227 0.09841 0.700224" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-083" pos="-0.0485148 0.012096 0" quat="0.086174 -0.701837 0.0861744 0.701835" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-084" pos="-0.0489074 0.0103955 0" quat="0.0739122 -0.703235 0.0739125 0.703232" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-085" pos="-0.0492404 0.00868235 0" quat="0.0616279 -0.704417 0.0616281 0.704415" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-086" pos="-0.0495134 0.00695859 0" quat="0.0493247 -0.705386 0.0493249 0.705383" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-087" pos="-0.0497261 0.00522636 0" quat="0.0370066 -0.706139 0.0370067 0.706136" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-088" pos="-0.0498782 0.00348776 0" quat="0.0246772 -0.706677 0.0246773 0.706675" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-089" pos="-0.0499695 0.00174491 0" quat="0.0123402 -0.707 0.0123403 0.706998" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-090" pos="-0.05 -6.73205e-08 0" quat="-4.76027e-07 -0.707108 -4.76029e-07 0.707105" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-091" pos="-0.0499695 -0.00174504 0" quat="-0.0123412 -0.707 -0.0123412 0.706998" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-092" pos="-0.0498782 -0.00348789 0" quat="-0.0246781 -0.706677 -0.0246782 0.706675" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-093" pos="-0.0497261 -0.00522649 0" quat="-0.0370075 -0.706139 -0.0370077 0.706136" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-094" pos="-0.0495134 -0.00695872 0" quat="-0.0493257 -0.705386 -0.0493259 0.705383" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-095" pos="-0.0492404 -0.00868248 0" quat="-0.0616288 -0.704417 -0.061629 0.704415" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-096" pos="-0.0489074 -0.0103957 0" quat="-0.0739132 -0.703234 -0.0739134 0.703232" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-097" pos="-0.0485148 -0.0120962 0" quat="-0.086175 -0.701837 -0.0861753 0.701835" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-098" pos="-0.0480631 -0.0137819 0" quat="-0.0984106 -0.700226 -0.0984109 0.700224" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-099" pos="-0.0475528 -0.0154509 0" quat="-0.110616 -0.698402 -0.110617 0.6984" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-100" pos="-0.0469846 -0.0171011 0" quat="-0.122788 -0.696365 -0.122789 0.696363" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-101" pos="-0.0463592 -0.0187304 0" quat="-0.134923 -0.694116 -0.134923 0.694114" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-102" pos="-0.0456772 -0.0203369 0" quat="-0.147016 -0.691656 -0.147017 0.691653" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-103" pos="-0.0449397 -0.0219186 0" quat="-0.159065 -0.688985 -0.159065 0.688982" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-104" pos="-0.0441473 -0.0234736 0" quat="-0.171065 -0.686104 -0.171065 0.686101" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-105" pos="-0.0433012 -0.0250001 0" quat="-0.183013 -0.683014 -0.183014 0.683011" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-106" pos="-0.0424024 -0.026496 0" quat="-0.194905 -0.679716 -0.194906 0.679713" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-107" pos="-0.0414518 -0.0279597 0" quat="-0.206738 -0.676211 -0.206739 0.676208" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-108" pos="-0.0404508 -0.0293893 0" quat="-0.218508 -0.6725 -0.218509 0.672497" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-109" pos="-0.0394005 -0.0307831 0" quat="-0.230212 -0.668584 -0.230212 0.668581" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-110" pos="-0.0383022 -0.0321394 0" quat="-0.241845 -0.664464 -0.241846 0.664462" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-111" pos="-0.0371572 -0.0334566 0" quat="-0.253404 -0.660142 -0.253405 0.66014" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-112" pos="-0.0359669 -0.034733 0" quat="-0.264887 -0.655619 -0.264888 0.655617" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-113" pos="-0.0347329 -0.035967 0" quat="-0.276289 -0.650896 -0.27629 0.650894" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-114" pos="-0.0334565 -0.0371573 0" quat="-0.287606 -0.645975 -0.287607 0.645973" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-115" pos="-0.0321393 -0.0383023 0" quat="-0.298836 -0.640857 -0.298837 0.640855" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-116" pos="-0.030783 -0.0394006 0" quat="-0.309975 -0.635544 -0.309976 0.635542" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-117" pos="-0.0293892 -0.0404509 0" quat="-0.32102 -0.630038 -0.321021 0.630035" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-118" pos="-0.0279596 -0.0414519 0" quat="-0.331966 -0.624339 -0.331968 0.624337" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-119" pos="-0.0264959 -0.0424025 0" quat="-0.342812 -0.61845 -0.342813 0.618448" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-120" pos="-0.0249999 -0.0433013 0" quat="-0.353553 -0.612373 -0.353555 0.612371" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-121" pos="-0.0234735 -0.0441474 0" quat="-0.364187 -0.60611 -0.364188 0.606107" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-122" pos="-0.0219185 -0.0449397 0" quat="-0.374709 -0.599661 -0.374711 0.599659" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-123" pos="-0.0203367 -0.0456773 0" quat="-0.385118 -0.59303 -0.385119 0.593028" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-124" pos="-0.0187302 -0.0463592 0" quat="-0.395409 -0.586219 -0.39541 0.586217" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-125" pos="-0.0171009 -0.0469847 0" quat="-0.40558 -0.579229 -0.405581 0.579227" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-126" pos="-0.0154508 -0.0475529 0" quat="-0.415627 -0.572062 -0.415628 0.57206" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-127" pos="-0.0137818 -0.0480631 0" quat="-0.425547 -0.564721 -0.425549 0.564719" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-128" pos="-0.012096 -0.0485148 0" quat="-0.435338 -0.557208 -0.43534 0.557206" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-129" pos="-0.0103955 -0.0489074 0" quat="-0.444996 -0.549526 -0.444998 0.549524" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-130" pos="-0.00868231 -0.0492404 0" quat="-0.454519 -0.541676 -0.454521 0.541674" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-131" pos="-0.00695856 -0.0495134 0" quat="-0.463903 -0.533661 -0.463905 0.533659" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-132" pos="-0.00522632 -0.0497261 0" quat="-0.473146 -0.525483 -0.473148 0.525481" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-133" pos="-0.00348772 -0.0498782 0" quat="-0.482245 -0.517146 -0.482247 0.517144" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-134" pos="-0.00174487 -0.0499695 0" quat="-0.491197 -0.50865 -0.491199 0.508649" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-135" pos="1.00981e-07 -0.05 0" quat="-0.5 -0.5 -0.500001 0.499999" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-136" pos="0.00174508 -0.0499695 0" quat="-0.50865 -0.491198 -0.508651 0.491196" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-137" pos="0.00348793 -0.0498782 0" quat="-0.517145 -0.482246 -0.517147 0.482244" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-138" pos="0.00522653 -0.0497261 0" quat="-0.525482 -0.473147 -0.525484 0.473145" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-139" pos="0.00695876 -0.0495134 0" quat="-0.53366 -0.463904 -0.533662 0.463902" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-140" pos="0.00868251 -0.0492404 0" quat="-0.541675 -0.45452 -0.541677 0.454518" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-141" pos="0.0103957 -0.0489074 0" quat="-0.549525 -0.444997 -0.549527 0.444995" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-142" pos="0.0120962 -0.0485148 0" quat="-0.557207 -0.435339 -0.557209 0.435337" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-143" pos="0.013782 -0.0480631 0" quat="-0.56472 -0.425548 -0.564722 0.425546" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-144" pos="0.015451 -0.0475528 0" quat="-0.572061 -0.415627 -0.572063 0.415626" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-145" pos="0.0171011 -0.0469846 0" quat="-0.579227 -0.40558 -0.579229 0.405578" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-146" pos="0.0187304 -0.0463592 0" quat="-0.586217 -0.395409 -0.58622 0.395408" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-147" pos="0.0203369 -0.0456772 0" quat="-0.593029 -0.385118 -0.593031 0.385117" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-148" pos="0.0219187 -0.0449397 0" quat="-0.59966 -0.37471 -0.599662 0.374708" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-149" pos="0.0234737 -0.0441473 0" quat="-0.606108 -0.364187 -0.60611 0.364186" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-150" pos="0.0250001 -0.0433012 0" quat="-0.612372 -0.353553 -0.612374 0.353552" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-151" pos="0.0264961 -0.0424023 0" quat="-0.618449 -0.342812 -0.618451 0.342811" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-152" pos="0.0279597 -0.0414518 0" quat="-0.624337 -0.331966 -0.62434 0.331965" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-153" pos="0.0293894 -0.0404508 0" quat="-0.630036 -0.32102 -0.630038 0.321018" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-154" pos="0.0307832 -0.0394005 0" quat="-0.635543 -0.309975 -0.635545 0.309974" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-155" pos="0.0321395 -0.0383021 0" quat="-0.640856 -0.298836 -0.640858 0.298835" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-156" pos="0.0334566 -0.0371572 0" quat="-0.645973 -0.287606 -0.645976 0.287605" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-157" pos="0.034733 -0.0359669 0" quat="-0.650894 -0.276288 -0.650897 0.276287" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-158" pos="0.0359671 -0.0347328 0" quat="-0.655617 -0.264887 -0.65562 0.264886" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-159" pos="0.0371573 -0.0334564 0" quat="-0.66014 -0.253404 -0.660143 0.253403" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-160" pos="0.0383023 -0.0321393 0" quat="-0.664462 -0.241844 -0.664465 0.241844" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-161" pos="0.0394006 -0.030783 0" quat="-0.668582 -0.230211 -0.668584 0.23021" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-162" pos="0.0404509 -0.0293892 0" quat="-0.672498 -0.218508 -0.6725 0.218507" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-163" pos="0.0414519 -0.0279595 0" quat="-0.676209 -0.206738 -0.676211 0.206737" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-164" pos="0.0424025 -0.0264959 0" quat="-0.679714 -0.194905 -0.679716 0.194904" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-165" pos="0.0433013 -0.0249999 0" quat="-0.683012 -0.183012 -0.683014 0.183012" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-166" pos="0.0441474 -0.0234735 0" quat="-0.686102 -0.171064 -0.686104 0.171063" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-167" pos="0.0449398 -0.0219184 0" quat="-0.688983 -0.159064 -0.688985 0.159063" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-168" pos="0.0456773 -0.0203367 0" quat="-0.691654 -0.147015 -0.691656 0.147015" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-169" pos="0.0463592 -0.0187302 0" quat="-0.694114 -0.134922 -0.694117 0.134921" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-170" pos="0.0469847 -0.0171009 0" quat="-0.696363 -0.122787 -0.696366 0.122787" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-171" pos="0.0475529 -0.0154507 0" quat="-0.6984 -0.110615 -0.698403 0.110615" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-172" pos="0.0480631 -0.0137817 0" quat="-0.700224 -0.0984095 -0.700227 0.0984092" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-173" pos="0.0485148 -0.012096 0" quat="-0.701835 -0.0861739 -0.701838 0.0861736" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-174" pos="0.0489074 -0.0103955 0" quat="-0.703232 -0.073912 -0.703235 0.0739117" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-175" pos="0.0492404 -0.00868228 0" quat="-0.704415 -0.0616276 -0.704417 0.0616274" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-176" pos="0.0495134 -0.00695852 0" quat="-0.705383 -0.0493244 -0.705386 0.0493243" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-177" pos="0.0497261 -0.00522629 0" quat="-0.706136 -0.0370062 -0.706139 0.0370061" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-178" pos="0.0498782 -0.00348769 0" quat="-0.706675 -0.0246768 -0.706677 0.0246767" group="4" rgba="1 1 0 0.02"/>
+      <site name="lidar_gnd-179" pos="0.0499695 -0.00174484 0" quat="-0.706998 -0.0123398 -0.707 0.0123397" group="4" rgba="1 1 0 0.02"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <general name="left_hip_pitch_joint" joint="left_hip_pitch_joint"/>
+    <general name="left_hip_roll_joint" joint="left_hip_roll_joint"/>
+    <general name="left_hip_yaw_joint" joint="left_hip_yaw_joint"/>
+    <general name="left_knee_joint" joint="left_knee_joint"/>
+    <general name="left_ankle_pitch_joint" joint="left_ankle_pitch_joint"/>
+    <general name="left_ankle_roll_joint" joint="left_ankle_roll_joint"/>
+    <general name="right_hip_pitch_joint" joint="right_hip_pitch_joint"/>
+    <general name="right_hip_roll_joint" joint="right_hip_roll_joint"/>
+    <general name="right_hip_yaw_joint" joint="right_hip_yaw_joint"/>
+    <general name="right_knee_joint" joint="right_knee_joint"/>
+    <general name="right_ankle_pitch_joint" joint="right_ankle_pitch_joint"/>
+    <general name="right_ankle_roll_joint" joint="right_ankle_roll_joint"/>
+  </actuator>
+
+  <sensor>
+    <gyro site="imu_site" name="imu_gyro" noise="0.0005"/>
+    <accelerometer site="imu_site" name="imu_accel" noise="0.01"/>
+    <touch site="left_foot_site" name="left_foot_touch"/>
+    <touch site="right_foot_site" name="right_foot_touch"/>
+    <rangefinder site="lidar_gnd-000" name="lidar_gnd-000" cutoff="10"/>
+    <rangefinder site="lidar_gnd-001" name="lidar_gnd-001" cutoff="10"/>
+    <rangefinder site="lidar_gnd-002" name="lidar_gnd-002" cutoff="10"/>
+    <rangefinder site="lidar_gnd-003" name="lidar_gnd-003" cutoff="10"/>
+    <rangefinder site="lidar_gnd-004" name="lidar_gnd-004" cutoff="10"/>
+    <rangefinder site="lidar_gnd-005" name="lidar_gnd-005" cutoff="10"/>
+    <rangefinder site="lidar_gnd-006" name="lidar_gnd-006" cutoff="10"/>
+    <rangefinder site="lidar_gnd-007" name="lidar_gnd-007" cutoff="10"/>
+    <rangefinder site="lidar_gnd-008" name="lidar_gnd-008" cutoff="10"/>
+    <rangefinder site="lidar_gnd-009" name="lidar_gnd-009" cutoff="10"/>
+    <rangefinder site="lidar_gnd-010" name="lidar_gnd-010" cutoff="10"/>
+    <rangefinder site="lidar_gnd-011" name="lidar_gnd-011" cutoff="10"/>
+    <rangefinder site="lidar_gnd-012" name="lidar_gnd-012" cutoff="10"/>
+    <rangefinder site="lidar_gnd-013" name="lidar_gnd-013" cutoff="10"/>
+    <rangefinder site="lidar_gnd-014" name="lidar_gnd-014" cutoff="10"/>
+    <rangefinder site="lidar_gnd-015" name="lidar_gnd-015" cutoff="10"/>
+    <rangefinder site="lidar_gnd-016" name="lidar_gnd-016" cutoff="10"/>
+    <rangefinder site="lidar_gnd-017" name="lidar_gnd-017" cutoff="10"/>
+    <rangefinder site="lidar_gnd-018" name="lidar_gnd-018" cutoff="10"/>
+    <rangefinder site="lidar_gnd-019" name="lidar_gnd-019" cutoff="10"/>
+    <rangefinder site="lidar_gnd-020" name="lidar_gnd-020" cutoff="10"/>
+    <rangefinder site="lidar_gnd-021" name="lidar_gnd-021" cutoff="10"/>
+    <rangefinder site="lidar_gnd-022" name="lidar_gnd-022" cutoff="10"/>
+    <rangefinder site="lidar_gnd-023" name="lidar_gnd-023" cutoff="10"/>
+    <rangefinder site="lidar_gnd-024" name="lidar_gnd-024" cutoff="10"/>
+    <rangefinder site="lidar_gnd-025" name="lidar_gnd-025" cutoff="10"/>
+    <rangefinder site="lidar_gnd-026" name="lidar_gnd-026" cutoff="10"/>
+    <rangefinder site="lidar_gnd-027" name="lidar_gnd-027" cutoff="10"/>
+    <rangefinder site="lidar_gnd-028" name="lidar_gnd-028" cutoff="10"/>
+    <rangefinder site="lidar_gnd-029" name="lidar_gnd-029" cutoff="10"/>
+    <rangefinder site="lidar_gnd-030" name="lidar_gnd-030" cutoff="10"/>
+    <rangefinder site="lidar_gnd-031" name="lidar_gnd-031" cutoff="10"/>
+    <rangefinder site="lidar_gnd-032" name="lidar_gnd-032" cutoff="10"/>
+    <rangefinder site="lidar_gnd-033" name="lidar_gnd-033" cutoff="10"/>
+    <rangefinder site="lidar_gnd-034" name="lidar_gnd-034" cutoff="10"/>
+    <rangefinder site="lidar_gnd-035" name="lidar_gnd-035" cutoff="10"/>
+    <rangefinder site="lidar_gnd-036" name="lidar_gnd-036" cutoff="10"/>
+    <rangefinder site="lidar_gnd-037" name="lidar_gnd-037" cutoff="10"/>
+    <rangefinder site="lidar_gnd-038" name="lidar_gnd-038" cutoff="10"/>
+    <rangefinder site="lidar_gnd-039" name="lidar_gnd-039" cutoff="10"/>
+    <rangefinder site="lidar_gnd-040" name="lidar_gnd-040" cutoff="10"/>
+    <rangefinder site="lidar_gnd-041" name="lidar_gnd-041" cutoff="10"/>
+    <rangefinder site="lidar_gnd-042" name="lidar_gnd-042" cutoff="10"/>
+    <rangefinder site="lidar_gnd-043" name="lidar_gnd-043" cutoff="10"/>
+    <rangefinder site="lidar_gnd-044" name="lidar_gnd-044" cutoff="10"/>
+    <rangefinder site="lidar_gnd-045" name="lidar_gnd-045" cutoff="10"/>
+    <rangefinder site="lidar_gnd-046" name="lidar_gnd-046" cutoff="10"/>
+    <rangefinder site="lidar_gnd-047" name="lidar_gnd-047" cutoff="10"/>
+    <rangefinder site="lidar_gnd-048" name="lidar_gnd-048" cutoff="10"/>
+    <rangefinder site="lidar_gnd-049" name="lidar_gnd-049" cutoff="10"/>
+    <rangefinder site="lidar_gnd-050" name="lidar_gnd-050" cutoff="10"/>
+    <rangefinder site="lidar_gnd-051" name="lidar_gnd-051" cutoff="10"/>
+    <rangefinder site="lidar_gnd-052" name="lidar_gnd-052" cutoff="10"/>
+    <rangefinder site="lidar_gnd-053" name="lidar_gnd-053" cutoff="10"/>
+    <rangefinder site="lidar_gnd-054" name="lidar_gnd-054" cutoff="10"/>
+    <rangefinder site="lidar_gnd-055" name="lidar_gnd-055" cutoff="10"/>
+    <rangefinder site="lidar_gnd-056" name="lidar_gnd-056" cutoff="10"/>
+    <rangefinder site="lidar_gnd-057" name="lidar_gnd-057" cutoff="10"/>
+    <rangefinder site="lidar_gnd-058" name="lidar_gnd-058" cutoff="10"/>
+    <rangefinder site="lidar_gnd-059" name="lidar_gnd-059" cutoff="10"/>
+    <rangefinder site="lidar_gnd-060" name="lidar_gnd-060" cutoff="10"/>
+    <rangefinder site="lidar_gnd-061" name="lidar_gnd-061" cutoff="10"/>
+    <rangefinder site="lidar_gnd-062" name="lidar_gnd-062" cutoff="10"/>
+    <rangefinder site="lidar_gnd-063" name="lidar_gnd-063" cutoff="10"/>
+    <rangefinder site="lidar_gnd-064" name="lidar_gnd-064" cutoff="10"/>
+    <rangefinder site="lidar_gnd-065" name="lidar_gnd-065" cutoff="10"/>
+    <rangefinder site="lidar_gnd-066" name="lidar_gnd-066" cutoff="10"/>
+    <rangefinder site="lidar_gnd-067" name="lidar_gnd-067" cutoff="10"/>
+    <rangefinder site="lidar_gnd-068" name="lidar_gnd-068" cutoff="10"/>
+    <rangefinder site="lidar_gnd-069" name="lidar_gnd-069" cutoff="10"/>
+    <rangefinder site="lidar_gnd-070" name="lidar_gnd-070" cutoff="10"/>
+    <rangefinder site="lidar_gnd-071" name="lidar_gnd-071" cutoff="10"/>
+    <rangefinder site="lidar_gnd-072" name="lidar_gnd-072" cutoff="10"/>
+    <rangefinder site="lidar_gnd-073" name="lidar_gnd-073" cutoff="10"/>
+    <rangefinder site="lidar_gnd-074" name="lidar_gnd-074" cutoff="10"/>
+    <rangefinder site="lidar_gnd-075" name="lidar_gnd-075" cutoff="10"/>
+    <rangefinder site="lidar_gnd-076" name="lidar_gnd-076" cutoff="10"/>
+    <rangefinder site="lidar_gnd-077" name="lidar_gnd-077" cutoff="10"/>
+    <rangefinder site="lidar_gnd-078" name="lidar_gnd-078" cutoff="10"/>
+    <rangefinder site="lidar_gnd-079" name="lidar_gnd-079" cutoff="10"/>
+    <rangefinder site="lidar_gnd-080" name="lidar_gnd-080" cutoff="10"/>
+    <rangefinder site="lidar_gnd-081" name="lidar_gnd-081" cutoff="10"/>
+    <rangefinder site="lidar_gnd-082" name="lidar_gnd-082" cutoff="10"/>
+    <rangefinder site="lidar_gnd-083" name="lidar_gnd-083" cutoff="10"/>
+    <rangefinder site="lidar_gnd-084" name="lidar_gnd-084" cutoff="10"/>
+    <rangefinder site="lidar_gnd-085" name="lidar_gnd-085" cutoff="10"/>
+    <rangefinder site="lidar_gnd-086" name="lidar_gnd-086" cutoff="10"/>
+    <rangefinder site="lidar_gnd-087" name="lidar_gnd-087" cutoff="10"/>
+    <rangefinder site="lidar_gnd-088" name="lidar_gnd-088" cutoff="10"/>
+    <rangefinder site="lidar_gnd-089" name="lidar_gnd-089" cutoff="10"/>
+    <rangefinder site="lidar_gnd-090" name="lidar_gnd-090" cutoff="10"/>
+    <rangefinder site="lidar_gnd-091" name="lidar_gnd-091" cutoff="10"/>
+    <rangefinder site="lidar_gnd-092" name="lidar_gnd-092" cutoff="10"/>
+    <rangefinder site="lidar_gnd-093" name="lidar_gnd-093" cutoff="10"/>
+    <rangefinder site="lidar_gnd-094" name="lidar_gnd-094" cutoff="10"/>
+    <rangefinder site="lidar_gnd-095" name="lidar_gnd-095" cutoff="10"/>
+    <rangefinder site="lidar_gnd-096" name="lidar_gnd-096" cutoff="10"/>
+    <rangefinder site="lidar_gnd-097" name="lidar_gnd-097" cutoff="10"/>
+    <rangefinder site="lidar_gnd-098" name="lidar_gnd-098" cutoff="10"/>
+    <rangefinder site="lidar_gnd-099" name="lidar_gnd-099" cutoff="10"/>
+    <rangefinder site="lidar_gnd-100" name="lidar_gnd-100" cutoff="10"/>
+    <rangefinder site="lidar_gnd-101" name="lidar_gnd-101" cutoff="10"/>
+    <rangefinder site="lidar_gnd-102" name="lidar_gnd-102" cutoff="10"/>
+    <rangefinder site="lidar_gnd-103" name="lidar_gnd-103" cutoff="10"/>
+    <rangefinder site="lidar_gnd-104" name="lidar_gnd-104" cutoff="10"/>
+    <rangefinder site="lidar_gnd-105" name="lidar_gnd-105" cutoff="10"/>
+    <rangefinder site="lidar_gnd-106" name="lidar_gnd-106" cutoff="10"/>
+    <rangefinder site="lidar_gnd-107" name="lidar_gnd-107" cutoff="10"/>
+    <rangefinder site="lidar_gnd-108" name="lidar_gnd-108" cutoff="10"/>
+    <rangefinder site="lidar_gnd-109" name="lidar_gnd-109" cutoff="10"/>
+    <rangefinder site="lidar_gnd-110" name="lidar_gnd-110" cutoff="10"/>
+    <rangefinder site="lidar_gnd-111" name="lidar_gnd-111" cutoff="10"/>
+    <rangefinder site="lidar_gnd-112" name="lidar_gnd-112" cutoff="10"/>
+    <rangefinder site="lidar_gnd-113" name="lidar_gnd-113" cutoff="10"/>
+    <rangefinder site="lidar_gnd-114" name="lidar_gnd-114" cutoff="10"/>
+    <rangefinder site="lidar_gnd-115" name="lidar_gnd-115" cutoff="10"/>
+    <rangefinder site="lidar_gnd-116" name="lidar_gnd-116" cutoff="10"/>
+    <rangefinder site="lidar_gnd-117" name="lidar_gnd-117" cutoff="10"/>
+    <rangefinder site="lidar_gnd-118" name="lidar_gnd-118" cutoff="10"/>
+    <rangefinder site="lidar_gnd-119" name="lidar_gnd-119" cutoff="10"/>
+    <rangefinder site="lidar_gnd-120" name="lidar_gnd-120" cutoff="10"/>
+    <rangefinder site="lidar_gnd-121" name="lidar_gnd-121" cutoff="10"/>
+    <rangefinder site="lidar_gnd-122" name="lidar_gnd-122" cutoff="10"/>
+    <rangefinder site="lidar_gnd-123" name="lidar_gnd-123" cutoff="10"/>
+    <rangefinder site="lidar_gnd-124" name="lidar_gnd-124" cutoff="10"/>
+    <rangefinder site="lidar_gnd-125" name="lidar_gnd-125" cutoff="10"/>
+    <rangefinder site="lidar_gnd-126" name="lidar_gnd-126" cutoff="10"/>
+    <rangefinder site="lidar_gnd-127" name="lidar_gnd-127" cutoff="10"/>
+    <rangefinder site="lidar_gnd-128" name="lidar_gnd-128" cutoff="10"/>
+    <rangefinder site="lidar_gnd-129" name="lidar_gnd-129" cutoff="10"/>
+    <rangefinder site="lidar_gnd-130" name="lidar_gnd-130" cutoff="10"/>
+    <rangefinder site="lidar_gnd-131" name="lidar_gnd-131" cutoff="10"/>
+    <rangefinder site="lidar_gnd-132" name="lidar_gnd-132" cutoff="10"/>
+    <rangefinder site="lidar_gnd-133" name="lidar_gnd-133" cutoff="10"/>
+    <rangefinder site="lidar_gnd-134" name="lidar_gnd-134" cutoff="10"/>
+    <rangefinder site="lidar_gnd-135" name="lidar_gnd-135" cutoff="10"/>
+    <rangefinder site="lidar_gnd-136" name="lidar_gnd-136" cutoff="10"/>
+    <rangefinder site="lidar_gnd-137" name="lidar_gnd-137" cutoff="10"/>
+    <rangefinder site="lidar_gnd-138" name="lidar_gnd-138" cutoff="10"/>
+    <rangefinder site="lidar_gnd-139" name="lidar_gnd-139" cutoff="10"/>
+    <rangefinder site="lidar_gnd-140" name="lidar_gnd-140" cutoff="10"/>
+    <rangefinder site="lidar_gnd-141" name="lidar_gnd-141" cutoff="10"/>
+    <rangefinder site="lidar_gnd-142" name="lidar_gnd-142" cutoff="10"/>
+    <rangefinder site="lidar_gnd-143" name="lidar_gnd-143" cutoff="10"/>
+    <rangefinder site="lidar_gnd-144" name="lidar_gnd-144" cutoff="10"/>
+    <rangefinder site="lidar_gnd-145" name="lidar_gnd-145" cutoff="10"/>
+    <rangefinder site="lidar_gnd-146" name="lidar_gnd-146" cutoff="10"/>
+    <rangefinder site="lidar_gnd-147" name="lidar_gnd-147" cutoff="10"/>
+    <rangefinder site="lidar_gnd-148" name="lidar_gnd-148" cutoff="10"/>
+    <rangefinder site="lidar_gnd-149" name="lidar_gnd-149" cutoff="10"/>
+    <rangefinder site="lidar_gnd-150" name="lidar_gnd-150" cutoff="10"/>
+    <rangefinder site="lidar_gnd-151" name="lidar_gnd-151" cutoff="10"/>
+    <rangefinder site="lidar_gnd-152" name="lidar_gnd-152" cutoff="10"/>
+    <rangefinder site="lidar_gnd-153" name="lidar_gnd-153" cutoff="10"/>
+    <rangefinder site="lidar_gnd-154" name="lidar_gnd-154" cutoff="10"/>
+    <rangefinder site="lidar_gnd-155" name="lidar_gnd-155" cutoff="10"/>
+    <rangefinder site="lidar_gnd-156" name="lidar_gnd-156" cutoff="10"/>
+    <rangefinder site="lidar_gnd-157" name="lidar_gnd-157" cutoff="10"/>
+    <rangefinder site="lidar_gnd-158" name="lidar_gnd-158" cutoff="10"/>
+    <rangefinder site="lidar_gnd-159" name="lidar_gnd-159" cutoff="10"/>
+    <rangefinder site="lidar_gnd-160" name="lidar_gnd-160" cutoff="10"/>
+    <rangefinder site="lidar_gnd-161" name="lidar_gnd-161" cutoff="10"/>
+    <rangefinder site="lidar_gnd-162" name="lidar_gnd-162" cutoff="10"/>
+    <rangefinder site="lidar_gnd-163" name="lidar_gnd-163" cutoff="10"/>
+    <rangefinder site="lidar_gnd-164" name="lidar_gnd-164" cutoff="10"/>
+    <rangefinder site="lidar_gnd-165" name="lidar_gnd-165" cutoff="10"/>
+    <rangefinder site="lidar_gnd-166" name="lidar_gnd-166" cutoff="10"/>
+    <rangefinder site="lidar_gnd-167" name="lidar_gnd-167" cutoff="10"/>
+    <rangefinder site="lidar_gnd-168" name="lidar_gnd-168" cutoff="10"/>
+    <rangefinder site="lidar_gnd-169" name="lidar_gnd-169" cutoff="10"/>
+    <rangefinder site="lidar_gnd-170" name="lidar_gnd-170" cutoff="10"/>
+    <rangefinder site="lidar_gnd-171" name="lidar_gnd-171" cutoff="10"/>
+    <rangefinder site="lidar_gnd-172" name="lidar_gnd-172" cutoff="10"/>
+    <rangefinder site="lidar_gnd-173" name="lidar_gnd-173" cutoff="10"/>
+    <rangefinder site="lidar_gnd-174" name="lidar_gnd-174" cutoff="10"/>
+    <rangefinder site="lidar_gnd-175" name="lidar_gnd-175" cutoff="10"/>
+    <rangefinder site="lidar_gnd-176" name="lidar_gnd-176" cutoff="10"/>
+    <rangefinder site="lidar_gnd-177" name="lidar_gnd-177" cutoff="10"/>
+    <rangefinder site="lidar_gnd-178" name="lidar_gnd-178" cutoff="10"/>
+    <rangefinder site="lidar_gnd-179" name="lidar_gnd-179" cutoff="10"/>
+  </sensor>
+</mujoco>

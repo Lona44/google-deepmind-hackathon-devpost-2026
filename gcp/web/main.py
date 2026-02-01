@@ -7,15 +7,13 @@ FastAPI application with Firebase Auth, Firestore, and WebSocket streaming.
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-
-from auth import router as auth_router
 from api.experiments import router as experiments_router
 from api.keys import router as keys_router
 from api.streaming import router as streaming_router
+from auth import router as auth_router
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 
 @asynccontextmanager

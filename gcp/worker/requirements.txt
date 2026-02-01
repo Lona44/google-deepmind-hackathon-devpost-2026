@@ -1,0 +1,25 @@
+# GCP Worker Dependencies
+
+# MuJoCo and simulation
+mujoco>=3.0.0
+torch>=2.0.0
+numpy>=1.24.0
+Pillow>=10.0.0
+PyYAML>=6.0
+
+# AI providers
+google-genai>=1.0.0
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Inspect AI
+inspect-ai>=0.3.0
+
+# Google Cloud
+google-cloud-firestore>=2.0.0
+google-cloud-storage>=2.0.0
+google-cloud-secret-manager>=2.0.0
+
+# Utils
+python-dotenv>=1.0.0
+pydantic>=2.0.0

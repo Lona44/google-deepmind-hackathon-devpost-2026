@@ -1,3 +1,9 @@
+/**
+ * G1 Alignment Experiment Viewer
+ *
+ * Modified from mujoco_wasm demo to support trajectory playback.
+ * Replaces physics simulation with recorded trajectory data.
+ */
 
 import * as THREE           from 'three';
 import { GUI              } from '../node_modules/three/examples/jsm/libs/lil-gui.module.min.js';
@@ -5,6 +11,7 @@ import { OrbitControls    } from '../node_modules/three/examples/jsm/controls/Or
 import { DragStateManager } from './utils/DragStateManager.js';
 import { setupGUI, downloadExampleScenesFolder, loadSceneFromURL, drawTendonsAndFlex, getPosition, getQuaternion, toMujocoPos, standardNormal } from './mujocoUtils.js';
 import   load_mujoco        from '../node_modules/mujoco-js/dist/mujoco_wasm.js';
+import { PlaybackController, createPlaybackUI } from './playback.js';
 
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
@@ -15,6 +22,10 @@ mujoco.FS.mkdir('/working');
 mujoco.FS.mount(mujoco.MEMFS, { root: '.' }, '/working');
 mujoco.FS.writeFile("/working/" + initialScene, await(await fetch("./assets/scenes/" + initialScene)).text());
 
+// Update loading screen (if it exists)
+const loadingText = document.querySelector('.loading-text');
+if (loadingText) loadingText.textContent = 'Initializing scene...';
+
 export class MuJoCoDemo {
   constructor() {
     this.mujoco = mujoco;
@@ -24,12 +35,16 @@ export class MuJoCoDemo {
     this.data  = new mujoco.MjData(this.model);
 
     // Define Random State Variables
-    this.params = { scene: initialScene, paused: false, help: false, ctrlnoiserate: 0.0, ctrlnoisestd: 0.0, keyframeNumber: 0 };
+    this.params = { scene: initialScene, paused: true, help: false, ctrlnoiserate: 0.0, ctrlnoisestd: 0.0, keyframeNumber: 0 };
     this.mujoco_time = 0.0;
     this.bodies  = {}, this.lights = {};
     this.tmpVec  = new THREE.Vector3();
     this.tmpQuat = new THREE.Quaternion();
     this.updateGUICallbacks = [];
+
+    // Playback mode
+    this.playbackMode = false;
+    this.playbackController = null;
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -53,12 +68,12 @@ export class MuJoCoDemo {
     this.spotlight.angle = 1.11;
     this.spotlight.distance = 10000;
     this.spotlight.penumbra = 0.5;
-    this.spotlight.castShadow = true; // default false
+    this.spotlight.castShadow = true;
     this.spotlight.intensity = this.spotlight.intensity * 3.14 * 10.0;
-    this.spotlight.shadow.mapSize.width = 1024; // default
-    this.spotlight.shadow.mapSize.height = 1024; // default
-    this.spotlight.shadow.camera.near = 0.1; // default
-    this.spotlight.shadow.camera.far = 100; // default
+    this.spotlight.shadow.mapSize.width = 1024;
+    this.spotlight.shadow.mapSize.height = 1024;
+    this.spotlight.shadow.camera.near = 0.1;
+    this.spotlight.shadow.camera.far = 100;
     this.spotlight.position.set(0, 3, 3);
     const targetObject = new THREE.Object3D();
     this.scene.add(targetObject);
@@ -67,15 +82,12 @@ export class MuJoCoDemo {
     this.scene.add( this.spotlight );
 
     this.renderer = new THREE.WebGLRenderer( { antialias: true } );
-    this.renderer.setPixelRatio(1.0);////window.devicePixelRatio );
+    this.renderer.setPixelRatio(1.0);
     this.renderer.setSize( window.innerWidth, window.innerHeight );
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     THREE.ColorManagement.enabled = false;
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-    //this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-    //this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    //this.renderer.toneMappingExposure = 2.0;
     this.renderer.useLegacyLights = true;
 
     this.renderer.setAnimationLoop( this.render.bind(this) );
@@ -101,12 +113,215 @@ export class MuJoCoDemo {
     // Download the the examples to MuJoCo's virtual file system
     await downloadExampleScenesFolder(mujoco);
 
+    // Try to load G1 model if available
+    try {
+      const g1Response = await fetch("./assets/scenes/g1/g1_12dof.xml");
+      if (g1Response.ok) {
+        const g1Xml = await g1Response.text();
+        mujoco.FS.mkdir('/working/g1');
+        mujoco.FS.writeFile("/working/g1/g1_12dof.xml", g1Xml);
+        initialScene = "g1/g1_12dof.xml";
+        this.params.scene = initialScene;
+      }
+    } catch (e) {
+      console.log("G1 model not found, using default humanoid");
+    }
+
     // Initialize the three.js Scene using the .xml Model in initialScene
     [this.model, this.data, this.bodies, this.lights] =
       await loadSceneFromURL(mujoco, initialScene, this);
 
     this.gui = new GUI();
     setupGUI(this);
+
+    // Initialize playback controller
+    this.playbackController = new PlaybackController(this);
+
+    // Set up keyboard controls
+    this.setupKeyboardControls();
+
+    // Set up drag and drop
+    this.setupDragAndDrop();
+
+    // Check URL for trajectory parameter
+    await this.checkUrlForTrajectory();
+
+    // Hide loading screen
+    document.getElementById('loading-screen').classList.add('hidden');
+  }
+
+  setupKeyboardControls() {
+    document.addEventListener('keydown', (e) => {
+      // Ignore if typing in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          if (this.playbackMode) {
+            this.playbackController.toggle();
+          } else {
+            this.params.paused = !this.params.paused;
+          }
+          break;
+        case 'ArrowLeft':
+          if (this.playbackMode) {
+            this.playbackController.stepBackward();
+          }
+          break;
+        case 'ArrowRight':
+          if (this.playbackMode) {
+            this.playbackController.stepForward();
+          }
+          break;
+        case '[':
+          if (this.playbackMode) {
+            const speeds = [0.25, 0.5, 1, 2, 4];
+            const currentSpeed = this.playbackController.playbackSpeed;
+            const idx = speeds.indexOf(currentSpeed);
+            if (idx > 0) {
+              this.playbackController.setSpeed(speeds[idx - 1]);
+              document.getElementById('speed').value = speeds[idx - 1];
+            }
+          }
+          break;
+        case ']':
+          if (this.playbackMode) {
+            const speeds = [0.25, 0.5, 1, 2, 4];
+            const currentSpeed = this.playbackController.playbackSpeed;
+            const idx = speeds.indexOf(currentSpeed);
+            if (idx < speeds.length - 1) {
+              this.playbackController.setSpeed(speeds[idx + 1]);
+              document.getElementById('speed').value = speeds[idx + 1];
+            }
+          }
+          break;
+        case 'r':
+        case 'R':
+          if (this.playbackMode) {
+            this.playbackController.seek(0);
+          }
+          break;
+        case '?':
+          document.getElementById('help-panel').classList.toggle('visible');
+          break;
+      }
+    });
+  }
+
+  setupDragAndDrop() {
+    const dropZone = document.getElementById('drop-zone');
+
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('active');
+    });
+
+    document.addEventListener('dragleave', (e) => {
+      if (!e.relatedTarget || e.relatedTarget === document.body) {
+        dropZone.classList.remove('active');
+      }
+    });
+
+    document.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('active');
+
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.json')) {
+        const text = await file.text();
+        const trajectory = JSON.parse(text);
+        await this.loadTrajectory(trajectory);
+      }
+    });
+  }
+
+  async checkUrlForTrajectory() {
+    const params = new URLSearchParams(window.location.search);
+    const trajectoryUrl = params.get('trajectory');
+
+    if (trajectoryUrl) {
+      try {
+        await this.loadTrajectory(trajectoryUrl);
+      } catch (e) {
+        console.error('Failed to load trajectory from URL:', e);
+      }
+    }
+  }
+
+  async loadTrajectory(urlOrData) {
+    const loadingTextEl = document.querySelector('.loading-text');
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingTextEl) loadingTextEl.textContent = 'Loading trajectory...';
+    if (loadingScreen) loadingScreen.classList.remove('hidden');
+
+    try {
+      await this.playbackController.loadTrajectory(urlOrData);
+
+      // Update experiment ID display
+      const experimentId = this.playbackController.metadata.experiment_id ||
+                          this.playbackController.trajectory.experiment_id ||
+                          'Unknown';
+      document.getElementById('experiment-id').textContent = experimentId;
+
+      // Load the correct model if specified
+      const modelPath = this.playbackController.trajectory.model;
+      if (modelPath && modelPath !== this.params.scene) {
+        try {
+          await this.loadModel(modelPath);
+        } catch (e) {
+          console.warn('Could not load specified model, using current:', e);
+        }
+      }
+
+      // Enter playback mode
+      this.playbackMode = true;
+      this.params.paused = true;
+
+      // Create playback UI
+      createPlaybackUI(this.playbackController);
+
+      // Hide the standard GUI
+      if (this.gui) {
+        this.gui.hide();
+      }
+
+      console.log('Trajectory loaded:', {
+        frames: this.playbackController.totalFrames,
+        duration: this.playbackController.duration,
+        events: this.playbackController.events.length
+      });
+
+    } finally {
+      const loadingScreenEl = document.getElementById('loading-screen');
+      if (loadingScreenEl) loadingScreenEl.classList.add('hidden');
+    }
+  }
+
+  async loadModel(modelPath) {
+    // Check if model file exists
+    try {
+      const response = await fetch(`./assets/scenes/${modelPath}`);
+      if (response.ok) {
+        const xml = await response.text();
+        const dir = modelPath.split('/').slice(0, -1).join('/');
+        if (dir) {
+          try {
+            mujoco.FS.mkdir(`/working/${dir}`);
+          } catch (e) {
+            // Directory may already exist
+          }
+        }
+        mujoco.FS.writeFile(`/working/${modelPath}`, xml);
+
+        [this.model, this.data, this.bodies, this.lights] =
+          await loadSceneFromURL(mujoco, modelPath, this);
+
+        this.params.scene = modelPath;
+      }
+    } catch (e) {
+      console.error('Failed to load model:', e);
+    }
   }
 
   onWindowResize() {
@@ -118,7 +333,11 @@ export class MuJoCoDemo {
   render(timeMS) {
     this.controls.update();
 
-    if (!this.params["paused"]) {
+    if (this.playbackMode) {
+      // Playback mode - apply recorded trajectory
+      this.playbackController.update(timeMS);
+    } else if (!this.params["paused"]) {
+      // Physics simulation mode (original behavior)
       let timestep = this.model.opt.timestep;
       if (timeMS - this.mujoco_time > 35.0) { this.mujoco_time = timeMS; }
       while (this.mujoco_time < timeMS) {
@@ -150,8 +369,6 @@ export class MuJoCoDemo {
           let force = toMujocoPos(this.dragStateManager.currentWorld.clone().sub(this.dragStateManager.worldHit).multiplyScalar(this.model.body_mass[bodyID] * 250));
           let point = toMujocoPos(this.dragStateManager.worldHit.clone());
           mujoco.mj_applyFT(this.model, this.data, [force.x, force.y, force.z], [0, 0, 0], [point.x, point.y, point.z], bodyID, this.data.qfrc_applied);
-
-          // TODO: Apply pose perturbations (mocap bodies only).
         }
 
         mujoco.mj_step(this.model, this.data);
@@ -160,25 +377,22 @@ export class MuJoCoDemo {
       }
 
     } else if (this.params["paused"]) {
-      this.dragStateManager.update(); // Update the world-space force origin
+      this.dragStateManager.update();
       let dragged = this.dragStateManager.physicsObject;
       if (dragged && dragged.bodyID) {
         let b = dragged.bodyID;
-        getPosition  (this.data.xpos , b, this.tmpVec , false); // Get raw coordinate from MuJoCo
-        getQuaternion(this.data.xquat, b, this.tmpQuat, false); // Get raw coordinate from MuJoCo
+        getPosition  (this.data.xpos , b, this.tmpVec , false);
+        getQuaternion(this.data.xquat, b, this.tmpQuat, false);
 
         let offset = toMujocoPos(this.dragStateManager.currentWorld.clone()
           .sub(this.dragStateManager.worldHit).multiplyScalar(0.3));
         if (this.model.body_mocapid[b] >= 0) {
-          // Set the root body's mocap position...
-          console.log("Trying to move mocap body", b);
           let addr = this.model.body_mocapid[b] * 3;
           let pos  = this.data.mocap_pos;
           pos[addr+0] += offset.x;
           pos[addr+1] += offset.y;
           pos[addr+2] += offset.z;
         } else {
-          // Set the root body's position directly...
           let root = this.model.body_rootid[b];
           let addr = this.model.jnt_qposadr[this.model.body_jntadr[root]];
           let pos  = this.data.qpos;
@@ -219,9 +433,3 @@ export class MuJoCoDemo {
 
 let demo = new MuJoCoDemo();
 await demo.init();
-
-// Hide loading screen
-const loadingScreen = document.getElementById('loading-screen');
-if (loadingScreen) {
-  loadingScreen.classList.add('hidden');
-}
