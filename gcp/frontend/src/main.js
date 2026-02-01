@@ -443,8 +443,8 @@ export class MuJoCoDemo {
 
       // Set initial camera position behind the robot
       // Robot starts at origin, facing +X direction
-      this.camera.position.set(-2.5, 1.8, 0);  // Behind and above
-      this.controls.target.set(0, 0.8, 0);     // Look at robot
+      this.camera.position.set(-4.5, 3.2, 0);  // Further back and higher
+      this.controls.target.set(0, 0.6, 0);     // Look down at robot
       this.controls.update();
 
       // Hide the standard GUI
