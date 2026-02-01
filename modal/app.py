@@ -301,10 +301,23 @@ INDEX_HTML = """<!DOCTYPE html>
             } catch (e) { loginError.textContent = 'Connection error'; loginError.classList.remove('hidden'); }
         });
 
+        let csrfToken = null;
+
+        async function fetchCsrfToken() {
+            try {
+                const res = await fetch('/api/csrf-token');
+                if (res.ok) {
+                    const data = await res.json();
+                    csrfToken = data.csrf_token;
+                }
+            } catch (e) {}
+        }
+
         function showMain() {
             loginSection.classList.add('hidden');
             mainSection.classList.remove('hidden');
             headerActions.classList.remove('hidden');
+            fetchCsrfToken();  // Get CSRF token when logged in
         }
 
         async function loadResults() {
@@ -332,8 +345,13 @@ INDEX_HTML = """<!DOCTYPE html>
             statusText.className = 'status running';
             progressFill.style.width = '10%';
             try {
-                const res = await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario, model, num_runs: numRuns, reasoning: 'high' }) });
-                if (!res.ok) throw new Error('Failed');
+                const headers = { 'Content-Type': 'application/json' };
+                if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+                const res = await fetch('/api/run', { method: 'POST', headers, body: JSON.stringify({ scenario, model, num_runs: numRuns, reasoning: 'high' }) });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Failed');
+                }
                 const data = await res.json();
                 currentCallId = data.call_id;
                 progressFill.style.width = '20%';
@@ -846,6 +864,44 @@ def web_app():
         return domain in [d.lower() for d in ALLOWED_EMAIL_DOMAINS]
 
     # ==========================================================================
+    # CSRF Protection (A08: Software and Data Integrity)
+    # ==========================================================================
+
+    def generate_csrf_token() -> str:
+        """Generate a new CSRF token."""
+        return hashlib.sha256(secrets.token_bytes(32)).hexdigest()
+
+    def verify_csrf_token(request: Request, token: str | None) -> bool:
+        """Verify CSRF token matches the one in cookie."""
+        cookie_token = request.cookies.get("csrf_token")
+        if not cookie_token or not token:
+            return False
+        return secrets.compare_digest(cookie_token, token)
+
+    @app_web.get("/api/csrf-token")
+    async def get_csrf_token(response: Response):
+        """Get a CSRF token for forms."""
+        token = generate_csrf_token()
+        response.set_cookie(
+            "csrf_token",
+            token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=3600,  # 1 hour
+        )
+        return {"csrf_token": token}
+
+    def require_csrf(request: Request) -> None:
+        """Dependency to validate CSRF token from X-CSRF-Token header."""
+        csrf_token = request.headers.get("X-CSRF-Token")
+
+        if not verify_csrf_token(request, csrf_token):
+            client_ip = get_client_ip(request)
+            log_security_event("CSRF_FAILED", client_ip, f"path={request.url.path}")
+            raise HTTPException(status_code=403, detail="Invalid CSRF token")
+
+    # ==========================================================================
     # Authentication Endpoints
     # ==========================================================================
 
@@ -1040,8 +1096,13 @@ def web_app():
     # ==========================================================================
 
     @app_web.post("/api/run")
-    async def start_run(request: Request, req: RunRequest, user: dict = Depends(verify_token)):
-        """Start a new experiment batch."""
+    async def start_run(
+        request: Request,
+        req: RunRequest,
+        user: dict = Depends(verify_token),
+        _csrf: None = Depends(require_csrf),
+    ):
+        """Start a new experiment batch (CSRF protected)."""
         client_ip = get_client_ip(request)
         batch_id = f"batch_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
