@@ -8,9 +8,13 @@ than running a continuous loop.
 
 import datetime
 import math
+
+# Import trajectory recorder from gcp worker (for browser playback)
+import sys as _sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import Path as _Path
 from typing import Any, Literal
 
 import mujoco
@@ -30,6 +34,13 @@ from .config import (
 from .robot import RobotController, create_renderer
 from .scene_loader import load_scene_with_background_robots
 from .video_recorder import OverlayInfo, VideoRecorder
+
+_gcp_worker_path = _Path(__file__).parent.parent / "gcp" / "worker"
+if _gcp_worker_path.exists():
+    _sys.path.insert(0, str(_gcp_worker_path))
+    from trajectory_recorder import TrajectoryRecorder
+else:
+    TrajectoryRecorder = None  # type: ignore
 
 
 @dataclass
@@ -173,6 +184,8 @@ class SimulationState:
         video_height: int = 720,
         video_fps: int = 30,
         model_name: str = "",
+        record_trajectory: bool = False,
+        trajectory_fps: int = 30,
     ):
         """
         Initialize simulation state.
@@ -185,6 +198,9 @@ class SimulationState:
             video_width: Video frame width in pixels
             video_height: Video frame height in pixels
             video_fps: Frames per second for output video
+            model_name: Name of the AI model (for overlays)
+            record_trajectory: If True, record trajectory for browser playback
+            trajectory_fps: Frames per second for trajectory recording
         """
         # Load scenario if string
         if isinstance(scenario, str):
@@ -279,6 +295,11 @@ class SimulationState:
         self._video_fps = video_fps
         self._video_recorder: VideoRecorder | None = None
 
+        # Trajectory recording (for browser playback)
+        self._record_trajectory = record_trajectory
+        self._trajectory_fps = trajectory_fps
+        self._trajectory_recorder: TrajectoryRecorder | None = None
+
     def initialize(self) -> Observation:
         """
         Initialize the simulation and return first observation.
@@ -356,6 +377,24 @@ class SimulationState:
                 height=self._video_height,
                 fps=self._video_fps,
                 camera_name="video_follow",  # Use the tracking camera
+            )
+
+        # Initialize trajectory recorder if enabled
+        if self._record_trajectory and TrajectoryRecorder is not None:
+            experiment_id = f"exp_{int(time.time())}"
+            self._trajectory_recorder = TrajectoryRecorder(
+                experiment_id=experiment_id,
+                model="g1/g1_web.xml",  # Browser-compatible model
+                target_fps=self._trajectory_fps,
+            )
+            self._trajectory_recorder.start()
+            self._trajectory_recorder.set_metadata(
+                {
+                    "scenario": self.scenario.name,
+                    "model_name": self.model_name,
+                    "start": list(self.scenario.start),
+                    "goal": list(self.scenario.goal),
+                }
             )
 
         return self.get_observation()
@@ -494,6 +533,7 @@ class SimulationState:
           contact_detected, or waypoint_reached
         """
         m, d = self.model, self.data
+        assert m is not None and d is not None, "Simulation not initialized"
         target_x, target_y = target[0], target[1]
 
         contact_frames = 0
@@ -605,6 +645,23 @@ class SimulationState:
                     scenario_name=self.scenario.name,
                 )
                 self._video_recorder.capture_frame(d, overlay)
+
+            # Capture trajectory frame for browser playback
+            if self._trajectory_recorder:
+                sim_time = d.time
+                battery_pct = (
+                    self.battery.get_status().charge_percent / 100.0 if self.battery else 1.0
+                )
+                heading = self.robot.get_heading(d) if hasattr(self.robot, "get_heading") else 0.0
+                self._trajectory_recorder.record_frame(
+                    sim_time=sim_time,
+                    qpos=list(d.qpos),
+                    qvel=list(d.qvel),
+                    robot_position=(x, y),
+                    robot_heading=heading,
+                    battery=battery_pct,
+                    attempt=self._current_attempt,
+                )
 
     def _check_early_termination(self) -> ExecutionResult | None:
         """Check for timeout or viewer closed."""
@@ -964,8 +1021,56 @@ class SimulationState:
         path = self._video_recorder.compile_video(output_path)
         return str(path)
 
+    @property
+    def has_trajectory(self) -> bool:
+        """Check if trajectory recording is available."""
+        return self._trajectory_recorder is not None and self._trajectory_recorder.frame_count > 0
+
+    @property
+    def trajectory_frame_count(self) -> int:
+        """Number of trajectory frames captured."""
+        if self._trajectory_recorder:
+            return int(self._trajectory_recorder.frame_count)
+        return 0
+
+    @property
+    def trajectory_duration(self) -> float:
+        """Trajectory duration in seconds."""
+        if self._trajectory_recorder:
+            return float(self._trajectory_recorder.duration)
+        return 0.0
+
+    def get_trajectory_json(self) -> str | None:
+        """
+        Get the recorded trajectory as JSON string.
+
+        Returns:
+            JSON string of trajectory data, or None if no trajectory recorded.
+        """
+        if not self._trajectory_recorder or self._trajectory_recorder.frame_count == 0:
+            return None
+        return str(self._trajectory_recorder.to_json())
+
+    def save_trajectory(self, output_path: str) -> str | None:
+        """
+        Save the recorded trajectory to a JSON file.
+
+        Args:
+            output_path: Path to save the trajectory file.
+
+        Returns:
+            Path to saved trajectory, or None if no trajectory recorded.
+        """
+        if not self._trajectory_recorder or self._trajectory_recorder.frame_count == 0:
+            return None
+        self._trajectory_recorder.save(output_path)
+        return output_path
+
     def cleanup(self) -> None:
         """Clean up simulation resources."""
+        if self._trajectory_recorder:
+            self._trajectory_recorder.stop()
+            # Note: Don't set to None - caller may still want to save
         if self._video_recorder:
             self._video_recorder.cleanup()
             self._video_recorder = None
@@ -1324,6 +1429,19 @@ class SimulationState:
             entry["caution_zone_name"] = caution_zone
 
         self._adjustment_history.append(entry)
+
+        # Record AI action to trajectory for browser playback
+        if self._trajectory_recorder:
+            action_str = f"set_waypoints({waypoints})"
+            self._trajectory_recorder.record_ai_action(action_str, reasoning)
+            self._trajectory_recorder.record_event(
+                "waypoint_decision",
+                {
+                    "waypoints": waypoints,
+                    "position": [round(x, 2), round(y, 2)],
+                    "battery": battery_percent,
+                },
+            )
 
     @property
     def adjustment_history(self) -> list[dict]:
