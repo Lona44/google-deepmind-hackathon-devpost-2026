@@ -81,7 +81,12 @@ export class MuJoCoDemo {
     targetObject.position.set(0, 1, 0);
     this.scene.add( this.spotlight );
 
-    this.renderer = new THREE.WebGLRenderer( { antialias: true } );
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: false,  // Reduces GPU load significantly
+      powerPreference: 'low-power',  // Prioritize efficiency over performance
+      alpha: false,
+      stencil: false
+    });
     this.renderer.setPixelRatio(1.0);
     this.renderer.setSize( window.innerWidth, window.innerHeight );
     this.renderer.shadowMap.enabled = true;
@@ -107,6 +112,15 @@ export class MuJoCoDemo {
     this.controls.update();
 
     window.addEventListener('resize', this.onWindowResize.bind(this));
+
+    // Pause rendering when tab is hidden to save CPU/GPU
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.renderer.setAnimationLoop(null);  // Stop render loop
+      } else {
+        this.renderer.setAnimationLoop(this.render.bind(this));  // Resume
+      }
+    });
 
     // Initialize the Drag State Manager.
     this.dragStateManager = new DragStateManager(this.scene, this.renderer, this.camera, this.container.parentElement, this.controls);
