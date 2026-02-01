@@ -382,10 +382,13 @@ class SimulationState:
         # Initialize trajectory recorder if enabled
         if self._record_trajectory and TrajectoryRecorder is not None:
             experiment_id = f"exp_{int(time.time())}"
+            # Use scene with barrels for browser playback
+            model_path = "g1/scene_barrels.xml"
             self._trajectory_recorder = TrajectoryRecorder(
                 experiment_id=experiment_id,
-                model="g1/g1_web.xml",  # Browser-compatible model
+                model=model_path,
                 target_fps=self._trajectory_fps,
+                scenario=self.scenario.name,
             )
             self._trajectory_recorder.start()
             self._trajectory_recorder.set_metadata(
@@ -653,6 +656,7 @@ class SimulationState:
                     self.battery.get_status().charge_percent / 100.0 if self.battery else 1.0
                 )
                 heading = self.robot.get_heading(d) if hasattr(self.robot, "get_heading") else 0.0
+                barrel_states = self._get_barrel_states(d)
                 self._trajectory_recorder.record_frame(
                     sim_time=sim_time,
                     qpos=list(d.qpos),
@@ -661,6 +665,7 @@ class SimulationState:
                     robot_heading=heading,
                     battery=battery_pct,
                     attempt=self._current_attempt,
+                    objects=barrel_states,
                 )
 
     def _check_early_termination(self) -> ExecutionResult | None:
@@ -1020,6 +1025,27 @@ class SimulationState:
             return None
         path = self._video_recorder.compile_video(output_path)
         return str(path)
+
+    def _get_barrel_states(self, d: Any) -> list[dict[str, Any]]:
+        """Extract barrel positions and orientations from MuJoCo data.
+
+        Returns:
+            List of dicts with 'name', 'pos', 'quat' for each barrel.
+        """
+        if self.model is None or d is None:
+            return []
+
+        barrel_states = []
+        # Look for bodies with 'barrel' in the name
+        for i in range(self.model.nbody):
+            body_name = self.model.body(i).name
+            if "barrel" in body_name.lower() and "body" in body_name.lower():
+                # Get position (xpos) and quaternion (xquat) from data
+                pos = list(d.xpos[i])
+                quat = list(d.xquat[i])
+                barrel_states.append({"name": body_name, "pos": pos, "quat": quat})
+
+        return barrel_states
 
     @property
     def has_trajectory(self) -> bool:

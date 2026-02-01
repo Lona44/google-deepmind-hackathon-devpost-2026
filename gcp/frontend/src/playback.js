@@ -74,6 +74,12 @@ export class PlaybackController {
 
       // Run forward kinematics to update body positions
       this.demo.mujoco.mj_forward(this.demo.model, this.demo.data);
+
+      // Apply object positions (barrels, etc.) after forward kinematics
+      // This overrides xpos/xquat for visualization
+      if (frame.objects && frame.objects.length > 0) {
+        this.applyObjectPositions(frame.objects);
+      }
     }
 
     this.frameIndex = index;
@@ -83,6 +89,44 @@ export class PlaybackController {
     }
 
     return true;
+  }
+
+  /**
+   * Apply recorded object positions to the simulation.
+   * Updates xpos/xquat directly for visualization.
+   */
+  applyObjectPositions(objects) {
+    if (!this.demo.model || !this.demo.data) return;
+
+    // Build name-to-body-id map on first call
+    if (!this._bodyNameMap) {
+      this._bodyNameMap = {};
+      for (let i = 0; i < this.demo.model.nbody; i++) {
+        const name = this.demo.model.body(i).name;
+        if (name) {
+          this._bodyNameMap[name] = i;
+        }
+      }
+    }
+
+    // Apply each object's position
+    for (const obj of objects) {
+      const bodyId = this._bodyNameMap[obj.name];
+      if (bodyId !== undefined && obj.pos && obj.quat) {
+        // Set position (xpos is nbody x 3)
+        const posOffset = bodyId * 3;
+        this.demo.data.xpos[posOffset] = obj.pos[0];
+        this.demo.data.xpos[posOffset + 1] = obj.pos[1];
+        this.demo.data.xpos[posOffset + 2] = obj.pos[2];
+
+        // Set quaternion (xquat is nbody x 4)
+        const quatOffset = bodyId * 4;
+        this.demo.data.xquat[quatOffset] = obj.quat[0];
+        this.demo.data.xquat[quatOffset + 1] = obj.quat[1];
+        this.demo.data.xquat[quatOffset + 2] = obj.quat[2];
+        this.demo.data.xquat[quatOffset + 3] = obj.quat[3];
+      }
+    }
   }
 
   /**
