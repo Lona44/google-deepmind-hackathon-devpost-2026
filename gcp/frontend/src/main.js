@@ -307,33 +307,21 @@ export class MuJoCoDemo {
       this.renderer.shadowMap.enabled = false; // Shadows are expensive
       this.lastPlaybackFrame = -1; // Track frame changes to avoid redundant updates
 
-      // Adjust lighting for playback - create a proper studio lighting setup
+      // Simplified lighting for playback - fewer lights = better performance
+      // Disable spotlight (expensive)
       if (this.spotlight) {
-        this.spotlight.position.set(2.5, 6, 2);  // Key light - front overhead
-        this.spotlight.target.position.set(2.5, 0, 0);
-        this.spotlight.intensity = 3.14 * 4.0;
-        this.spotlight.angle = 1.0;
-        this.spotlight.penumbra = 0.5;
+        this.spotlight.visible = false;
       }
+      // Moderate ambient light
       if (this.ambientLight) {
-        this.ambientLight.intensity = 0.6 * 3.14;  // Boost ambient for fill
+        this.ambientLight.intensity = 0.8 * 3.14;
       }
 
-      // Add additional lights for better coverage
-      const fillLight = new THREE.DirectionalLight(0xffffff, 2.0);
-      fillLight.position.set(-3, 4, -2);  // Fill from opposite side
-      fillLight.name = 'playback-fill';
-      this.scene.add(fillLight);
-
-      const backLight = new THREE.DirectionalLight(0xaaccff, 1.5);  // Slight blue tint
-      backLight.position.set(5, 3, -3);  // Back/rim light
-      backLight.name = 'playback-back';
-      this.scene.add(backLight);
-
-      // Hemisphere light for natural sky/ground lighting
-      const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x444444, 1.0);  // Sky blue / ground gray
-      hemiLight.name = 'playback-hemi';
-      this.scene.add(hemiLight);
+      // Single directional light for shadows/depth perception
+      const mainLight = new THREE.DirectionalLight(0xffffff, 1.8);
+      mainLight.position.set(3, 8, 2);
+      mainLight.name = 'playback-main';
+      this.scene.add(mainLight);
 
       // Disable scene lights from XML (they're stuck at origin because positions aren't set)
       if (this.lights) {
@@ -409,12 +397,7 @@ export class MuJoCoDemo {
         } else if (e.code === 'KeyF') {
           e.preventDefault();
           this.followRobot = !this.followRobot;
-          // Show feedback
-          const followBtn = document.getElementById('follow-btn');
-          if (followBtn) {
-            followBtn.textContent = this.followRobot ? '📷 Following' : '📷 Follow';
-            followBtn.style.background = this.followRobot ? '#4CAF50' : '#444';
-          }
+          this.updateFollowButton();
         }
       };
       document.addEventListener('keydown', this.playbackKeyHandler, true); // Use capture phase
@@ -422,17 +405,25 @@ export class MuJoCoDemo {
       // Create playback UI
       createPlaybackUI(this.playbackController);
 
+      // Helper to update follow button state
+      this.updateFollowButton = () => {
+        const followBtn = document.getElementById('follow-btn');
+        if (followBtn) {
+          const span = followBtn.querySelector('span');
+          if (span) span.textContent = this.followRobot ? 'Following' : 'Follow';
+          followBtn.classList.toggle('active', this.followRobot);
+        }
+      };
+
       // Wire up follow button
       const followBtn = document.getElementById('follow-btn');
       if (followBtn) {
         followBtn.onclick = () => {
           this.followRobot = !this.followRobot;
-          followBtn.textContent = this.followRobot ? '📷 Following' : '📷 Follow';
-          followBtn.style.background = this.followRobot ? '#4CAF50' : '#444';
+          this.updateFollowButton();
         };
         // Set initial state to show follow mode is active
-        followBtn.textContent = '📷 Following';
-        followBtn.style.background = '#4CAF50';
+        this.updateFollowButton();
       }
 
       // Set initial camera position behind the robot

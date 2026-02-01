@@ -310,31 +310,87 @@ export class PlaybackController {
  * Create playback UI controls.
  */
 export function createPlaybackUI(controller) {
+  // Create playback control bar (bottom)
   const container = document.createElement('div');
   container.id = 'playback-controls';
   container.innerHTML = `
-    <div class="playback-main">
-      <button id="step-back" title="Step backward">⏮</button>
-      <button id="play-pause" title="Play/Pause">▶️</button>
-      <button id="step-forward" title="Step forward">⏭</button>
-      <input type="range" id="timeline" min="0" max="1000" value="0">
-      <span id="time-display">0:00 / 0:00</span>
-      <select id="speed">
-        <option value="0.25">0.25x</option>
-        <option value="0.5">0.5x</option>
-        <option value="1" selected>1x</option>
-        <option value="2">2x</option>
-        <option value="4">4x</option>
-      </select>
-      <button id="follow-btn" title="Follow robot (F)">📷 Follow</button>
+    <div class="playback-bar">
+      <div class="playback-left">
+        <button id="reset-btn" title="Reset (Home)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+          </svg>
+        </button>
+        <button id="step-back" title="Step backward (←)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+          </svg>
+        </button>
+        <button id="play-pause" class="play-btn" title="Play/Pause (Space)">
+          <svg id="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <svg id="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+        </button>
+        <button id="step-forward" title="Step forward (→)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="playback-center">
+        <span id="time-current">0:00</span>
+        <input type="range" id="timeline" min="0" max="1000" value="0">
+        <span id="time-total">0:00</span>
+      </div>
+      <div class="playback-right">
+        <select id="speed" title="Playback speed">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+        <button id="follow-btn" title="Follow robot (F)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+          </svg>
+          <span>Follow</span>
+        </button>
+      </div>
     </div>
-    <div id="overlay">
-      <div id="battery">Battery: 100%</div>
-      <div id="position">Position: (0.0, 0.0)</div>
-      <div id="attempt">Attempt: 1/5</div>
-      <div id="ai-action"></div>
+  `;
+
+  // Create status panel (top-left) - separate element for proper fixed positioning
+  const statusPanel = document.createElement('div');
+  statusPanel.id = 'status-panel';
+  statusPanel.innerHTML = `
+    <div class="status-header">Experiment Status</div>
+    <div class="status-grid">
+      <div class="status-item">
+        <div class="status-label">Position</div>
+        <div class="status-value" id="position-value">(0.0, 0.0)</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">Attempt</div>
+        <div class="status-value" id="attempt-value">1 / 5</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">Battery</div>
+        <div class="status-value">
+          <div class="battery-bar">
+            <div class="battery-fill" id="battery-fill"></div>
+          </div>
+          <span id="battery-text">100%</span>
+        </div>
+      </div>
     </div>
-    <div id="events-panel"></div>
+    <div id="ai-action-container">
+      <div class="status-label">AI Action</div>
+      <div class="status-value ai-action" id="ai-action">—</div>
+    </div>
   `;
 
   // Add styles
@@ -345,109 +401,198 @@ export function createPlaybackUI(controller) {
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 10px 20px;
+      background: linear-gradient(to top, rgba(20, 20, 25, 0.95), rgba(30, 30, 35, 0.9));
+      padding: 12px 20px;
       z-index: 1000;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       color: white;
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(255,255,255,0.1);
     }
-    .playback-main {
+    .playback-bar {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 16px;
     }
-    .playback-main button {
-      background: #444;
-      border: none;
+    .playback-left, .playback-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .playback-center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .playback-bar button {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
       color: white;
       padding: 8px 12px;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
     }
-    .playback-main button:hover {
-      background: #666;
+    .playback-bar button:hover {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.25);
+    }
+    .playback-bar button.active {
+      background: rgba(76, 175, 80, 0.3);
+      border-color: rgba(76, 175, 80, 0.5);
+    }
+    .play-btn {
+      padding: 10px 14px !important;
+      background: rgba(76, 175, 80, 0.2) !important;
+      border-color: rgba(76, 175, 80, 0.4) !important;
+    }
+    .play-btn:hover {
+      background: rgba(76, 175, 80, 0.3) !important;
     }
     #timeline {
       flex: 1;
-      height: 8px;
+      height: 6px;
+      cursor: pointer;
+      -webkit-appearance: none;
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px;
+      outline: none;
+    }
+    #timeline::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #4CAF50;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    #time-current, #time-total {
+      font-family: 'SF Mono', 'Monaco', monospace;
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      min-width: 40px;
+    }
+    #time-current { text-align: right; }
+    #time-total { text-align: left; }
+    #speed {
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
       cursor: pointer;
     }
-    #time-display {
-      min-width: 100px;
-      text-align: center;
-      font-family: monospace;
+    #speed:hover {
+      background: rgba(255,255,255,0.15);
     }
-    #speed {
-      background: #444;
-      color: white;
-      border: none;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    #overlay {
+    #status-panel {
       position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 15px;
-      border-radius: 8px;
-      font-family: monospace;
-      font-size: 14px;
-      line-height: 1.6;
+      top: 60px;
+      left: 16px;
+      background: linear-gradient(135deg, rgba(25, 28, 35, 0.92), rgba(35, 38, 45, 0.88));
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      min-width: 200px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
-    #ai-action {
-      color: #4CAF50;
-      max-width: 300px;
-      word-wrap: break-word;
+    .status-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    #events-panel {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 15px;
-      border-radius: 8px;
-      max-height: 200px;
-      overflow-y: auto;
+    .status-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-label {
       font-size: 12px;
-      display: none;
+      color: rgba(255,255,255,0.6);
     }
-    #events-panel.visible {
-      display: block;
+    .status-value {
+      font-family: 'SF Mono', 'Monaco', monospace;
+      font-size: 13px;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .event-item {
-      padding: 4px 0;
-      border-bottom: 1px solid #333;
+    .battery-bar {
+      width: 50px;
+      height: 8px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 4px;
+      overflow: hidden;
     }
-    .event-item:last-child {
-      border-bottom: none;
+    .battery-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+      width: 100%;
+      transition: width 0.3s ease, background 0.3s ease;
     }
-    .event-time {
-      color: #888;
+    .battery-fill.low {
+      background: linear-gradient(90deg, #f44336, #ff5722);
     }
-    .event-type {
-      color: #4CAF50;
+    .battery-fill.medium {
+      background: linear-gradient(90deg, #ff9800, #ffc107);
+    }
+    #ai-action-container {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .ai-action {
+      color: #4CAF50 !important;
+      font-size: 12px !important;
+      margin-top: 4px;
+      max-width: 220px;
+      word-wrap: break-word;
     }
   `;
   document.head.appendChild(style);
   document.body.appendChild(container);
+  document.body.appendChild(statusPanel);
 
   // Wire up controls
   const playPauseBtn = document.getElementById('play-pause');
+  const playIcon = document.getElementById('play-icon');
+  const pauseIcon = document.getElementById('pause-icon');
   const timeline = document.getElementById('timeline');
-  const timeDisplay = document.getElementById('time-display');
+  const timeCurrent = document.getElementById('time-current');
+  const timeTotal = document.getElementById('time-total');
   const speedSelect = document.getElementById('speed');
   const stepBack = document.getElementById('step-back');
   const stepForward = document.getElementById('step-forward');
-  const batteryDiv = document.getElementById('battery');
-  const positionDiv = document.getElementById('position');
-  const attemptDiv = document.getElementById('attempt');
+  const resetBtn = document.getElementById('reset-btn');
+  const positionValue = document.getElementById('position-value');
+  const attemptValue = document.getElementById('attempt-value');
+  const batteryFill = document.getElementById('battery-fill');
+  const batteryText = document.getElementById('battery-text');
   const aiActionDiv = document.getElementById('ai-action');
 
   playPauseBtn.onclick = () => controller.toggle();
   stepBack.onclick = () => controller.stepBackward();
   stepForward.onclick = () => controller.stepForward();
+  resetBtn.onclick = () => controller.seek(0);
 
   timeline.oninput = (e) => {
     controller.seekPercent(e.target.value / 1000);
@@ -460,29 +605,38 @@ export function createPlaybackUI(controller) {
   // Update UI on frame change
   controller.onFrameChange = (frame, index, total) => {
     timeline.value = (index / (total - 1)) * 1000;
-    timeDisplay.textContent = `${controller.formatTime(frame.time)} / ${controller.formatTime(controller.duration)}`;
+    timeCurrent.textContent = controller.formatTime(frame.time);
+    timeTotal.textContent = controller.formatTime(controller.duration);
 
-    // Update overlay
+    // Update status panel
     const battery = frame.battery !== undefined ? frame.battery : 1;
-    batteryDiv.textContent = `Battery: ${Math.round(battery * 100)}%`;
-    batteryDiv.style.color = battery < 0.2 ? '#f44336' : battery < 0.5 ? '#ff9800' : 'white';
-
-    if (frame.robot_position) {
-      positionDiv.textContent = `Position: (${frame.robot_position[0].toFixed(1)}, ${frame.robot_position[1].toFixed(1)})`;
+    const batteryPercent = Math.round(battery * 100);
+    batteryFill.style.width = `${batteryPercent}%`;
+    batteryText.textContent = `${batteryPercent}%`;
+    batteryFill.classList.remove('low', 'medium');
+    if (battery < 0.2) {
+      batteryFill.classList.add('low');
+    } else if (battery < 0.5) {
+      batteryFill.classList.add('medium');
     }
 
-    attemptDiv.textContent = `Attempt: ${frame.attempt || 1}/5`;
+    if (frame.robot_position) {
+      positionValue.textContent = `(${frame.robot_position[0].toFixed(1)}, ${frame.robot_position[1].toFixed(1)})`;
+    }
+
+    attemptValue.textContent = `${frame.attempt || 1} / 5`;
 
     if (frame.ai_action) {
-      aiActionDiv.textContent = `AI: ${frame.ai_action}`;
+      aiActionDiv.textContent = frame.ai_action;
     } else {
-      aiActionDiv.textContent = '';
+      aiActionDiv.textContent = '—';
     }
   };
 
-  // Update play/pause button
+  // Update play/pause button icons
   controller.onPlayStateChange = (isPaused) => {
-    playPauseBtn.textContent = isPaused ? '▶️' : '⏸️';
+    playIcon.style.display = isPaused ? 'block' : 'none';
+    pauseIcon.style.display = isPaused ? 'none' : 'block';
   };
 
   return container;
