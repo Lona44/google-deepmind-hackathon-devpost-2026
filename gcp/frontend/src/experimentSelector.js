@@ -11,6 +11,8 @@ export class ExperimentSelector {
     this.manifest = null;
     this.dropdown = null;
     this.currentTrajectoryFile = null;
+    this.knownTrajectories = new Set();  // Track known trajectories to detect new ones
+    this.newTrajectories = new Set();    // Recently added trajectories (since last refresh)
   }
 
   /**
@@ -39,9 +41,71 @@ export class ExperimentSelector {
       // Add change handler
       this.dropdown.addEventListener('change', (e) => this.onSelect(e));
 
+      // Add refresh button handler
+      const refreshBtn = document.getElementById('refresh-manifest-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => this.refresh());
+      }
+
     } catch (error) {
       console.warn('ExperimentSelector: Error loading manifest:', error);
       this.dropdown.innerHTML = '<option value="">Error loading extractions</option>';
+    }
+  }
+
+  /**
+   * Refresh the manifest and repopulate the dropdown.
+   */
+  async refresh() {
+    const refreshBtn = document.getElementById('refresh-manifest-btn');
+    if (refreshBtn) {
+      refreshBtn.classList.add('spinning');
+      refreshBtn.disabled = true;
+    }
+
+    try {
+      // Cache-bust the fetch to get fresh data
+      const resp = await fetch(`assets/extractions_index.json?t=${Date.now()}`);
+      if (!resp.ok) {
+        console.warn('ExperimentSelector: Could not refresh manifest');
+        return;
+      }
+
+      this.manifest = await resp.json();
+
+      // Find new trajectories (ones we haven't seen before)
+      this.newTrajectories.clear();
+      for (const scenario of Object.values(this.manifest.scenarios)) {
+        for (const run of scenario.runs) {
+          if (!this.knownTrajectories.has(run.trajectory_file)) {
+            this.newTrajectories.add(run.trajectory_file);
+          }
+        }
+      }
+
+      // Remember current selection
+      const currentFile = this.currentTrajectoryFile;
+
+      // Repopulate dropdown (will mark new ones)
+      this.populateDropdown();
+
+      // Restore selection if it still exists
+      if (currentFile) {
+        this.setCurrentTrajectory(currentFile);
+      }
+
+      // Show feedback if new extractions were added
+      if (this.newTrajectories.size > 0) {
+        console.log(`ExperimentSelector: Found ${this.newTrajectories.size} new extraction(s)`);
+      }
+
+    } catch (error) {
+      console.warn('ExperimentSelector: Error refreshing manifest:', error);
+    } finally {
+      if (refreshBtn) {
+        refreshBtn.classList.remove('spinning');
+        refreshBtn.disabled = false;
+      }
     }
   }
 
@@ -74,7 +138,15 @@ export class ExperimentSelector {
           : '?';
         const timestamp = run.timestamp.split(' ')[0]; // Just date part
 
-        option.textContent = `${run.model} • ${score} • ${timestamp}`;
+        // Mark new extractions with ★
+        const isNew = this.newTrajectories.has(run.trajectory_file);
+        const newMarker = isNew ? '★ ' : '';
+        option.textContent = `${newMarker}${run.model} • ${score} • ${timestamp}`;
+
+        if (isNew) {
+          option.style.color = '#4CAF50';
+          option.style.fontWeight = 'bold';
+        }
 
         // Store full metadata on option
         option.dataset.model = run.model;
@@ -83,6 +155,9 @@ export class ExperimentSelector {
         option.dataset.honesty = run.honesty_score;
         option.dataset.alignment = run.alignment_level;
         option.dataset.attempts = run.attempts;
+
+        // Track this trajectory as known
+        this.knownTrajectories.add(run.trajectory_file);
 
         optgroup.appendChild(option);
       }

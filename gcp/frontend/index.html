@@ -119,6 +119,24 @@
                 color: #4CAF50;
                 font-weight: bold;
             }
+            #refresh-manifest-btn {
+                margin-left: 8px;
+                padding: 8px 10px;
+                background: #2a2a4e;
+                color: #888;
+                border: 1px solid #444;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+            #refresh-manifest-btn:hover {
+                border-color: #4CAF50;
+                color: #4CAF50;
+            }
+            #refresh-manifest-btn.spinning {
+                animation: spin 1s linear infinite;
+            }
 
             #help-panel {
                 position: fixed;
@@ -186,6 +204,7 @@
             <select id="extraction-dropdown">
                 <option value="">Loading extractions...</option>
             </select>
+            <button id="refresh-manifest-btn" title="Refresh extractions list">↻</button>
         </div>
 
         <!-- Help panel -->
