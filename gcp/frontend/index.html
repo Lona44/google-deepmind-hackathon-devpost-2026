@@ -280,7 +280,11 @@
                 display: flex;
                 justify-content: space-between;
                 font-size: 12px;
-                color: #888;
+                color: #666;
+            }
+            #filter-panel .range-display span:nth-child(2) {
+                color: #4CAF50;
+                font-weight: bold;
             }
             #filter-panel #filter-clear {
                 width: 100%;
@@ -395,13 +399,13 @@
             </div>
 
             <div class="filter-section">
-                <label>Score Range</label>
+                <label>Minimum Score</label>
                 <div class="range-slider">
                     <input type="range" id="filter-score-min" min="0" max="100" value="0">
-                    <input type="range" id="filter-score-max" min="0" max="100" value="100">
                     <div class="range-display">
+                        <span>0</span>
                         <span id="score-min-display">0.0</span>
-                        <span id="score-max-display">1.0</span>
+                        <span>1</span>
                     </div>
                 </div>
             </div>

@@ -63,12 +63,10 @@ export class FilterPanel {
       clearBtn.addEventListener('click', () => this.clear());
     }
 
-    // Score range sliders
+    // Score range slider
     const scoreMin = document.getElementById('filter-score-min');
-    const scoreMax = document.getElementById('filter-score-max');
-    if (scoreMin && scoreMax) {
+    if (scoreMin) {
       scoreMin.addEventListener('input', () => this.onScoreRangeChange());
-      scoreMax.addEventListener('input', () => this.onScoreRangeChange());
     }
 
     // Keyboard shortcut
@@ -358,24 +356,14 @@ export class FilterPanel {
    */
   onScoreRangeChange() {
     const minSlider = document.getElementById('filter-score-min');
-    const maxSlider = document.getElementById('filter-score-max');
     const minDisplay = document.getElementById('score-min-display');
-    const maxDisplay = document.getElementById('score-max-display');
 
-    if (!minSlider || !maxSlider) return;
+    if (!minSlider) return;
 
-    let min = parseInt(minSlider.value) / 100;
-    let max = parseInt(maxSlider.value) / 100;
-
-    // Ensure min <= max
-    if (min > max) {
-      [min, max] = [max, min];
-    }
-
-    this.filters.scoreRange = [min, max];
+    const min = parseInt(minSlider.value) / 100;
+    this.filters.scoreRange = [min, 1];
 
     if (minDisplay) minDisplay.textContent = min.toFixed(1);
-    if (maxDisplay) maxDisplay.textContent = max.toFixed(1);
 
     this.applyFilters();
   }
@@ -397,12 +385,12 @@ export class FilterPanel {
       runs = runs.filter(r => this.filters.scenarios.has(r.scenarioId));
     }
 
-    // Score range filter
-    const [min, max] = this.filters.scoreRange;
-    if (min > 0 || max < 1) {
+    // Minimum score filter
+    const [min] = this.filters.scoreRange;
+    if (min > 0) {
       runs = runs.filter(r => {
         const score = r.composite_score ?? 0;
-        return score >= min && score <= max;
+        return score >= min;
       });
     }
 
@@ -471,7 +459,7 @@ export class FilterPanel {
 
     if (this.filters.models.size > 0) count++;
     if (this.filters.scenarios.size > 0) count++;
-    if (this.filters.scoreRange[0] > 0 || this.filters.scoreRange[1] < 1) count++;
+    if (this.filters.scoreRange[0] > 0) count++;
     if (this.filters.safetyScores.size > 0) count++;
     if (this.filters.alignmentLevels.size > 0) count++;
 
@@ -503,9 +491,7 @@ export class FilterPanel {
 
     // Reset UI
     const scoreMin = document.getElementById('filter-score-min');
-    const scoreMax = document.getElementById('filter-score-max');
     if (scoreMin) scoreMin.value = 0;
-    if (scoreMax) scoreMax.value = 100;
 
     // Re-render and apply
     this.populateFilterOptions();
