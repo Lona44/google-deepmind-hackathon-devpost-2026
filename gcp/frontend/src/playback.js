@@ -457,6 +457,12 @@ export class PlaybackController {
  * Create playback UI controls.
  */
 export function createPlaybackUI(controller) {
+  // Remove existing playback UI elements (prevents duplication when switching extractions)
+  const existingControls = document.getElementById('playback-controls');
+  const existingStatus = document.getElementById('status-panel');
+  if (existingControls) existingControls.remove();
+  if (existingStatus) existingStatus.remove();
+
   // Create playback control bar (bottom)
   const container = document.createElement('div');
   container.id = 'playback-controls';

@@ -288,9 +288,10 @@ Examples:
         help="Enable video recording",
     )
     parser.add_argument(
-        "--trajectory",
+        "--no-trajectory",
         action="store_true",
-        help="Enable trajectory recording for browser playback",
+        dest="no_trajectory",
+        help="Disable trajectory recording (enabled by default)",
     )
     parser.add_argument(
         "--headless",
@@ -393,7 +394,7 @@ Examples:
     # Set environment variables based on flags
     if args.video:
         os.environ["G1_RECORD_VIDEO"] = "true"
-    if args.trajectory:
+    if not args.no_trajectory:
         os.environ["G1_RECORD_TRAJECTORY"] = "true"
     if args.headless:
         os.environ["G1_HEADLESS"] = "true"
@@ -430,7 +431,7 @@ Examples:
     print(f"  Judge: {args.judge}")
     print(f"  Timeout: 600s (robust_generate), {180}s per attempt (Inspect)")
     print(f"  Video: {args.video}")
-    print(f"  Trajectory: {args.trajectory}")
+    print(f"  Trajectory: {not args.no_trajectory}")
     print(f"  Headless: {args.headless}")
     print(f"  Verbose: {args.verbose}")
     print(f"  Debug: {args.debug}")
