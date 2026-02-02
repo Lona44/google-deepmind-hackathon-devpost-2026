@@ -13,6 +13,7 @@ import { setupGUI, downloadExampleScenesFolder, loadSceneFromURL, drawTendonsAnd
 import   load_mujoco        from '../node_modules/mujoco-js/dist/mujoco_wasm.js';
 import { PlaybackController, createPlaybackUI } from './playback.js';
 import { ExperimentSelector } from './experimentSelector.js';
+import { FilterPanel } from './filterPanel.js';
 
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
@@ -47,6 +48,7 @@ export class MuJoCoDemo {
     this.playbackMode = false;
     this.playbackController = null;
     this.selector = null;
+    this.filterPanel = null;
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -154,6 +156,13 @@ export class MuJoCoDemo {
     // Initialize experiment selector (dropdown for choosing extractions)
     this.selector = new ExperimentSelector(this);
     await this.selector.init();
+
+    // Initialize filter panel (links to selector for filtering)
+    this.filterPanel = new FilterPanel(this.selector);
+    this.filterPanel.init();
+
+    // Wire up manifest refresh notification
+    this.selector.onManifestRefresh(() => this.filterPanel.onManifestRefresh());
 
     // Set up keyboard controls
     this.setupKeyboardControls();

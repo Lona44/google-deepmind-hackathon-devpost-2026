@@ -13,6 +13,14 @@ export class ExperimentSelector {
     this.currentTrajectoryFile = null;
     this.knownTrajectories = new Set();  // Track known trajectories to detect new ones
     this.newTrajectories = new Set();    // Recently added trajectories (since last refresh)
+    this.onManifestRefreshCallbacks = []; // Callbacks to notify when manifest is refreshed
+  }
+
+  /**
+   * Register a callback to be called when the manifest is refreshed.
+   */
+  onManifestRefresh(callback) {
+    this.onManifestRefreshCallbacks.push(callback);
   }
 
   /**
@@ -94,9 +102,26 @@ export class ExperimentSelector {
         this.setCurrentTrajectory(currentFile);
       }
 
-      // Show feedback if new extractions were added
+      // Show feedback
+      const totalRuns = Object.values(this.manifest.scenarios).reduce((sum, s) => sum + s.runs.length, 0);
       if (this.newTrajectories.size > 0) {
         console.log(`ExperimentSelector: Found ${this.newTrajectories.size} new extraction(s)`);
+        // Brief visual feedback on the button
+        if (refreshBtn) {
+          refreshBtn.textContent = `+${this.newTrajectories.size}`;
+          refreshBtn.style.color = '#4CAF50';
+          setTimeout(() => {
+            refreshBtn.textContent = '↻';
+            refreshBtn.style.color = '';
+          }, 2000);
+        }
+      } else {
+        console.log(`ExperimentSelector: Refreshed (${totalRuns} runs, no new)`);
+      }
+
+      // Notify listeners (e.g., FilterPanel)
+      for (const callback of this.onManifestRefreshCallbacks) {
+        callback();
       }
 
     } catch (error) {
@@ -124,7 +149,7 @@ export class ExperimentSelector {
     const sortedScenarios = Object.entries(this.manifest.scenarios)
       .sort(([, a], [, b]) => a.name.localeCompare(b.name));
 
-    for (const [scenarioId, scenario] of sortedScenarios) {
+    for (const [, scenario] of sortedScenarios) {
       const optgroup = document.createElement('optgroup');
       optgroup.label = scenario.name;
 
@@ -232,6 +257,86 @@ export class ExperimentSelector {
       alignment_level: parseInt(option.dataset.alignment) || null,
       attempts: parseInt(option.dataset.attempts) || null,
     };
+  }
+
+  /**
+   * Populate dropdown with a filtered set of runs.
+   * Called by FilterPanel when filters are applied.
+   */
+  populateDropdownFiltered(filteredRuns) {
+    // Clear existing options
+    this.dropdown.innerHTML = '<option value="">Select extraction...</option>';
+
+    if (!filteredRuns || filteredRuns.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No matching extractions';
+      option.disabled = true;
+      this.dropdown.appendChild(option);
+      return;
+    }
+
+    // Group runs by scenario
+    const byScenario = new Map();
+    for (const run of filteredRuns) {
+      const key = run.scenarioId;
+      if (!byScenario.has(key)) {
+        byScenario.set(key, { name: run.scenarioName, runs: [] });
+      }
+      byScenario.get(key).runs.push(run);
+    }
+
+    // Sort scenarios by name
+    const sortedScenarios = [...byScenario.entries()]
+      .sort(([, a], [, b]) => a.name.localeCompare(b.name));
+
+    for (const [, scenario] of sortedScenarios) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = scenario.name;
+
+      for (const run of scenario.runs) {
+        const option = document.createElement('option');
+        option.value = run.trajectory_file;
+
+        // Format: "model • score • timestamp"
+        const score = run.composite_score != null
+          ? run.composite_score.toFixed(2)
+          : '?';
+        const timestamp = run.timestamp.split(' ')[0]; // Just date part
+
+        // Mark new extractions with ★
+        const isNew = this.newTrajectories.has(run.trajectory_file);
+        const newMarker = isNew ? '★ ' : '';
+        option.textContent = `${newMarker}${run.model} • ${score} • ${timestamp}`;
+
+        if (isNew) {
+          option.style.color = '#4CAF50';
+          option.style.fontWeight = 'bold';
+        }
+
+        // Store full metadata on option
+        option.dataset.model = run.model;
+        option.dataset.score = run.composite_score;
+        option.dataset.safety = run.safety_score;
+        option.dataset.honesty = run.honesty_score;
+        option.dataset.alignment = run.alignment_level;
+        option.dataset.attempts = run.attempts;
+
+        optgroup.appendChild(option);
+      }
+
+      this.dropdown.appendChild(optgroup);
+    }
+
+    // Restore selection if it still exists in filtered results
+    if (this.currentTrajectoryFile) {
+      for (const option of this.dropdown.options) {
+        if (option.value === this.currentTrajectoryFile) {
+          option.selected = true;
+          break;
+        }
+      }
+    }
   }
 
   /**
