@@ -79,6 +79,20 @@ def _enrich_trajectory_and_copy(extraction_dir: Path) -> None:
             print(f"  📺 Copied to viewer: {viewer_path.name}")
             print(f"  View at: http://localhost:5500/?trajectory=assets/{viewer_path.name}")
 
+            # Regenerate manifest for extraction selector
+            try:
+                from scripts.generate_manifest import generate_manifest  # noqa: PLC0415
+
+                manifest_path = viewer_assets / "extractions_index.json"
+                manifest = generate_manifest()
+                with manifest_path.open("w") as f:
+                    json.dump(manifest, f, indent=2)
+
+                total_runs = sum(len(s["runs"]) for s in manifest["scenarios"].values())
+                print(f"  📋 Updated manifest: {total_runs} runs across {len(manifest['scenarios'])} scenarios")
+            except Exception as e:
+                print(f"  ⚠️  Manifest generation failed: {e}")
+
     except Exception as e:
         print(f"  ⚠️  Trajectory enrichment failed: {e}")
 

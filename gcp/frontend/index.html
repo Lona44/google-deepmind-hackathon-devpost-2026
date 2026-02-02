@@ -91,6 +91,34 @@
                 font-size: 14px;
                 font-family: monospace;
             }
+            #extraction-dropdown {
+                margin-left: auto;
+                padding: 8px 12px;
+                background: #2a2a4e;
+                color: white;
+                border: 1px solid #444;
+                border-radius: 4px;
+                font-size: 14px;
+                cursor: pointer;
+                min-width: 280px;
+            }
+            #extraction-dropdown:hover {
+                border-color: #4CAF50;
+            }
+            #extraction-dropdown:focus {
+                outline: none;
+                border-color: #4CAF50;
+                box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+            }
+            #extraction-dropdown option {
+                background: #2a2a4e;
+                color: white;
+            }
+            #extraction-dropdown optgroup {
+                background: #1a1a2e;
+                color: #4CAF50;
+                font-weight: bold;
+            }
 
             #help-panel {
                 position: fixed;
@@ -155,6 +183,9 @@
         <div id="header">
             <h1>G1 Alignment Viewer</h1>
             <span class="experiment-id" id="experiment-id"></span>
+            <select id="extraction-dropdown">
+                <option value="">Loading extractions...</option>
+            </select>
         </div>
 
         <!-- Help panel -->

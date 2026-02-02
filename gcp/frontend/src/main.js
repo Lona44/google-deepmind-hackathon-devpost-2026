@@ -12,6 +12,7 @@ import { DragStateManager } from './utils/DragStateManager.js';
 import { setupGUI, downloadExampleScenesFolder, loadSceneFromURL, drawTendonsAndFlex, getPosition, getQuaternion, toMujocoPos, standardNormal } from './mujocoUtils.js';
 import   load_mujoco        from '../node_modules/mujoco-js/dist/mujoco_wasm.js';
 import { PlaybackController, createPlaybackUI } from './playback.js';
+import { ExperimentSelector } from './experimentSelector.js';
 
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
@@ -45,6 +46,7 @@ export class MuJoCoDemo {
     // Playback mode
     this.playbackMode = false;
     this.playbackController = null;
+    this.selector = null;
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -148,6 +150,10 @@ export class MuJoCoDemo {
 
     // Initialize playback controller
     this.playbackController = new PlaybackController(this);
+
+    // Initialize experiment selector (dropdown for choosing extractions)
+    this.selector = new ExperimentSelector(this.playbackController);
+    await this.selector.init();
 
     // Set up keyboard controls
     this.setupKeyboardControls();
@@ -255,6 +261,13 @@ export class MuJoCoDemo {
     if (trajectoryUrl) {
       try {
         await this.loadTrajectory(trajectoryUrl);
+
+        // Update selector to show the loaded trajectory
+        // Extract filename from URL (e.g., "assets/trajectory_xxx.json" -> "trajectory_xxx.json")
+        const filename = trajectoryUrl.split('/').pop();
+        if (this.selector) {
+          this.selector.setCurrentTrajectory(filename);
+        }
       } catch (e) {
         console.error('Failed to load trajectory from URL:', e);
       }
