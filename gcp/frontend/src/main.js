@@ -152,7 +152,7 @@ export class MuJoCoDemo {
     this.playbackController = new PlaybackController(this);
 
     // Initialize experiment selector (dropdown for choosing extractions)
-    this.selector = new ExperimentSelector(this.playbackController);
+    this.selector = new ExperimentSelector(this);
     await this.selector.init();
 
     // Set up keyboard controls
@@ -161,8 +161,12 @@ export class MuJoCoDemo {
     // Set up drag and drop
     this.setupDragAndDrop();
 
-    // Check URL for trajectory parameter
-    await this.checkUrlForTrajectory();
+    // Check URL for trajectory parameter, or auto-load first extraction
+    const loadedFromUrl = await this.checkUrlForTrajectory();
+    if (!loadedFromUrl && this.selector) {
+      // No URL param - auto-load first available extraction
+      await this.selector.loadFirstExtraction();
+    }
 
     // Hide loading screen
     document.getElementById('loading-screen').classList.add('hidden');
@@ -268,10 +272,12 @@ export class MuJoCoDemo {
         if (this.selector) {
           this.selector.setCurrentTrajectory(filename);
         }
+        return true; // Loaded from URL
       } catch (e) {
         console.error('Failed to load trajectory from URL:', e);
       }
     }
+    return false; // No URL param or failed to load
   }
 
   async loadTrajectory(urlOrData) {

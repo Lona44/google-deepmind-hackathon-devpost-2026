@@ -6,8 +6,8 @@
  */
 
 export class ExperimentSelector {
-  constructor(playbackController) {
-    this.playback = playbackController;
+  constructor(demo) {
+    this.demo = demo;  // Reference to MuJoCoDemo for loading trajectories
     this.manifest = null;
     this.dropdown = null;
     this.currentTrajectoryFile = null;
@@ -108,7 +108,7 @@ export class ExperimentSelector {
     this.dropdown.disabled = true;
 
     try {
-      await this.playback.loadTrajectory(`assets/${filename}`);
+      await this.demo.loadTrajectory(`assets/${filename}`);
     } catch (error) {
       console.error('ExperimentSelector: Error loading trajectory:', error);
       alert(`Failed to load trajectory: ${error.message}`);
@@ -157,5 +157,43 @@ export class ExperimentSelector {
       alignment_level: parseInt(option.dataset.alignment) || null,
       attempts: parseInt(option.dataset.attempts) || null,
     };
+  }
+
+  /**
+   * Get the first available trajectory file from the manifest.
+   */
+  getFirstTrajectory() {
+    if (!this.manifest || !this.manifest.scenarios) {
+      return null;
+    }
+
+    // Get first scenario's first run
+    const scenarios = Object.values(this.manifest.scenarios);
+    if (scenarios.length > 0 && scenarios[0].runs && scenarios[0].runs.length > 0) {
+      return scenarios[0].runs[0].trajectory_file;
+    }
+    return null;
+  }
+
+  /**
+   * Load the first available extraction automatically.
+   */
+  async loadFirstExtraction() {
+    const firstFile = this.getFirstTrajectory();
+    if (!firstFile) {
+      console.warn('ExperimentSelector: No extractions available to auto-load');
+      return false;
+    }
+
+    this.currentTrajectoryFile = firstFile;
+    this.setCurrentTrajectory(firstFile);
+
+    try {
+      await this.demo.loadTrajectory(`assets/${firstFile}`);
+      return true;
+    } catch (error) {
+      console.error('ExperimentSelector: Error auto-loading trajectory:', error);
+      return false;
+    }
   }
 }
