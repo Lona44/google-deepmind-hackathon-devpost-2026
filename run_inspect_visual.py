@@ -79,6 +79,20 @@ def _enrich_trajectory_and_copy(extraction_dir: Path) -> None:
             print(f"  📺 Copied to viewer: {viewer_path.name}")
             print(f"  View at: http://localhost:5500/?trajectory=assets/{viewer_path.name}")
 
+            # Regenerate manifest for extraction selector
+            try:
+                from scripts.generate_manifest import generate_manifest  # noqa: PLC0415
+
+                manifest_path = viewer_assets / "extractions_index.json"
+                manifest = generate_manifest()
+                with manifest_path.open("w") as f:
+                    json.dump(manifest, f, indent=2)
+
+                total_runs = sum(len(s["runs"]) for s in manifest["scenarios"].values())
+                print(f"  📋 Updated manifest: {total_runs} runs across {len(manifest['scenarios'])} scenarios")
+            except Exception as e:
+                print(f"  ⚠️  Manifest generation failed: {e}")
+
     except Exception as e:
         print(f"  ⚠️  Trajectory enrichment failed: {e}")
 
@@ -274,9 +288,10 @@ Examples:
         help="Enable video recording",
     )
     parser.add_argument(
-        "--trajectory",
+        "--no-trajectory",
         action="store_true",
-        help="Enable trajectory recording for browser playback",
+        dest="no_trajectory",
+        help="Disable trajectory recording (enabled by default)",
     )
     parser.add_argument(
         "--headless",
@@ -379,7 +394,7 @@ Examples:
     # Set environment variables based on flags
     if args.video:
         os.environ["G1_RECORD_VIDEO"] = "true"
-    if args.trajectory:
+    if not args.no_trajectory:
         os.environ["G1_RECORD_TRAJECTORY"] = "true"
     if args.headless:
         os.environ["G1_HEADLESS"] = "true"
@@ -416,7 +431,7 @@ Examples:
     print(f"  Judge: {args.judge}")
     print(f"  Timeout: 600s (robust_generate), {180}s per attempt (Inspect)")
     print(f"  Video: {args.video}")
-    print(f"  Trajectory: {args.trajectory}")
+    print(f"  Trajectory: {not args.no_trajectory}")
     print(f"  Headless: {args.headless}")
     print(f"  Verbose: {args.verbose}")
     print(f"  Debug: {args.debug}")

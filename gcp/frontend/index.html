@@ -86,10 +86,223 @@
                 margin: 0;
             }
             #header .experiment-id {
-                margin-left: 20px;
-                color: #888;
+                display: none;  /* Hidden - dropdown shows all relevant info */
+            }
+            #extraction-dropdown {
+                margin-left: auto;
+                padding: 8px 12px;
+                background: #2a2a4e;
+                color: white;
+                border: 1px solid #444;
+                border-radius: 4px;
                 font-size: 14px;
-                font-family: monospace;
+                cursor: pointer;
+                min-width: 280px;
+            }
+            #extraction-dropdown:hover {
+                border-color: #4CAF50;
+            }
+            #extraction-dropdown:focus {
+                outline: none;
+                border-color: #4CAF50;
+                box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+            }
+            #extraction-dropdown option {
+                background: #2a2a4e;
+                color: white;
+            }
+            #extraction-dropdown optgroup {
+                background: #1a1a2e;
+                color: #4CAF50;
+                font-weight: bold;
+            }
+            #refresh-manifest-btn {
+                margin-left: 8px;
+                padding: 8px 10px;
+                background: #2a2a4e;
+                color: #888;
+                border: 1px solid #444;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+            #refresh-manifest-btn:hover {
+                border-color: #4CAF50;
+                color: #4CAF50;
+            }
+            #refresh-manifest-btn.spinning {
+                animation: spin 1s linear infinite;
+            }
+
+            #filter-toggle-btn {
+                margin-left: 8px;
+                padding: 8px 12px;
+                background: #2a2a4e;
+                color: #888;
+                border: 1px solid #444;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            #filter-toggle-btn:hover {
+                border-color: #4CAF50;
+                color: #4CAF50;
+            }
+            #filter-toggle-btn.active {
+                border-color: #4CAF50;
+                color: #4CAF50;
+                background: rgba(76, 175, 80, 0.1);
+            }
+            #filter-toggle-btn .filter-badge {
+                background: #4CAF50;
+                color: white;
+                font-size: 11px;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-weight: bold;
+            }
+
+            #filter-panel {
+                position: fixed;
+                top: 60px;
+                right: 10px;
+                width: 280px;
+                max-height: calc(100vh - 80px);
+                overflow-y: auto;
+                background: rgba(26, 26, 46, 0.95);
+                backdrop-filter: blur(10px);
+                border: 1px solid #333;
+                border-radius: 8px;
+                padding: 16px;
+                z-index: 1000;
+                display: none;
+                color: white;
+                font-size: 13px;
+            }
+            #filter-panel.visible {
+                display: block;
+            }
+            #filter-panel .filter-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid #444;
+            }
+            #filter-panel .filter-header h3 {
+                margin: 0;
+                font-size: 14px;
+                color: #4CAF50;
+            }
+            #filter-panel .filter-results {
+                color: #888;
+                font-size: 12px;
+            }
+            #filter-panel .filter-section {
+                margin-bottom: 16px;
+            }
+            #filter-panel .filter-section > label {
+                display: block;
+                font-size: 11px;
+                text-transform: uppercase;
+                color: #888;
+                margin-bottom: 8px;
+                letter-spacing: 0.5px;
+            }
+            #filter-panel .checkbox-group {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            #filter-panel .checkbox-group label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                padding: 4px 0;
+            }
+            #filter-panel .checkbox-group label:hover {
+                color: #4CAF50;
+            }
+            #filter-panel .checkbox-group input[type="checkbox"] {
+                width: 16px;
+                height: 16px;
+                accent-color: #4CAF50;
+            }
+            #filter-panel .checkbox-group .count {
+                margin-left: auto;
+                color: #666;
+                font-size: 11px;
+            }
+            #filter-panel .button-group {
+                display: flex;
+                gap: 4px;
+                flex-wrap: wrap;
+            }
+            #filter-panel .button-group button {
+                padding: 6px 12px;
+                background: #2a2a4e;
+                border: 1px solid #444;
+                border-radius: 4px;
+                color: #888;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            #filter-panel .button-group button:hover {
+                border-color: #4CAF50;
+                color: #4CAF50;
+            }
+            #filter-panel .button-group button.active {
+                background: rgba(76, 175, 80, 0.2);
+                border-color: #4CAF50;
+                color: #4CAF50;
+            }
+            #filter-panel .range-slider {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            #filter-panel .range-slider input[type="range"] {
+                width: 100%;
+                accent-color: #4CAF50;
+            }
+            #filter-panel .range-display {
+                display: flex;
+                justify-content: space-between;
+                font-size: 12px;
+                color: #666;
+            }
+            #filter-panel .range-display span:nth-child(2) {
+                color: #4CAF50;
+                font-weight: bold;
+            }
+            #filter-panel #filter-clear {
+                width: 100%;
+                padding: 10px;
+                background: transparent;
+                border: 1px solid #444;
+                border-radius: 4px;
+                color: #888;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.15s;
+                margin-top: 8px;
+            }
+            #filter-panel #filter-clear:hover {
+                border-color: #ff6b6b;
+                color: #ff6b6b;
+            }
+            #filter-panel .no-results {
+                text-align: center;
+                padding: 20px;
+                color: #ff6b6b;
             }
 
             #help-panel {
@@ -155,6 +368,56 @@
         <div id="header">
             <h1>G1 Alignment Viewer</h1>
             <span class="experiment-id" id="experiment-id"></span>
+            <select id="extraction-dropdown">
+                <option value="">Loading extractions...</option>
+            </select>
+            <button id="refresh-manifest-btn" title="Refresh extractions list">↻</button>
+            <button id="filter-toggle-btn" title="Toggle filters (F)">
+                <span>Filters</span>
+                <span class="filter-badge" id="filter-badge" style="display: none;"></span>
+            </button>
+        </div>
+
+        <!-- Filter panel -->
+        <div id="filter-panel">
+            <div class="filter-header">
+                <h3>Filters</h3>
+                <span class="filter-results" id="filter-results"></span>
+            </div>
+
+            <div class="filter-section">
+                <label>Model</label>
+                <div id="filter-models" class="checkbox-group"></div>
+            </div>
+
+            <div class="filter-section">
+                <label>Scenario</label>
+                <div id="filter-scenarios" class="checkbox-group"></div>
+            </div>
+
+            <div class="filter-section">
+                <label>Minimum Score</label>
+                <div class="range-slider">
+                    <input type="range" id="filter-score-min" min="0" max="100" value="0">
+                    <div class="range-display">
+                        <span>0</span>
+                        <span id="score-min-display">0.0</span>
+                        <span>1</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <label>Safety Score</label>
+                <div id="filter-safety" class="button-group"></div>
+            </div>
+
+            <div class="filter-section">
+                <label>Alignment</label>
+                <div id="filter-alignment" class="checkbox-group"></div>
+            </div>
+
+            <button id="filter-clear">Clear All Filters</button>
         </div>
 
         <!-- Help panel -->

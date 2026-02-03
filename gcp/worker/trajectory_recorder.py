@@ -21,6 +21,15 @@ class ObjectState:
 
 
 @dataclass
+class ContactEvent:
+    """Record of a contact/collision event."""
+
+    time: float
+    obstacle: str  # Name of obstacle contacted (e.g., "barrel_1_body")
+    position: tuple[float, float]  # (x, y) position where contact occurred
+
+
+@dataclass
 class TrajectoryFrame:
     """Single frame of trajectory data."""
 
@@ -34,6 +43,7 @@ class TrajectoryFrame:
     objects: list[ObjectState] = field(default_factory=list)  # Dynamic object states
     ai_action: str | None = None
     ai_reasoning: str | None = None
+    contact: ContactEvent | None = None  # Contact event if one occurred this frame
 
 
 @dataclass
@@ -70,25 +80,34 @@ class Trajectory:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
+        frames_list = []
+        for f in self.frames:
+            frame_dict = {
+                "time": f.time,
+                "qpos": f.qpos,
+                "qvel": f.qvel,
+                "robot_position": list(f.robot_position),
+                "robot_heading": f.robot_heading,
+                "battery": f.battery,
+                "attempt": f.attempt,
+                "objects": [{"name": o.name, "pos": o.pos, "quat": o.quat} for o in f.objects],
+                "ai_action": f.ai_action,
+                "ai_reasoning": f.ai_reasoning,
+            }
+            # Only include contact if present (keeps file size down)
+            if f.contact:
+                frame_dict["contact"] = {
+                    "time": f.contact.time,
+                    "obstacle": f.contact.obstacle,
+                    "position": list(f.contact.position),
+                }
+            frames_list.append(frame_dict)
+
         return {
             "experiment_id": self.experiment_id,
             "model": self.model,
             "fps": self.fps,
-            "frames": [
-                {
-                    "time": f.time,
-                    "qpos": f.qpos,
-                    "qvel": f.qvel,
-                    "robot_position": list(f.robot_position),
-                    "robot_heading": f.robot_heading,
-                    "battery": f.battery,
-                    "attempt": f.attempt,
-                    "objects": [{"name": o.name, "pos": o.pos, "quat": o.quat} for o in f.objects],
-                    "ai_action": f.ai_action,
-                    "ai_reasoning": f.ai_reasoning,
-                }
-                for f in self.frames
-            ],
+            "frames": frames_list,
             "events": [{"time": e.time, "type": e.event_type, "data": e.data} for e in self.events],
             "debrief": self.debrief,
             "metadata": self.metadata,
@@ -187,6 +206,7 @@ class TrajectoryRecorder:
         battery: float,
         attempt: int,
         objects: list[dict[str, Any]] | None = None,
+        contact: dict[str, Any] | None = None,
     ):
         """Record a single frame of simulation state.
 
@@ -194,15 +214,27 @@ class TrajectoryRecorder:
             sim_time: Current simulation time (resets each attempt)
             objects: List of dynamic object states, each with keys:
                      'name', 'pos' (list[float]), 'quat' (list[float])
+            contact: Optional contact event dict with keys:
+                     'time', 'obstacle' (str), 'position' (tuple)
 
         Note: Frame time is stored as cumulative time across all attempts,
         not the raw sim_time which resets each attempt.
         """
-        if not self.should_record_frame(sim_time):
-            return
+        # Check for time reset (new attempt) - must do this even if we skip recording
+        if sim_time < self.last_raw_sim_time - 1.0:  # Allow small variations
+            self.time_offset += self.last_raw_sim_time
+            self.trajectory.add_event("attempt_reset", {"new_time_offset": self.time_offset})
+        self.last_raw_sim_time = sim_time
 
         # Use cumulative time for the frame
         cumulative_time = sim_time + self.time_offset
+
+        # Always record frames with contact events (don't skip due to rate limiting)
+        # Contact events are important and shouldn't be lost between sampled frames
+        has_contact = contact is not None
+        should_record = cumulative_time - self.last_frame_time >= self.frame_interval
+        if not has_contact and not should_record:
+            return
 
         # Convert object dicts to ObjectState instances
         object_states = []
@@ -211,6 +243,15 @@ class TrajectoryRecorder:
                 object_states.append(
                     ObjectState(name=obj["name"], pos=obj["pos"], quat=obj["quat"])
                 )
+
+        # Convert contact dict to ContactEvent
+        contact_event = None
+        if contact:
+            contact_event = ContactEvent(
+                time=contact["time"],
+                obstacle=contact["obstacle"],
+                position=tuple(contact["position"]),
+            )
 
         frame = TrajectoryFrame(
             time=cumulative_time,  # Use cumulative time, not raw sim_time
@@ -223,6 +264,7 @@ class TrajectoryRecorder:
             objects=object_states,
             ai_action=self.current_ai_action,
             ai_reasoning=self.current_ai_reasoning,
+            contact=contact_event,
         )
         self.trajectory.add_frame(frame)
         self.last_frame_time = cumulative_time  # Track cumulative time

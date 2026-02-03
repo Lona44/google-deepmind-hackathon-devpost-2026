@@ -457,6 +457,12 @@ export class PlaybackController {
  * Create playback UI controls.
  */
 export function createPlaybackUI(controller) {
+  // Remove existing playback UI elements (prevents duplication when switching extractions)
+  const existingControls = document.getElementById('playback-controls');
+  const existingStatus = document.getElementById('status-panel');
+  if (existingControls) existingControls.remove();
+  if (existingStatus) existingStatus.remove();
+
   // Create playback control bar (bottom)
   const container = document.createElement('div');
   container.id = 'playback-controls';
@@ -514,7 +520,10 @@ export function createPlaybackUI(controller) {
   const statusPanel = document.createElement('div');
   statusPanel.id = 'status-panel';
   statusPanel.innerHTML = `
-    <div class="status-header">Experiment Status</div>
+    <div class="status-header">
+      <span>Experiment Status</span>
+      <button class="collapse-btn" id="status-collapse-btn" title="Collapse panel (M)">−</button>
+    </div>
     <div class="status-grid">
       <div class="status-item">
         <div class="status-label">Position</div>
@@ -677,6 +686,9 @@ export function createPlaybackUI(controller) {
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
     .status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
@@ -685,6 +697,37 @@ export function createPlaybackUI(controller) {
       margin-bottom: 12px;
       padding-bottom: 8px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .collapse-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6);
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+      margin-left: 12px;
+    }
+    .collapse-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+    #status-panel.collapsed {
+      min-width: auto;
+      max-width: none;
+    }
+    #status-panel.collapsed .status-grid,
+    #status-panel.collapsed #judge-section,
+    #status-panel.collapsed #ai-section {
+      display: none;
+    }
+    #status-panel.collapsed .status-header {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
     }
     .status-grid {
       display: flex;
@@ -951,6 +994,29 @@ export function createPlaybackUI(controller) {
     lastAiReasoning = null;
     controller.seek(0);
   };
+
+  // Status panel collapse toggle
+  const collapseBtn = document.getElementById('status-collapse-btn');
+  const toggleCollapse = () => {
+    const isCollapsed = statusPanel.classList.toggle('collapsed');
+    collapseBtn.textContent = isCollapsed ? '+' : '−';
+    localStorage.setItem('statusPanelCollapsed', isCollapsed);
+  };
+  collapseBtn.onclick = toggleCollapse;
+
+  // Restore saved collapse state
+  if (localStorage.getItem('statusPanelCollapsed') === 'true') {
+    statusPanel.classList.add('collapsed');
+    collapseBtn.textContent = '+';
+  }
+
+  // Keyboard shortcut for collapse (M key)
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'm' || e.key === 'M') {
+      toggleCollapse();
+    }
+  });
 
   timeline.oninput = (e) => {
     controller.seekPercent(e.target.value / 1000);

@@ -938,15 +938,39 @@ def save_extraction(
         videos = sum(1 for mf in extraction.media_files if mf.media_type == "video")
         print(f"  Media: {images} images, {videos} videos → {output_path.parent / 'media'}")
 
-    # Find and copy matching trajectory file
-    eval_created = data.get("metadata", {}).get("created")
-    if eval_created:
-        logs_dir = Path(__file__).parent.parent / "logs"
-        traj_path = find_matching_trajectory(eval_created, logs_dir)
-        if traj_path:
-            dest_path = output_path.parent / "trajectory.json"
-            shutil.copy2(traj_path, dest_path)
-            print(f"  Trajectory: {traj_path.name} → {dest_path}")
+    # Find and copy trajectory file
+    # First, try to get trajectory_path from tool_calls result (most reliable)
+    traj_path = None
+    for tool_call in data.get("tool_calls", []):
+        result = tool_call.get("result", "")
+        if "trajectory_path" in result and "trajectory_recorded" in result:
+            # Parse JSON from tool result
+            try:
+                # Result may have trailing text after JSON, find the JSON part
+                json_end = result.rfind("}") + 1
+                if json_end > 0:
+                    tool_data = json.loads(result[:json_end])
+                    path_str = tool_data.get("trajectory_path")
+                    if path_str:
+                        traj_path = Path(path_str)
+                        break
+            except json.JSONDecodeError:
+                pass
+
+    # Fallback to timestamp matching if no path found in messages
+    if not traj_path:
+        eval_created = data.get("metadata", {}).get("created")
+        if eval_created:
+            logs_dir = Path(__file__).parent.parent / "logs"
+            traj_path = find_matching_trajectory(eval_created, logs_dir)
+
+    # Copy trajectory file if found
+    if traj_path and traj_path.exists():
+        dest_path = output_path.parent / "trajectory.json"
+        shutil.copy2(traj_path, dest_path)
+        print(f"  Trajectory: {traj_path.name} → {dest_path}")
+    elif traj_path:
+        print(f"  ⚠️  Trajectory file not found: {traj_path}")
 
 
 def main():
