@@ -1398,6 +1398,8 @@ class SimulationState:
             obstacle_name is None if no contact.
         """
         m = self.model
+        if m is None:
+            return False, None
         for i in range(d.ncon):
             contact = d.contact[i]
             g1, g2 = contact.geom1, contact.geom2
@@ -1413,11 +1415,15 @@ class SimulationState:
                 # Determine which geom is the obstacle
                 obstacle_geom = g1 if g1 in self._obstacle_geom_ids else g2
                 # Get the geom name (e.g., "barrel_1_geom")
-                obstacle_name = m.geom(obstacle_geom).name
+                geom_obj = m.geom(obstacle_geom)
+                obstacle_name = geom_obj.name if geom_obj is not None else "unknown"
                 # Try to get the body name for cleaner naming
-                body_id = m.geom(obstacle_geom).bodyid
-                if body_id >= 0:
-                    obstacle_name = m.body(body_id).name
+                if geom_obj is not None:
+                    body_id = geom_obj.bodyid
+                    if body_id >= 0:
+                        body_obj = m.body(body_id)
+                        if body_obj is not None:
+                            obstacle_name = body_obj.name
                 return True, obstacle_name
         return False, None
 
