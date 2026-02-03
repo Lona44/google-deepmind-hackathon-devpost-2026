@@ -14,6 +14,22 @@ import   load_mujoco        from '../node_modules/mujoco-js/dist/mujoco_wasm.js'
 import { PlaybackController, createPlaybackUI } from './playback.js';
 import { ExperimentSelector } from './experimentSelector.js';
 import { FilterPanel } from './filterPanel.js';
+import { enhanceTimeline } from './components/Timeline.js';
+import { KeyboardHints } from './components/KeyboardHints.js';
+
+// Post-processing imports
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// Story mode visualization components
+import { PathTrail } from './components/PathTrail.js';
+import { WaypointProjection } from './components/WaypointProjection.js';
+import { TensionMeter } from './components/TensionMeter.js';
+import { ReasoningStream } from './components/ReasoningStream.js';
+import { ForbiddenZoneVisualizer } from './components/ForbiddenZoneVisualizer.js';
+import { ContactVisualizer } from './components/ContactVisualizer.js';
 
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
@@ -49,6 +65,18 @@ export class MuJoCoDemo {
     this.playbackController = null;
     this.selector = null;
     this.filterPanel = null;
+
+    // Story mode visualization components
+    this.pathTrail = null;
+    this.waypointProjection = null;
+    this.tensionMeter = null;
+    this.reasoningStream = null;
+    this.forbiddenZoneViz = null;
+    this.composer = null;  // Post-processing
+    this.bloomEnabled = true;  // Toggle for performance
+    this.lastRenderTime = 0;
+    this.contactVisualizer = null;  // Barrel contact glow effect
+    this._lastVisualizationAttempt = null;  // Track attempt for waypoint clearing
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -169,6 +197,10 @@ export class MuJoCoDemo {
 
     // Set up drag and drop
     this.setupDragAndDrop();
+
+    // Initialize keyboard hints modal (shows on first visit)
+    this.keyboardHints = new KeyboardHints();
+    this.keyboardHints.init();
 
     // Check URL for trajectory parameter, or auto-load first extraction
     const loadedFromUrl = await this.checkUrlForTrajectory();
@@ -360,6 +392,18 @@ export class MuJoCoDemo {
         this.ambientLight.intensity = 0.8 * 3.14;
       }
 
+      // Remove any existing playback-specific elements (prevents stacking on extraction switch)
+      const existingLight = this.scene.getObjectByName('playback-main');
+      if (existingLight) {
+        this.scene.remove(existingLight);
+      }
+      const existingFloor = this.mujocoRoot?.getObjectByName('playback-floor');
+      if (existingFloor) {
+        existingFloor.geometry?.dispose();
+        existingFloor.material?.dispose();
+        this.mujocoRoot.remove(existingFloor);
+      }
+
       // Single directional light for shadows/depth perception
       const mainLight = new THREE.DirectionalLight(0xffffff, 1.8);
       mainLight.position.set(3, 8, 2);
@@ -411,6 +455,11 @@ export class MuJoCoDemo {
       this.followRobot = true;
       this.followOffset = new THREE.Vector3(-2, 1.5, 2); // Camera offset from robot
 
+      // Remove any existing playback key handler (prevents duplicates when switching extractions)
+      if (this.playbackKeyHandler) {
+        document.removeEventListener('keydown', this.playbackKeyHandler, true);
+      }
+
       // Intercept keyboard shortcuts that conflict with playback
       this.playbackKeyHandler = (e) => {
         if (e.code === 'Space') {
@@ -441,6 +490,9 @@ export class MuJoCoDemo {
           e.preventDefault();
           this.followRobot = !this.followRobot;
           this.updateFollowButton();
+        } else if (e.code === 'KeyB') {
+          e.preventDefault();
+          this.toggleBloom();
         }
       };
       document.addEventListener('keydown', this.playbackKeyHandler, true); // Use capture phase
@@ -448,15 +500,19 @@ export class MuJoCoDemo {
       // Create playback UI
       createPlaybackUI(this.playbackController);
 
-      // Helper to update follow button state
-      this.updateFollowButton = () => {
-        const followBtn = document.getElementById('follow-btn');
-        if (followBtn) {
-          const span = followBtn.querySelector('span');
-          if (span) span.textContent = this.followRobot ? 'Following' : 'Follow';
-          followBtn.classList.toggle('active', this.followRobot);
-        }
-      };
+      // Enhance timeline with event markers
+      enhanceTimeline(this.playbackController);
+
+      // Initialize story mode visualizations
+      this._initStoryModeVisualizations();
+
+      // Wire up bloom toggle button
+      const bloomBtn = document.getElementById('bloom-btn');
+      if (bloomBtn) {
+        bloomBtn.onclick = () => this.toggleBloom();
+        // Set initial state
+        this.updateBloomButton();
+      }
 
       // Wire up follow button
       const followBtn = document.getElementById('follow-btn');
@@ -593,6 +649,392 @@ export class MuJoCoDemo {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize( window.innerWidth, window.innerHeight );
+
+    // Update post-processing composer
+    if (this.composer) {
+      this.composer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Update path trail line resolution
+    if (this.pathTrail) {
+      this.pathTrail.onWindowResize(window.innerWidth, window.innerHeight);
+    }
+  }
+
+  /**
+   * Update follow button visual state.
+   */
+  updateFollowButton() {
+    const followBtn = document.getElementById('follow-btn');
+    if (followBtn) {
+      const span = followBtn.querySelector('span');
+      if (span) span.textContent = this.followRobot ? 'Following' : 'Follow';
+      followBtn.classList.toggle('active', this.followRobot);
+    }
+  }
+
+  /**
+   * Update bloom button visual state.
+   */
+  updateBloomButton() {
+    const btn = document.getElementById('bloom-btn');
+    if (btn) {
+      btn.classList.toggle('active', this.bloomEnabled);
+    }
+  }
+
+  /**
+   * Toggle bloom post-processing effect.
+   */
+  toggleBloom() {
+    this.bloomEnabled = !this.bloomEnabled;
+    localStorage.setItem('g1-bloom-enabled', this.bloomEnabled);
+    this.updateBloomButton();
+
+    // Recreate composer if enabling, or just let render use standard renderer
+    if (this.bloomEnabled && !this.composer) {
+      this._setupPostProcessing();
+    }
+  }
+
+  /**
+   * Initialize story mode visualization components.
+   * Called when a trajectory is loaded.
+   * @private
+   */
+  _initStoryModeVisualizations() {
+    // Dispose existing visualizations
+    this._disposeStoryModeVisualizations();
+
+    // Create path trail
+    this.pathTrail = new PathTrail(this.scene);
+
+    // Create waypoint projection
+    this.waypointProjection = new WaypointProjection(this.scene);
+
+    // Create forbidden zone visualizer
+    this.forbiddenZoneViz = new ForbiddenZoneVisualizer(this.scene);
+
+    // Create tension meter (DOM-based)
+    this.tensionMeter = new TensionMeter();
+    document.body.appendChild(this.tensionMeter.create());
+
+    // Create reasoning stream (DOM-based)
+    this.reasoningStream = new ReasoningStream();
+    document.body.appendChild(this.reasoningStream.create());
+    // Sync with current playback speed
+    this.reasoningStream.setPlaybackSpeed(this.playbackController.playbackSpeed);
+
+    // Create contact visualizer (subtle barrel glow on contact)
+    this.contactVisualizer = new ContactVisualizer(this.scene, this.bodies);
+
+    // Set up forbidden zone from trajectory metadata or use default
+    const trajectory = this.playbackController.trajectory;
+    const metadata = trajectory?.metadata;
+
+    // Try to get forbidden zone from metadata, or use default for barrels scenario
+    let forbiddenZone = metadata?.forbidden_zone;
+    if (!forbiddenZone) {
+      // Default forbidden zone for barrels scenario (the barrel area)
+      // Barrels are typically at x=2.5, y=-1 to y=1
+      forbiddenZone = {
+        x_min: 2.0,
+        x_max: 3.0,
+        y_min: -1.2,
+        y_max: 1.2
+      };
+    }
+
+    this.forbiddenZoneViz.createZoneBoundary(forbiddenZone);
+    this.tensionMeter.setForbiddenZone(forbiddenZone);
+
+    // Set goal if available
+    if (metadata?.goal) {
+      this.waypointProjection.setGoal(metadata.goal);
+    }
+
+    // Setup post-processing (bloom)
+    this._setupPostProcessing();
+
+    // Hook into frame changes for visualization updates
+    this._hookVisualizationUpdates();
+
+    // Process initial frame to show starting waypoints
+    this._initializeWaypointsFromTrajectory();
+  }
+
+  /**
+   * Load waypoint decisions for the first attempt from the trajectory.
+   * Called on initial load so waypoints are visible before playback starts.
+   * @private
+   */
+  _initializeWaypointsFromTrajectory() {
+    const frames = this.playbackController.trajectory?.frames;
+    if (!frames || frames.length === 0 || !this.waypointProjection) return;
+
+    // Get the attempt number at frame 0
+    const initialAttempt = frames[0]?.attempt || 1;
+    this._lastVisualizationAttempt = initialAttempt;
+
+    // Load only waypoints from the initial attempt
+    for (const frame of frames) {
+      const frameAttempt = frame.attempt || 1;
+
+      // Stop when we hit a different attempt
+      if (frameAttempt !== initialAttempt) break;
+
+      if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
+        const robotPos = frame.robot_position || [0, 0];
+        this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+      }
+    }
+  }
+
+  /**
+   * Dispose story mode visualization components.
+   * @private
+   */
+  _disposeStoryModeVisualizations() {
+    // Reset attempt tracking
+    this._lastVisualizationAttempt = null;
+
+    if (this.pathTrail) {
+      this.pathTrail.dispose();
+      this.pathTrail = null;
+    }
+    if (this.waypointProjection) {
+      this.waypointProjection.dispose();
+      this.waypointProjection = null;
+    }
+    if (this.forbiddenZoneViz) {
+      this.forbiddenZoneViz.dispose();
+      this.forbiddenZoneViz = null;
+    }
+    if (this.tensionMeter) {
+      this.tensionMeter.dispose();
+      this.tensionMeter = null;
+    }
+    if (this.reasoningStream) {
+      this.reasoningStream.dispose();
+      this.reasoningStream = null;
+    }
+    if (this.contactVisualizer) {
+      this.contactVisualizer.dispose();
+      this.contactVisualizer = null;
+    }
+    if (this.composer) {
+      this.composer.dispose();
+      this.composer = null;
+    }
+  }
+
+  /**
+   * Setup post-processing effects (bloom).
+   * @private
+   */
+  _setupPostProcessing() {
+    // Check localStorage preference
+    const bloomPref = localStorage.getItem('g1-bloom-enabled');
+    this.bloomEnabled = bloomPref !== 'false';
+
+    if (!this.bloomEnabled) return;
+
+    try {
+      this.composer = new EffectComposer(this.renderer);
+
+      // Render pass
+      const renderPass = new RenderPass(this.scene, this.camera);
+      this.composer.addPass(renderPass);
+
+      // Bloom pass - subtle glow
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.4,   // strength (subtle)
+        0.4,   // radius
+        0.85   // threshold
+      );
+      this.composer.addPass(bloomPass);
+
+      // Output pass
+      const outputPass = new OutputPass();
+      this.composer.addPass(outputPass);
+    } catch (e) {
+      console.warn('Post-processing setup failed, falling back to standard render:', e);
+      this.composer = null;
+    }
+  }
+
+  /**
+   * Hook visualization updates to frame changes.
+   * @private
+   */
+  _hookVisualizationUpdates() {
+    // Store original callback
+    const originalOnFrameChange = this.playbackController.onFrameChange;
+
+    // Track last frame index for loop detection
+    let lastVisualizationFrameIndex = 0;
+
+    // Wrap with visualization updates
+    this.playbackController.onFrameChange = (frame, index, total) => {
+      // Call original
+      if (originalOnFrameChange) {
+        originalOnFrameChange(frame, index, total);
+      }
+
+      // Detect playback loop (frame index jumped backward significantly)
+      if (index < lastVisualizationFrameIndex - 10) {
+        // Playback looped back - rebuild trail from start
+        this._handleSeek(index);
+      }
+      lastVisualizationFrameIndex = index;
+
+      // Update visualizations
+      this._updateVisualizationsForFrame(frame, index);
+    };
+
+    // Also hook into seek to rebuild trail
+    const originalSeek = this.playbackController.seek.bind(this.playbackController);
+    this.playbackController.seek = (frame) => {
+      originalSeek(frame);
+      this._handleSeek(Math.floor(frame));
+    };
+
+    // Hook into speed changes to sync reasoning stream timing
+    const originalSetSpeed = this.playbackController.setSpeed.bind(this.playbackController);
+    this.playbackController.setSpeed = (speed) => {
+      originalSetSpeed(speed);
+      if (this.reasoningStream) {
+        this.reasoningStream.setPlaybackSpeed(speed);
+      }
+    };
+  }
+
+  /**
+   * Update visualizations for a specific frame.
+   * @private
+   */
+  _updateVisualizationsForFrame(frame, index) {
+    if (!frame) return;
+
+    const robotPos = frame.robot_position;
+    const currentAttempt = frame.attempt || 1;
+
+    // Track attempt changes - clear visualizations when attempt changes
+    if (this._lastVisualizationAttempt !== null &&
+        this._lastVisualizationAttempt !== currentAttempt) {
+      // New attempt started - clear visualizations for fresh start
+      console.log(`Attempt changed: ${this._lastVisualizationAttempt} → ${currentAttempt}, clearing visualizations`);
+      if (this.waypointProjection) {
+        this.waypointProjection.clear();
+      }
+      if (this.tensionMeter) {
+        this.tensionMeter.clearViolation();
+      }
+    }
+    this._lastVisualizationAttempt = currentAttempt;
+
+    // Update contact visualizer's attempt (clears glows from previous attempts)
+    if (this.contactVisualizer) {
+      this.contactVisualizer.setAttempt(currentAttempt);
+    }
+
+    // Update path trail
+    if (this.pathTrail && robotPos) {
+      this.pathTrail.addPoint(robotPos[0], robotPos[1], currentAttempt);
+    }
+
+    // Update waypoint projection
+    if (this.waypointProjection && robotPos) {
+      this.waypointProjection.updateRobotPosition(robotPos);
+
+      // Update waypoints if AI action contains set_waypoints
+      // Note: This may re-add waypoints already loaded during init, but that's handled by the component
+      if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
+        this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+      }
+    }
+
+    // Update tension meter
+    if (this.tensionMeter && robotPos) {
+      this.tensionMeter.update(robotPos);
+    }
+
+    // Update reasoning stream (only on new reasoning)
+    if (this.reasoningStream && frame.ai_reasoning) {
+      this.reasoningStream.showReasoning(frame.ai_reasoning);
+    }
+
+    // Check for violations
+    if (frame.violation && this.forbiddenZoneViz) {
+      this.forbiddenZoneViz.triggerViolationEffect();
+      if (this.tensionMeter) {
+        this.tensionMeter.setViolation(true);
+      }
+    }
+
+    // Handle contact events (barrel glow + tension meter violation)
+    if (frame.contact) {
+      if (this.contactVisualizer) {
+        this.contactVisualizer.onContact(frame.contact);
+      }
+      // Sync with tension meter - actual contact is a violation
+      if (this.tensionMeter) {
+        this.tensionMeter.setViolation(true);
+      }
+    }
+  }
+
+  /**
+   * Handle seeking - rebuild visualizations up to seek point.
+   * @param {number} frameIndex
+   */
+  _handleSeek(frameIndex) {
+    const frames = this.playbackController.trajectory?.frames;
+    if (!frames || frameIndex >= frames.length) return;
+
+    // Get the attempt number at the seek target
+    const targetAttempt = frames[frameIndex]?.attempt || 1;
+    this._lastVisualizationAttempt = targetAttempt;
+
+    // Rebuild trail from frames up to seek point
+    if (this.pathTrail) {
+      this.pathTrail.rebuildFromFrames(frames, frameIndex);
+    }
+
+    // Clear reasoning stream on seek
+    if (this.reasoningStream) {
+      this.reasoningStream.clear();
+    }
+
+    // Rebuild waypoint history up to seek point (only for current attempt)
+    if (this.waypointProjection) {
+      this.waypointProjection.clear();
+
+      // Find where this attempt starts
+      let attemptStartIndex = 0;
+      for (let i = frameIndex; i >= 0; i--) {
+        if ((frames[i]?.attempt || 1) !== targetAttempt) {
+          attemptStartIndex = i + 1;
+          break;
+        }
+      }
+
+      // Load waypoints from attempt start to seek point
+      for (let i = attemptStartIndex; i <= frameIndex && i < frames.length; i++) {
+        const frame = frames[i];
+        if ((frame.attempt || 1) === targetAttempt &&
+            frame.ai_action && frame.ai_action.includes('set_waypoints')) {
+          const robotPos = frame.robot_position || [0, 0];
+          this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+        }
+      }
+    }
+
+    // Clear contact glows
+    if (this.contactVisualizer) {
+      this.contactVisualizer.clear();
+    }
   }
 
   render(timeMS) {
@@ -626,8 +1068,26 @@ export class MuJoCoDemo {
           }
         }
       }
-      // Skip to render (don't run simulation code or redundant body updates)
-      this.renderer.render(this.scene, this.camera);
+
+      // Update forbidden zone animation
+      const deltaTime = this.lastRenderTime ? (timeMS - this.lastRenderTime) / 1000 : 0.016;
+      if (this.forbiddenZoneViz) {
+        this.forbiddenZoneViz.update(deltaTime);
+      }
+
+      // Update contact visualizer (fade out barrel glow)
+      if (this.contactVisualizer) {
+        this.contactVisualizer.update(deltaTime);
+      }
+
+      this.lastRenderTime = timeMS;
+
+      // Render with post-processing if enabled, otherwise standard render
+      if (this.composer && this.bloomEnabled) {
+        this.composer.render();
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
       return;
     } else if (!this.params["paused"]) {
       // Physics simulation mode (original behavior)

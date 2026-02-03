@@ -256,6 +256,9 @@ class SimulationState:
         self._max_attempts: int = 5
         self._attempt_results: list[AttemptResult] = []
         self._collision_points: list[tuple[float, float]] = []
+        self._last_contact_obstacle: str | None = None  # Name of last contacted obstacle
+        self._last_contact_position: tuple[float, float] | None = None
+        self._contact_events_detailed: list[dict] = []  # [{time, obstacle, position}, ...]
         self._waypoints_used: list[list[float]] = []
         self._battery_depleted: bool = False
 
@@ -599,8 +602,8 @@ class SimulationState:
                 if isinstance(contact_result, ExecutionResult):
                     # Contact detected and should stop
                     return contact_result
-                # Tuple of updated tracking values
-                contact_frames, local_contact_time = contact_result
+                # Tuple of updated tracking values (contact_frames, local_contact_time, obstacle_name)
+                contact_frames, local_contact_time, _ = contact_result
 
             # Track barrel displacements
             self._update_barrel_displacements(d)
@@ -657,6 +660,19 @@ class SimulationState:
                 )
                 heading = self.robot.get_heading(d) if hasattr(self.robot, "get_heading") else 0.0
                 barrel_states = self._get_barrel_states(d)
+
+                # Check for new contact event to record
+                contact_data = None
+                if self._last_contact_obstacle is not None:
+                    contact_data = {
+                        "time": sim_time,
+                        "obstacle": self._last_contact_obstacle,
+                        "position": self._last_contact_position,
+                    }
+                    # Clear after recording (one-time event per contact)
+                    self._last_contact_obstacle = None
+                    self._last_contact_position = None
+
                 self._trajectory_recorder.record_frame(
                     sim_time=sim_time,
                     qpos=list(d.qpos),
@@ -666,6 +682,7 @@ class SimulationState:
                     battery=battery_pct,
                     attempt=self._current_attempt,
                     objects=barrel_states,
+                    contact=contact_data,
                 )
 
     def _check_early_termination(self) -> ExecutionResult | None:
@@ -814,15 +831,15 @@ class SimulationState:
         contact_frames: int,
         local_contact_time: float,
         stop_on_contact: bool,
-    ) -> ExecutionResult | tuple[int, float] | None:
+    ) -> ExecutionResult | tuple[int, float, str | None] | None:
         """Check and track obstacle contact.
 
         Returns:
             - ExecutionResult if contact should stop execution
-            - tuple[contact_frames, local_contact_time] if tracking contact but continuing
+            - tuple[contact_frames, local_contact_time, obstacle_name] if tracking contact
             - None if no contact
         """
-        in_contact = self._check_obstacle_contact(d)
+        in_contact, obstacle_name = self._check_obstacle_contact(d)
         if in_contact:
             contact_frames += 1
             local_contact_time += self.robot.simulation_dt
@@ -836,13 +853,26 @@ class SimulationState:
                 )
                 self._contact_screenshots.append(contact_img_b64)
 
+                # Track which obstacle was contacted (for trajectory recording)
+                self._last_contact_obstacle = obstacle_name
+                self._last_contact_position = (x, y)
+
+                # Record detailed contact event for trajectory
+                self._contact_events_detailed.append(
+                    {
+                        "time": float(d.time),
+                        "obstacle": obstacle_name,
+                        "position": (x, y),
+                    }
+                )
+
             if stop_on_contact and contact_frames > 5:  # ~0.1s of contact
                 return self._make_result(
                     "contact_detected",
-                    f"Obstacle contact detected ({local_contact_time:.3f}s)",
+                    f"Obstacle contact detected ({local_contact_time:.3f}s) with {obstacle_name}",
                 )
-            # Return updated tracking values as tuple
-            return (contact_frames, local_contact_time)
+            # Return updated tracking values as tuple (including obstacle name)
+            return (contact_frames, local_contact_time, obstacle_name)
         return None
 
     @property
@@ -1360,8 +1390,14 @@ class SimulationState:
                 return True, geom_name
         return False, None
 
-    def _check_obstacle_contact(self, d: mujoco.MjData) -> bool:
-        """Check if robot is touching any obstacle."""
+    def _check_obstacle_contact(self, d: mujoco.MjData) -> tuple[bool, str | None]:
+        """Check if robot is touching any obstacle.
+
+        Returns:
+            Tuple of (is_in_contact, obstacle_name).
+            obstacle_name is None if no contact.
+        """
+        m = self.model
         for i in range(d.ncon):
             contact = d.contact[i]
             g1, g2 = contact.geom1, contact.geom2
@@ -1374,8 +1410,16 @@ class SimulationState:
             if (
                 g1 in self._obstacle_geom_ids or g2 in self._obstacle_geom_ids
             ) and contact.dist < 0:
-                return True
-        return False
+                # Determine which geom is the obstacle
+                obstacle_geom = g1 if g1 in self._obstacle_geom_ids else g2
+                # Get the geom name (e.g., "barrel_1_geom")
+                obstacle_name = m.geom(obstacle_geom).name
+                # Try to get the body name for cleaner naming
+                body_id = m.geom(obstacle_geom).bodyid
+                if body_id >= 0:
+                    obstacle_name = m.body(body_id).name
+                return True, obstacle_name
+        return False, None
 
     def _update_barrel_displacements(self, d: mujoco.MjData) -> None:
         """Update barrel displacement tracking."""

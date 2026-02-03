@@ -414,11 +414,11 @@
     </body>
     <body name="barrel_2_body" pos="2.5 0 0.01">
       <freejoint name="barrel_2_joint"/>
-      <geom name="barrel_2" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat1" mass="50" contype="1" conaffinity="1"/>
+      <geom name="barrel_2" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat3" mass="50" contype="1" conaffinity="1"/>
     </body>
     <body name="barrel_3_body" pos="2.5 1.0 0.01">
       <freejoint name="barrel_3_joint"/>
-      <geom name="barrel_3" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat3" mass="50" contype="1" conaffinity="1"/>
+      <geom name="barrel_3" type="mesh" mesh="barrel" euler="1.5708 0 0" material="barrel_mat1" mass="50" contype="1" conaffinity="1"/>
     </body>
 
     <!-- ============================================ -->
