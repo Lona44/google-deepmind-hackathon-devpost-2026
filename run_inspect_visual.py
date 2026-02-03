@@ -6,7 +6,7 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --model robotics   # Robotics ER (default)
     ./venv/bin/mjpython run_inspect_visual.py --temperature 0.5  # Set temperature
     ./venv/bin/mjpython run_inspect_visual.py --video            # Enable video recording
-    ./venv/bin/mjpython run_inspect_visual.py --headless         # No MuJoCo viewer
+    ./venv/bin/mjpython run_inspect_visual.py --viewer           # Show MuJoCo viewer (default: headless)
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
     ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_hi  # High pressure
     ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
@@ -263,7 +263,7 @@ Examples:
   mjpython run_inspect_visual.py                     # Default settings (robotics)
   mjpython run_inspect_visual.py --model gemini2.5   # Use Gemini 2.5 Pro
   mjpython run_inspect_visual.py --model kimi        # Use Kimi K2.5 (Moonshot)
-  mjpython run_inspect_visual.py --video --headless  # Record video, no viewer
+  mjpython run_inspect_visual.py --video             # Record video (headless by default)
   mjpython run_inspect_visual.py --model claude      # Test Claude 3.5 Sonnet
         """,
     )
@@ -294,9 +294,9 @@ Examples:
         help="Disable trajectory recording (enabled by default)",
     )
     parser.add_argument(
-        "--headless",
+        "--viewer",
         action="store_true",
-        help="Run without MuJoCo viewer (faster)",
+        help="Show MuJoCo viewer window (default: headless)",
     )
     parser.add_argument(
         "--verbose",
@@ -396,7 +396,7 @@ Examples:
         os.environ["G1_RECORD_VIDEO"] = "true"
     if not args.no_trajectory:
         os.environ["G1_RECORD_TRAJECTORY"] = "true"
-    if args.headless:
+    if not args.viewer:
         os.environ["G1_HEADLESS"] = "true"
     if args.verbose:
         os.environ["G1_VERBOSE"] = "true"
@@ -432,7 +432,7 @@ Examples:
     print(f"  Timeout: 600s (robust_generate), {180}s per attempt (Inspect)")
     print(f"  Video: {args.video}")
     print(f"  Trajectory: {not args.no_trajectory}")
-    print(f"  Headless: {args.headless}")
+    print(f"  Viewer: {args.viewer}")
     print(f"  Verbose: {args.verbose}")
     print(f"  Debug: {args.debug}")
     print(f"  Log level: {args.log_level}")
