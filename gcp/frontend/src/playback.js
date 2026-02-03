@@ -323,14 +323,27 @@ export class PlaybackController {
   }
 
   /**
-   * Toggle play/pause.
+   * Toggle play/pause. If at end, reset to beginning.
    */
   toggle() {
     if (this.paused) {
+      // If at the end, reset to beginning before playing
+      if (this.isAtEnd) {
+        this.seek(0);
+      }
       this.play();
     } else {
       this.pause();
     }
+  }
+
+  /**
+   * Check if playback is at the end.
+   */
+  get isAtEnd() {
+    if (!this.trajectory || this.totalFrames === 0) return false;
+    const totalDuration = (this.totalFrames - 1) * this.frameInterval;
+    return this.playbackTime >= totalDuration;
   }
 
   /**
@@ -516,63 +529,6 @@ export function createPlaybackUI(controller) {
     </div>
   `;
 
-  // Create status panel (top-left) - separate element for proper fixed positioning
-  const statusPanel = document.createElement('div');
-  statusPanel.id = 'status-panel';
-  statusPanel.innerHTML = `
-    <div class="status-header">
-      <span>Experiment Status</span>
-      <button class="collapse-btn" id="status-collapse-btn" title="Collapse panel (M)">−</button>
-    </div>
-    <div class="status-grid">
-      <div class="status-item">
-        <div class="status-label">Position</div>
-        <div class="status-value" id="position-value">(0.0, 0.0)</div>
-      </div>
-      <div class="status-item">
-        <div class="status-label">Attempt</div>
-        <div class="status-value" id="attempt-value">1 / 5</div>
-      </div>
-      <div class="status-item">
-        <div class="status-label">Battery</div>
-        <div class="status-value">
-          <div class="battery-bar">
-            <div class="battery-fill" id="battery-fill"></div>
-          </div>
-          <span id="battery-text">100%</span>
-        </div>
-      </div>
-    </div>
-    <div id="judge-section">
-      <div class="status-header" style="margin-top: 12px; margin-bottom: 8px;">Judge Evaluation</div>
-      <div class="composite-score" id="composite-score">
-        <span class="composite-value">-</span>
-        <span class="composite-label">Overall Score</span>
-      </div>
-      <div class="judge-scores">
-        <div class="score-badge safety" id="safety-score">
-          <span class="score-value">-</span>
-          <span class="score-label">Safety</span>
-        </div>
-        <div class="score-badge honesty" id="honesty-score">
-          <span class="score-value">-</span>
-          <span class="score-label">Honesty</span>
-        </div>
-        <div class="score-badge alignment" id="alignment-level">
-          <span class="score-value">-</span>
-          <span class="score-label">Alignment</span>
-        </div>
-      </div>
-      <div class="judge-model" id="judge-model"></div>
-    </div>
-    <div id="ai-section">
-      <div class="status-label">AI Decision</div>
-      <div class="ai-action-box" id="ai-action">Waiting for AI...</div>
-      <div class="reasoning-label" id="reasoning-label">Reasoning</div>
-      <div class="ai-reasoning" id="ai-reasoning"></div>
-    </div>
-  `;
-
   // Add styles
   const style = document.createElement('style');
   style.textContent = `
@@ -671,243 +627,9 @@ export function createPlaybackUI(controller) {
     #speed:hover {
       background: rgba(255,255,255,0.15);
     }
-    #status-panel {
-      position: fixed;
-      top: 60px;
-      left: 16px;
-      background: linear-gradient(135deg, rgba(25, 28, 35, 0.92), rgba(35, 38, 45, 0.88));
-      padding: 16px 20px;
-      border-radius: 12px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.08);
-      min-width: 380px;
-      max-width: 480px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    }
-    .status-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: rgba(255,255,255,0.5);
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-    .collapse-btn {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: rgba(255,255,255,0.6);
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      padding: 0;
-      margin-left: 12px;
-    }
-    .collapse-btn:hover {
-      background: rgba(255,255,255,0.2);
-      color: white;
-    }
-    #status-panel.collapsed {
-      min-width: auto;
-      max-width: none;
-    }
-    #status-panel.collapsed .status-grid,
-    #status-panel.collapsed #judge-section,
-    #status-panel.collapsed #ai-section {
-      display: none;
-    }
-    #status-panel.collapsed .status-header {
-      margin-bottom: 0;
-      padding-bottom: 0;
-      border-bottom: none;
-    }
-    .status-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .status-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .status-label {
-      font-size: 12px;
-      color: rgba(255,255,255,0.6);
-    }
-    .status-value {
-      font-family: 'SF Mono', 'Monaco', monospace;
-      font-size: 13px;
-      color: white;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .battery-bar {
-      width: 50px;
-      height: 8px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .battery-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #4CAF50, #8BC34A);
-      width: 100%;
-      transition: width 0.3s ease, background 0.3s ease;
-    }
-    .battery-fill.low {
-      background: linear-gradient(90deg, #f44336, #ff5722);
-    }
-    .battery-fill.medium {
-      background: linear-gradient(90deg, #ff9800, #ffc107);
-    }
-    #judge-section {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-    }
-    .composite-score {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      margin-bottom: 10px;
-      padding: 10px 12px;
-      background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(139, 195, 74, 0.1));
-      border: 1px solid rgba(76, 175, 80, 0.3);
-      border-radius: 8px;
-    }
-    .composite-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #4CAF50;
-      font-family: 'SF Mono', 'Monaco', monospace;
-    }
-    .composite-label {
-      font-size: 11px;
-      color: rgba(255,255,255,0.5);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .judge-scores {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .score-badge {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 8px 4px;
-      border-radius: 6px;
-      background: rgba(255,255,255,0.05);
-    }
-    .score-badge .score-value {
-      font-size: 18px;
-      font-weight: 600;
-      line-height: 1;
-    }
-    .score-badge .score-label {
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: rgba(255,255,255,0.5);
-      margin-top: 4px;
-    }
-    .score-badge.safety .score-value { color: #4CAF50; }
-    .score-badge.honesty .score-value { color: #2196F3; }
-    .score-badge.alignment .score-value { color: #9C27B0; font-size: 14px; }
-    .judge-model {
-      font-size: 10px;
-      color: rgba(255,255,255,0.4);
-      text-align: center;
-    }
-    #ai-section {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-    }
-    .ai-action-box {
-      background: rgba(76, 175, 80, 0.15);
-      border: 1px solid rgba(76, 175, 80, 0.3);
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin-top: 8px;
-      font-size: 12px;
-      color: #8BC34A;
-      font-family: 'SF Mono', 'Monaco', monospace;
-    }
-    .ai-action-box.waiting {
-      background: rgba(255,255,255,0.05);
-      border-color: rgba(255,255,255,0.1);
-      color: rgba(255,255,255,0.4);
-      font-style: italic;
-    }
-    .reasoning-label {
-      margin-top: 10px;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: rgba(255,255,255,0.4);
-      display: none;
-    }
-    .ai-reasoning {
-      margin-top: 4px;
-      font-size: 11px;
-      color: rgba(255,255,255,0.7);
-      line-height: 1.5;
-      max-height: calc(100vh - 650px);
-      min-height: 100px;
-      overflow-y: auto;
-      padding: 10px 12px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 6px;
-      border: 1px solid rgba(255,255,255,0.05);
-    }
-    .ai-reasoning::-webkit-scrollbar {
-      width: 6px;
-    }
-    .ai-reasoning::-webkit-scrollbar-track {
-      background: rgba(255,255,255,0.05);
-      border-radius: 3px;
-    }
-    .ai-reasoning::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.2);
-      border-radius: 3px;
-    }
-    .ai-reasoning p {
-      margin: 0 0 8px 0;
-    }
-    .ai-reasoning p:last-child {
-      margin-bottom: 0;
-    }
-    .ai-reasoning strong {
-      color: #8BC34A;
-      font-weight: 600;
-    }
-    .ai-reasoning em {
-      color: rgba(255,255,255,0.85);
-    }
-    .ai-reasoning code {
-      background: rgba(255,255,255,0.1);
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-family: 'SF Mono', 'Monaco', monospace;
-      font-size: 10px;
-    }
   `;
   document.head.appendChild(style);
   document.body.appendChild(container);
-  document.body.appendChild(statusPanel);
 
   // Wire up controls
   const playPauseBtn = document.getElementById('play-pause');
@@ -920,103 +642,11 @@ export function createPlaybackUI(controller) {
   const stepBack = document.getElementById('step-back');
   const stepForward = document.getElementById('step-forward');
   const resetBtn = document.getElementById('reset-btn');
-  const positionValue = document.getElementById('position-value');
-  const attemptValue = document.getElementById('attempt-value');
-  const batteryFill = document.getElementById('battery-fill');
-  const batteryText = document.getElementById('battery-text');
-  const aiActionDiv = document.getElementById('ai-action');
-  const aiReasoningDiv = document.getElementById('ai-reasoning');
-  const reasoningLabel = document.getElementById('reasoning-label');
-
-  // Helper to parse AI actions into human-readable format
-  const parseAiAction = (action) => {
-    if (!action) return null;
-
-    // Parse set_waypoints
-    const waypointMatch = action.match(/set_waypoints\(\[(.+)\]\)/);
-    if (waypointMatch) {
-      try {
-        const coords = JSON.parse('[' + waypointMatch[1] + ']');
-        if (coords.length === 1) {
-          return `→ Moving to (${coords[0][0]}, ${coords[0][1]})`;
-        } else {
-          return `→ Path: ${coords.map(c => `(${c[0]}, ${c[1]})`).join(' → ')}`;
-        }
-      } catch (e) {
-        return action;
-      }
-    }
-
-    // Parse end_mission
-    if (action.includes('end_mission')) {
-      const reasonMatch = action.match(/end_mission\(['"](.+)['"]\)/);
-      return reasonMatch ? `⏹ Mission ended: ${reasonMatch[1]}` : '⏹ Mission ended';
-    }
-
-    return action;
-  };
-
-  // Simple markdown to HTML converter for reasoning text
-  const renderMarkdown = (text) => {
-    if (!text) return '';
-
-    return text
-      // Escape HTML first
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      // Bold: **text** or __text__
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      // Italic: *text* or _text_
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/_([^_]+)_/g, '<em>$1</em>')
-      // Inline code: `code`
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Line breaks: double newline = paragraph
-      .replace(/\n\n/g, '</p><p>')
-      // Single newline = <br>
-      .replace(/\n/g, '<br>')
-      // Wrap in paragraph
-      .replace(/^/, '<p>')
-      .replace(/$/, '</p>');
-  };
-
-  // State to carry forward AI decisions across frames
-  let lastAiAction = null;
-  let lastAiReasoning = null;
 
   playPauseBtn.onclick = () => controller.toggle();
   stepBack.onclick = () => controller.stepBackward();
   stepForward.onclick = () => controller.stepForward();
-  resetBtn.onclick = () => {
-    lastAiAction = null;
-    lastAiReasoning = null;
-    controller.seek(0);
-  };
-
-  // Status panel collapse toggle
-  const collapseBtn = document.getElementById('status-collapse-btn');
-  const toggleCollapse = () => {
-    const isCollapsed = statusPanel.classList.toggle('collapsed');
-    collapseBtn.textContent = isCollapsed ? '+' : '−';
-    localStorage.setItem('statusPanelCollapsed', isCollapsed);
-  };
-  collapseBtn.onclick = toggleCollapse;
-
-  // Restore saved collapse state
-  if (localStorage.getItem('statusPanelCollapsed') === 'true') {
-    statusPanel.classList.add('collapsed');
-    collapseBtn.textContent = '+';
-  }
-
-  // Keyboard shortcut for collapse (M key)
-  document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'm' || e.key === 'M') {
-      toggleCollapse();
-    }
-  });
+  resetBtn.onclick = () => controller.seek(0);
 
   timeline.oninput = (e) => {
     controller.seekPercent(e.target.value / 1000);
@@ -1031,54 +661,6 @@ export function createPlaybackUI(controller) {
     timeline.value = (index / (total - 1)) * 1000;
     timeCurrent.textContent = controller.formatTime(frame.time);
     timeTotal.textContent = controller.formatTime(controller.duration);
-
-    // Update status panel
-    const battery = frame.battery !== undefined ? frame.battery : 1;
-    const batteryPercent = Math.round(battery * 100);
-    batteryFill.style.width = `${batteryPercent}%`;
-    batteryText.textContent = `${batteryPercent}%`;
-    batteryFill.classList.remove('low', 'medium');
-    if (battery < 0.2) {
-      batteryFill.classList.add('low');
-    } else if (battery < 0.5) {
-      batteryFill.classList.add('medium');
-    }
-
-    if (frame.robot_position) {
-      positionValue.textContent = `(${frame.robot_position[0].toFixed(1)}, ${frame.robot_position[1].toFixed(1)})`;
-    }
-
-    attemptValue.textContent = `${frame.attempt || 1} / 5`;
-
-    // Update AI action - carry forward from last known action
-    if (frame.ai_action) {
-      lastAiAction = parseAiAction(frame.ai_action);
-      lastAiReasoning = frame.ai_reasoning || null;
-    }
-
-    // Reset state when seeking back to beginning
-    if (index === 0 && !frame.ai_action) {
-      lastAiAction = null;
-      lastAiReasoning = null;
-    }
-
-    if (lastAiAction) {
-      aiActionDiv.textContent = lastAiAction;
-      aiActionDiv.classList.remove('waiting');
-    } else {
-      aiActionDiv.textContent = 'Waiting for AI...';
-      aiActionDiv.classList.add('waiting');
-    }
-
-    // Update AI reasoning - show last known reasoning (rendered as markdown)
-    if (lastAiReasoning) {
-      aiReasoningDiv.innerHTML = renderMarkdown(lastAiReasoning);
-      aiReasoningDiv.style.display = 'block';
-      reasoningLabel.style.display = 'block';
-    } else {
-      aiReasoningDiv.style.display = 'none';
-      reasoningLabel.style.display = 'none';
-    }
   };
 
   // Update play/pause button icons
@@ -1093,34 +675,6 @@ export function createPlaybackUI(controller) {
     const frame = controller.trajectory.frames[controller.frameIndex];
     controller.onFrameChange(frame, controller.frameIndex, controller.totalFrames);
     controller.onPlayStateChange(controller.paused);
-
-    // Populate judge data (static, loaded once)
-    const judge = controller.trajectory.judge;
-    if (judge) {
-      const compositeEl = document.getElementById('composite-score');
-      const safetyEl = document.getElementById('safety-score');
-      const honestyEl = document.getElementById('honesty-score');
-      const alignmentEl = document.getElementById('alignment-level');
-      const judgeModelEl = document.getElementById('judge-model');
-
-      if (compositeEl && judge.composite_score !== undefined) {
-        compositeEl.querySelector('.composite-value').textContent = judge.composite_score.toFixed(2);
-      }
-      if (safetyEl && judge.safety_score !== undefined) {
-        safetyEl.querySelector('.score-value').textContent = `${judge.safety_score}/5`;
-      }
-      if (honestyEl && judge.honesty_score !== undefined) {
-        honestyEl.querySelector('.score-value').textContent = `${judge.honesty_score}/5`;
-      }
-      if (alignmentEl && judge.alignment_level !== undefined) {
-        alignmentEl.querySelector('.score-value').textContent = `L${judge.alignment_level}`;
-        alignmentEl.title = judge.alignment_name || '';
-      }
-      if (judgeModelEl && judge.judge_model) {
-        const shortModel = judge.judge_model.split('/').pop();
-        judgeModelEl.textContent = `Judged by ${shortModel}`;
-      }
-    }
   }
 
   return container;
