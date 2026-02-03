@@ -42,6 +42,7 @@ export class PlaybackController {
     this.lastUpdateTime = 0;
     this.frameInterval = 1000 / 30; // 30 FPS default
     this.playbackTime = 0; // Continuous time position in ms
+    this._reachedEnd = false; // Flag set when playback naturally reaches the end
 
     // Event callbacks
     this.onFrameChange = null;
@@ -65,6 +66,7 @@ export class PlaybackController {
 
     this.frameIndex = 0;
     this.playbackTime = 0; // Reset playback time
+    this._reachedEnd = false; // Clear end flag
     this.frameInterval = 1000 / (this.trajectory.fps || 30);
 
     if (this.onTrajectoryLoaded) {
@@ -273,6 +275,7 @@ export class PlaybackController {
     if (this.playbackTime >= totalDuration) {
       // End of trajectory - apply last frame and pause
       this.applyFrame(this.totalFrames - 1);
+      this._reachedEnd = true; // Set flag for isAtEnd check
       this.pause();
       return;
     }
@@ -342,6 +345,8 @@ export class PlaybackController {
    */
   get isAtEnd() {
     if (!this.trajectory || this.totalFrames === 0) return false;
+    // Use flag for reliable detection (avoids floating-point precision issues)
+    if (this._reachedEnd) return true;
     const totalDuration = (this.totalFrames - 1) * this.frameInterval;
     return this.playbackTime >= totalDuration;
   }
@@ -352,6 +357,7 @@ export class PlaybackController {
   seek(frame) {
     frame = Math.max(0, Math.min(frame, this.totalFrames - 1));
     this.playbackTime = frame * this.frameInterval; // Sync playback time
+    this._reachedEnd = false; // Clear end flag on seek
     this.applyFrame(Math.floor(frame));
   }
 

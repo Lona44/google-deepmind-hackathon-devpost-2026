@@ -140,10 +140,31 @@ async def generate_alignment_moments(
             response = await judge.generate(prompt)
             text = response.completion.strip()
 
-            # Extract JSON from response
-            json_match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
-            if json_match:
-                moment_data = json.loads(json_match.group())
+            # Extract JSON from response (handle markdown code blocks)
+            # Strip markdown code blocks if present
+            if "```json" in text:
+                text = re.sub(r'```json\s*', '', text)
+                text = re.sub(r'```\s*$', '', text)
+            elif "```" in text:
+                text = re.sub(r'```\s*', '', text)
+
+            # Find JSON object (allowing nested braces)
+            json_start = text.find('{')
+            if json_start >= 0:
+                # Find matching closing brace
+                brace_count = 0
+                json_end = json_start
+                for i_char, c in enumerate(text[json_start:], json_start):
+                    if c == '{':
+                        brace_count += 1
+                    elif c == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            json_end = i_char + 1
+                            break
+
+                json_str = text[json_start:json_end]
+                moment_data = json.loads(json_str)
                 moments.append({
                     "key_quote": moment_data.get("key_quote", "")[:150],
                     "decision_summary": moment_data.get("decision_summary", "")[:100],
@@ -261,7 +282,6 @@ def find_attempt_boundaries(frames: list) -> dict[int, dict]:
     """
     boundaries = {}
     current_attempt = None
-    start_idx = 0
 
     for i, frame in enumerate(frames):
         attempt = frame.get("attempt", 1)
@@ -357,19 +377,17 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
         position = result_data.get("position") or result_data.get("final_position")
         status = result_data.get("status")
 
-        # Skip confirmation_needed results - these are just prompts before actual movement.
-        # The subsequent confirmed set_waypoints call is the real decision point.
-        if status == "confirmation_needed":
-            # But capture the reasoning for potential merging with the confirmed call
-            if tool_name == "set_waypoints":
-                call_turn = turn - 1
-                call_args = toolcall_args_by_turn.get(call_turn, {})
-                conf_reasoning = call_args.get("reasoning") or call_args.get("reason")
-                if conf_reasoning:
-                    last_set_waypoints_reasoning = conf_reasoning
-            continue
+        # confirmation_needed is when robot acknowledges danger zone before proceeding
+        # We want to show this as a separate marker (warning emoji)
+        is_confirmation = status == "confirmation_needed"
 
-        is_confirmation = False  # Will never be True now since we skip them
+        if is_confirmation:
+            # Get reasoning for the confirmation decision
+            call_turn = turn - 1
+            call_args = toolcall_args_by_turn.get(call_turn, {})
+            conf_reasoning = call_args.get("reasoning") or call_args.get("reason")
+            if conf_reasoning:
+                last_set_waypoints_reasoning = conf_reasoning
 
         # Find reasoning from multiple sources (in priority order)
         reasoning = None
@@ -425,6 +443,35 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
             current_attempt += 1
 
     return nav_sequence
+
+
+def find_first_contacts(frames: list) -> list[dict]:
+    """Find the first contact event in each attempt.
+
+    Returns list of dicts with:
+    - frame_idx: index of the frame with first contact
+    - time: time of contact
+    - obstacle: name of barrel hit
+    - attempt: which attempt this contact occurred in
+    """
+    first_contacts = []
+    seen_attempts = set()
+
+    for i, frame in enumerate(frames):
+        contact = frame.get("contact")
+        if contact:
+            attempt = frame.get("attempt", 1)
+            if attempt not in seen_attempts:
+                seen_attempts.add(attempt)
+                first_contacts.append({
+                    "frame_idx": i,
+                    "time": contact.get("time", frame.get("time", 0)),
+                    "obstacle": contact.get("obstacle", "barrel"),
+                    "attempt": attempt,
+                    "position": contact.get("position"),
+                })
+
+    return first_contacts
 
 
 def enrich_trajectory(
@@ -532,13 +579,20 @@ def enrich_trajectory(
                 print(f"      Frame {first_frame_idx} (t={frame.get('time', 0):.2f}s): "
                       f"initial {first_dec['tool']} + {len(first_dec['reasoning'])} chars")
 
+            # Mark confirmation_needed if this first decision acknowledged danger zone
+            if first_dec.get("is_confirmation"):
+                frame["confirmation_needed"] = {
+                    "acknowledged": True,
+                    "time": frame.get("time", 0),
+                }
+                print(f"      Frame {first_frame_idx}: confirmation_needed marker added")
+
         # Subsequent decisions: reasoning goes on frame at PREVIOUS result's position
         # For decisions after confirmation_needed (which has no position), look further back
         for i in range(1, len(decisions)):
             current = decisions[i]
             reasoning = current["reasoning"]
             tool = current["tool"]
-            status = current.get("status", "")
             is_confirmation = current.get("is_confirmation", False)
 
             if not reasoning:
@@ -579,6 +633,13 @@ def enrich_trajectory(
             if not frame.get("ai_action"):
                 frame["ai_action"] = action_str
 
+            # Mark confirmation_needed as a separate property (for timeline marker)
+            if is_confirmation:
+                frame["confirmation_needed"] = {
+                    "acknowledged": True,
+                    "time": frame.get("time", 0),
+                }
+
             # Set reasoning
             current_reasoning = frame.get("ai_reasoning", "") or ""
             if len(reasoning) > len(current_reasoning):
@@ -589,6 +650,23 @@ def enrich_trajectory(
                       f"{tool}{status_info} + {len(reasoning)} chars")
 
     print(f"  Enriched {enriched_count} frames total")
+
+    # Add first_contact markers for each attempt
+    first_contacts = find_first_contacts(frames)
+    if first_contacts:
+        print(f"  Found {len(first_contacts)} first contact event(s)")
+        for fc in first_contacts:
+            frame_idx = fc["frame_idx"]
+            frame = frames[frame_idx]
+            # Add first_contact action if no other action at this frame
+            if not frame.get("ai_action"):
+                frame["ai_action"] = "first_contact()"
+            # Always mark this frame as having first contact
+            frame["first_contact"] = {
+                "obstacle": fc["obstacle"],
+                "time": fc["time"],
+            }
+            print(f"    Frame {frame_idx} (t={fc['time']:.2f}s): first contact with {fc['obstacle']}")
 
     return trajectory
 
@@ -604,6 +682,9 @@ def add_alignment_moments_to_trajectory(
     Matches moments to frames based on the nav_sequence (which includes both
     set_waypoints and continue_plan decisions). Every frame with ai_reasoning
     should get an alignment moment if one was generated for that decision.
+
+    For confirmation_needed decisions, the moment is stored inside the
+    frame's confirmation_needed property for proper InsightCard display.
 
     Returns count of moments added.
     """
@@ -624,6 +705,7 @@ def add_alignment_moments_to_trajectory(
             continue
 
         tool_type = nav_item.get("tool", "unknown")
+        is_confirmation = nav_item.get("is_confirmation", False)
 
         # Build alignment_moment with all available data
         battery_raw = frame.get("battery", 1)
@@ -639,11 +721,17 @@ def add_alignment_moments_to_trajectory(
             "tool_type": tool_type,  # Track which tool this was for
         }
 
-        # Add to frame
-        frame["alignment_moment"] = alignment_moment
-        added_count += 1
+        # Store in the right location
+        if is_confirmation and frame.get("confirmation_needed"):
+            # Store inside confirmation_needed property for InsightCard to find
+            frame["confirmation_needed"]["alignment_moment"] = alignment_moment
+            print(f"    Frame {frame_idx} (confirmation_needed): {moment.get('alignment_signal', 'NEUTRAL')}")
+        else:
+            # Standard storage on frame
+            frame["alignment_moment"] = alignment_moment
+            print(f"    Frame {frame_idx} ({tool_type}): {moment.get('alignment_signal', 'NEUTRAL')}")
 
-        print(f"    Frame {frame_idx} ({tool_type}): {moment.get('alignment_signal', 'NEUTRAL')}")
+        added_count += 1
 
     # Also update events if they exist (for waypoint_decision events)
     events = trajectory.get("events", [])

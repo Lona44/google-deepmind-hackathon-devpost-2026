@@ -22,6 +22,10 @@ const DECISION_COLORS = [
   0xFF8A65,  // Deep orange (decision 8)
 ];
 
+// Special color for waypoints with AI reasoning (golden amber - stands out)
+const REASONING_COLOR = 0xFFD700;  // Gold
+const REASONING_MARKER_SCALE = 1.5;  // 50% larger when has reasoning
+
 // Visual constants
 const LINE_HEIGHT = 0.1;            // Height above ground
 const MARKER_RADIUS = 0.08;         // Waypoint sphere radius
@@ -70,8 +74,11 @@ export class WaypointProjection {
    * Update projection from AI action and robot position.
    * @param {string} aiAction - The ai_action string (e.g., "set_waypoints([[2.5, -1.5], [5.0, 0.0]])")
    * @param {number[]} robotPosition - Current robot position [x, y]
+   * @param {boolean} hasReasoning - Whether this decision has AI reasoning attached
+   * @param {string} reasoning - The actual reasoning text (optional)
+   * @param {number} frameTime - The time of the frame when this decision was made
    */
-  updateFromAction(aiAction, robotPosition) {
+  updateFromAction(aiAction, robotPosition, hasReasoning = false, reasoning = null, frameTime = null) {
     if (!aiAction || !robotPosition) return;
 
     this.robotPosition = robotPosition;
@@ -81,7 +88,7 @@ export class WaypointProjection {
     if (match) {
       try {
         const waypoints = JSON.parse('[' + match[1] + ']');
-        this.addWaypointPlan(waypoints, robotPosition);
+        this.addWaypointPlan(waypoints, robotPosition, hasReasoning, reasoning, frameTime);
       } catch (e) {
         console.warn('Failed to parse waypoints:', e);
       }
@@ -92,8 +99,11 @@ export class WaypointProjection {
    * Add a new waypoint plan (keeps history).
    * @param {number[][]} waypoints - Array of [x, y] coordinates
    * @param {number[]} fromPosition - Starting position for the line
+   * @param {boolean} hasReasoning - Whether this decision has AI reasoning attached
+   * @param {string} reasoning - The actual reasoning text
+   * @param {number} frameTime - The time when this decision was made
    */
-  addWaypointPlan(waypoints, fromPosition = null) {
+  addWaypointPlan(waypoints, fromPosition = null, hasReasoning = false, reasoning = null, frameTime = null) {
     // Deduplicate: skip if same waypoints as last plan
     const waypointsHash = JSON.stringify(waypoints);
     if (waypointsHash === this._lastWaypointsHash) {
@@ -109,8 +119,8 @@ export class WaypointProjection {
     // Fade existing plans
     this._fadeHistoricalPlans();
 
-    // Create new plan visuals
-    const plan = this._createPlanVisuals(waypoints, startPos, this.decisionCount);
+    // Create new plan visuals (with reasoning highlight if applicable)
+    const plan = this._createPlanVisuals(waypoints, startPos, this.decisionCount, hasReasoning, reasoning, frameTime);
     this.historicalPlans.push(plan);
 
     // Remove oldest plans if exceeding limit
@@ -178,9 +188,11 @@ export class WaypointProjection {
    * Create visuals for a waypoint plan.
    * @private
    */
-  _createPlanVisuals(waypoints, startPos, decisionNum) {
-    const color = DECISION_COLORS[(decisionNum - 1) % DECISION_COLORS.length];
+  _createPlanVisuals(waypoints, startPos, decisionNum, hasReasoning = false, reasoning = null, frameTime = null) {
+    // Use gold color for waypoints with reasoning, otherwise use decision color
+    const color = hasReasoning ? REASONING_COLOR : DECISION_COLORS[(decisionNum - 1) % DECISION_COLORS.length];
     const opacity = FADE_OPACITY_MAX;
+    const markerScale = hasReasoning ? REASONING_MARKER_SCALE : 1.0;
 
     const plan = {
       waypoints: waypoints,
@@ -188,6 +200,9 @@ export class WaypointProjection {
       line: null,
       markers: [],
       startPos: startPos,
+      hasReasoning: hasReasoning,
+      reasoning: reasoning,
+      frameTime: frameTime,
     };
 
     // Build path: start -> waypoint1 -> waypoint2 -> ...
@@ -230,11 +245,26 @@ export class WaypointProjection {
       marker.position.set(wp[0], LINE_HEIGHT, -wp[1]);
       marker.name = `waypoint-plan-${decisionNum}-marker-${i}`;
 
-      // Make final waypoint more prominent
+      // Store metadata for click detection
+      marker.userData = {
+        isWaypointMarker: true,
+        decisionNum: decisionNum,
+        waypointIndex: i,
+        hasReasoning: hasReasoning,
+        reasoning: reasoning,
+        frameTime: frameTime,
+        waypoint: wp,
+      };
+
+      // Apply base scale for reasoning (larger markers = has reasoning)
+      let scale = markerScale;
+
+      // Make final waypoint even more prominent
       if (i === waypoints.length - 1) {
-        marker.scale.setScalar(1.3);
+        scale *= 1.3;
       }
 
+      marker.scale.setScalar(scale);
       plan.markers.push(marker);
       this.group.add(marker);
     }
@@ -407,5 +437,17 @@ export class WaypointProjection {
    */
   hasWaypoints() {
     return this.historicalPlans.length > 0;
+  }
+
+  /**
+   * Get all waypoint markers for raycasting/click detection.
+   * @returns {THREE.Mesh[]}
+   */
+  getAllMarkers() {
+    const markers = [];
+    for (const plan of this.historicalPlans) {
+      markers.push(...plan.markers);
+    }
+    return markers;
   }
 }

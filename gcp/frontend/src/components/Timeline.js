@@ -57,10 +57,20 @@ export class Timeline {
    * The events array is often incomplete, so we also scan frames for ai_action.
    */
   initMarkers(events, duration, frames) {
-    if (!duration) return;
+    const framesWithAction = frames?.filter(f => f.ai_action)?.length || 0;
+    console.log(`[Timeline] initMarkers CALLED: ${events?.length || 0} events, ${frames?.length || 0} frames, ${framesWithAction} with ai_action, duration=${duration}`);
+
+    if (!duration) {
+      console.warn('[Timeline] initMarkers: No duration, returning early');
+      return;
+    }
 
     const markersContainer = this.container.querySelector('#timeline-markers');
-    if (!markersContainer) return;
+    if (!markersContainer) {
+      console.warn('[Timeline] initMarkers: No markers container found!');
+      return;
+    }
+    console.log('[Timeline] Markers container found, proceeding...');
 
     // Clear existing markers
     markersContainer.innerHTML = '';
@@ -70,8 +80,10 @@ export class Timeline {
     const eventConfig = {
       waypoint_decision: { icon: '📍', color: 'var(--color-accent-secondary, #2196F3)', label: 'Waypoint Decision' },
       ai_decision: { icon: '🧠', color: 'var(--color-accent-secondary, #2196F3)', label: 'AI Decision' },
-      continue_plan: { icon: '▶️', color: 'var(--color-text-tertiary, rgba(255,255,255,0.5))', label: 'Continue Plan' },
+      continue_plan: { icon: '✅', color: 'var(--color-accent-success, #4CAF50)', label: 'Continue Plan' },
       set_waypoints: { icon: '📍', color: 'var(--color-accent-secondary, #2196F3)', label: 'Set Waypoints' },
+      confirmation_needed: { icon: '⚠️', color: 'var(--color-accent-warning, #FF9800)', label: 'Danger Zone Warning' },
+      first_contact: { icon: '🔥', color: 'var(--color-accent-danger, #f44336)', label: 'First Contact' },
       attempt_reset: { icon: '🔄', color: 'var(--color-accent-warning, #FF9800)', label: 'Attempt Reset' },
       violation: { icon: '⚠️', color: 'var(--color-accent-danger, #f44336)', label: 'Violation' },
       goal_reached: { icon: '🎯', color: 'var(--color-accent-primary, #4CAF50)', label: 'Goal Reached' },
@@ -79,38 +91,31 @@ export class Timeline {
       mission_ended: { icon: '⏹️', color: 'var(--color-text-tertiary, rgba(255,255,255,0.5))', label: 'Mission Ended' }
     };
 
-    // Collect all marker points: from events AND from frames with ai_action
+    // Collect all marker points: FRAMES FIRST (they have specific action types), then events
     const markerPoints = [];
     const seenTimes = new Set();
 
-    // Add events (dedupe by time with 0.5s tolerance)
-    if (events) {
-      events.forEach((event, index) => {
-        const roundedTime = Math.round(event.time * 2) / 2; // Round to 0.5s
-        if (!seenTimes.has(roundedTime)) {
-          seenTimes.add(roundedTime);
-          markerPoints.push({
-            time: event.time,
-            type: event.type,
-            description: event.description,
-            source: 'event'
-          });
-        }
-      });
-    }
-
-    // Add frames with ai_action (these are often missing from events)
+    // Add frames with ai_action FIRST - these have the actual action types we want
     if (frames) {
       frames.forEach((frame, frameIndex) => {
         if (frame.ai_action) {
           const roundedTime = Math.round(frame.time * 2) / 2;
-          if (!seenTimes.has(roundedTime)) {
+          const isDupe = seenTimes.has(roundedTime);
+
+          if (!isDupe) {
             seenTimes.add(roundedTime);
 
             // Determine type from action string
             let type = 'ai_decision';
             let description = frame.ai_action;
-            if (frame.ai_action.includes('continue_plan')) {
+            if (frame.ai_action.includes('confirmation_needed')) {
+              type = 'confirmation_needed';
+              description = 'Danger zone acknowledged';
+            } else if (frame.ai_action.includes('first_contact')) {
+              type = 'first_contact';
+              const obstacle = frame.first_contact?.obstacle || 'barrel';
+              description = `First contact with ${obstacle}`;
+            } else if (frame.ai_action.includes('continue_plan')) {
               type = 'continue_plan';
               description = 'AI confirmed current plan';
             } else if (frame.ai_action.includes('set_waypoints')) {
@@ -130,6 +135,7 @@ export class Timeline {
               description = 'Mission ended';
             }
 
+            console.log(`[Timeline] Frame marker: ${type} at ${frame.time.toFixed(2)}s`);
             markerPoints.push({
               time: frame.time,
               type: type,
@@ -139,11 +145,65 @@ export class Timeline {
             });
           }
         }
+
+        // Also check for confirmation_needed property (may be on same frame as another action)
+        if (frame.confirmation_needed && !frame.ai_action?.includes('confirmation_needed')) {
+          const roundedTime = Math.round(frame.time * 2) / 2 + 0.01; // Slight offset to avoid collision
+          if (!seenTimes.has(roundedTime)) {
+            seenTimes.add(roundedTime);
+            console.log(`[Timeline] Confirmation marker at ${frame.time.toFixed(2)}s`);
+            markerPoints.push({
+              time: frame.time,
+              type: 'confirmation_needed',
+              description: 'Danger zone acknowledged',
+              frameIndex: frameIndex,
+              source: 'frame'
+            });
+          }
+        }
+
+        // Also check for first_contact property (may be on same frame as another action)
+        if (frame.first_contact && !frame.ai_action?.includes('first_contact')) {
+          const roundedTime = Math.round(frame.time * 2) / 2 + 0.02; // Slight offset to avoid collision
+          if (!seenTimes.has(roundedTime)) {
+            seenTimes.add(roundedTime);
+            const obstacle = frame.first_contact?.obstacle || 'barrel';
+            console.log(`[Timeline] First contact marker at ${frame.time.toFixed(2)}s`);
+            markerPoints.push({
+              time: frame.time,
+              type: 'first_contact',
+              description: `First contact with ${obstacle}`,
+              frameIndex: frameIndex,
+              source: 'frame'
+            });
+          }
+        }
+      });
+    }
+
+    // Add events only if not already covered by frame markers
+    if (events) {
+      events.forEach((event) => {
+        const roundedTime = Math.round(event.time * 2) / 2;
+        // Skip generic events that are covered by more specific frame markers
+        if (!seenTimes.has(roundedTime)) {
+          seenTimes.add(roundedTime);
+          console.log(`[Timeline] Event marker: ${event.type} at ${event.time.toFixed(2)}s`);
+          markerPoints.push({
+            time: event.time,
+            type: event.type,
+            description: event.description,
+            source: 'event'
+          });
+        }
       });
     }
 
     // Sort by time
     markerPoints.sort((a, b) => a.time - b.time);
+
+    // DEBUG: Log all marker points
+    console.log('[Timeline] Creating markers:', markerPoints.map(p => `${p.type}@${p.time.toFixed(2)}s`));
 
     // Create markers
     markerPoints.forEach((point, index) => {
@@ -176,7 +236,10 @@ export class Timeline {
 
       markersContainer.appendChild(marker);
       this.markers.push({ element: marker, event: point, config });
+      console.log(`[Timeline] Added marker: ${config.icon} ${point.type} at ${position.toFixed(1)}%`);
     });
+
+    console.log(`[Timeline] DONE: Created ${this.markers.length} markers, container has ${markersContainer.children.length} children`);
   }
 
   /**
@@ -396,6 +459,23 @@ export class Timeline {
   }
 
   /**
+   * Highlight the marker at a specific time (for auto-popup sync).
+   * @param {number|null} time - Time to highlight, or null to clear
+   */
+  highlightMarkerAtTime(time) {
+    // Clear previous highlights
+    this.markers.forEach(m => m.element.classList.remove('active'));
+
+    if (time === null) return;
+
+    // Find and highlight marker at this time (within tolerance)
+    const marker = this.markers.find(m => Math.abs(m.event.time - time) < 0.1);
+    if (marker) {
+      marker.element.classList.add('active');
+    }
+  }
+
+  /**
    * Add component styles.
    */
   addStyles() {
@@ -407,17 +487,19 @@ export class Timeline {
       .enhanced-timeline {
         position: relative;
         flex: 1;
-        height: 24px;
+        height: 36px;
         display: flex;
         align-items: center;
+        padding-top: 12px;
       }
 
       .timeline-track {
         position: relative;
         width: 100%;
-        height: 6px;
+        height: 12px;
         background: rgba(255, 255, 255, 0.15);
         border-radius: var(--radius-full, 9999px);
+        overflow: visible;
       }
 
       .timeline-progress {
@@ -434,12 +516,12 @@ export class Timeline {
 
       .timeline-markers {
         position: absolute;
-        top: -8px;
+        top: -12px;
         left: 0;
         right: 0;
-        height: 24px;
+        height: 36px;
         pointer-events: none;
-        z-index: 2;
+        z-index: 10;
       }
 
       .timeline-marker {
@@ -455,9 +537,19 @@ export class Timeline {
         transform: translateX(-50%) scale(1.3);
       }
 
+      .timeline-marker.active {
+        transform: translateX(-50%) scale(1.4);
+        animation: markerPulse 1s ease-in-out infinite;
+      }
+
+      @keyframes markerPulse {
+        0%, 100% { filter: drop-shadow(0 0 4px currentColor); }
+        50% { filter: drop-shadow(0 0 10px currentColor); }
+      }
+
       .marker-icon {
-        font-size: 14px;
-        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+        font-size: 18px;
+        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7));
       }
 
       .timeline-slider {
@@ -561,7 +653,9 @@ export class Timeline {
       .timeline-marker-waypoint_decision .marker-icon { color: #64B5F6; }
       .timeline-marker-set_waypoints .marker-icon { color: #64B5F6; }
       .timeline-marker-ai_decision .marker-icon { color: #64B5F6; }
-      .timeline-marker-continue_plan .marker-icon { color: rgba(255,255,255,0.5); }
+      .timeline-marker-continue_plan .marker-icon { color: #4CAF50; }
+      .timeline-marker-confirmation_needed .marker-icon { color: #FF9800; }
+      .timeline-marker-first_contact .marker-icon { color: #f44336; }
       .timeline-marker-attempt_reset .marker-icon { color: #FFB74D; }
       .timeline-marker-violation .marker-icon { color: #EF5350; }
       .timeline-marker-goal_reached .marker-icon { color: #4CAF50; }

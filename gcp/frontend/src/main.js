@@ -27,11 +27,11 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { PathTrail } from './components/PathTrail.js';
 import { WaypointProjection } from './components/WaypointProjection.js';
 import { TensionMeter } from './components/TensionMeter.js';
-import { ReasoningStream } from './components/ReasoningStream.js';
 import { ForbiddenZoneVisualizer } from './components/ForbiddenZoneVisualizer.js';
 import { ContactVisualizer } from './components/ContactVisualizer.js';
 import { ScorePill } from './components/ScorePill.js';
 import { DetailsPanel } from './components/DetailsPanel.js';
+import { InsightCard } from './components/InsightCard.js';
 
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
@@ -72,7 +72,6 @@ export class MuJoCoDemo {
     this.pathTrail = null;
     this.waypointProjection = null;
     this.tensionMeter = null;
-    this.reasoningStream = null;
     this.forbiddenZoneViz = null;
     this.composer = null;  // Post-processing
     this.bloomEnabled = true;  // Toggle for performance
@@ -81,6 +80,8 @@ export class MuJoCoDemo {
     this._lastVisualizationAttempt = null;  // Track attempt for waypoint clearing
     this.scorePill = null;  // Floating metrics panel
     this.detailsPanel = null;  // Expandable details panel
+    this.insightCard = null;  // Unified insight popup for alignment moments
+    this.timeline = null;  // Enhanced timeline with event markers
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -505,10 +506,30 @@ export class MuJoCoDemo {
       createPlaybackUI(this.playbackController);
 
       // Enhance timeline with event markers
-      enhanceTimeline(this.playbackController);
+      this.timeline = enhanceTimeline(this.playbackController);
 
       // Initialize story mode visualizations
       this._initStoryModeVisualizations();
+
+      // Store the original callback from createPlaybackUI
+      const originalOnPlayStateChange = this.playbackController.onPlayStateChange;
+
+      // Wire up pause state change to notify visualization components
+      this.playbackController.onPlayStateChange = (isPaused) => {
+        // Call original callback first (updates play/pause icons)
+        if (originalOnPlayStateChange) {
+          originalOnPlayStateChange(isPaused);
+        }
+
+        // Notify visualization components (with error handling)
+        try {
+          if (this.insightCard && typeof this.insightCard.onPause === 'function') {
+            isPaused ? this.insightCard.onPause() : this.insightCard.onResume();
+          }
+        } catch (e) {
+          console.error('Error in pause state notification:', e);
+        }
+      };
 
       // Wire up bloom toggle button
       const bloomBtn = document.getElementById('bloom-btn');
@@ -723,12 +744,6 @@ export class MuJoCoDemo {
     this.tensionMeter = new TensionMeter();
     document.body.appendChild(this.tensionMeter.create());
 
-    // Create reasoning stream (DOM-based)
-    this.reasoningStream = new ReasoningStream();
-    document.body.appendChild(this.reasoningStream.create());
-    // Sync with current playback speed
-    this.reasoningStream.setPlaybackSpeed(this.playbackController.playbackSpeed);
-
     // Create score pill (DOM-based metrics panel)
     this.scorePill = new ScorePill();
     document.body.appendChild(this.scorePill.create());
@@ -753,6 +768,10 @@ export class MuJoCoDemo {
 
     // Create contact visualizer (subtle barrel glow on contact)
     this.contactVisualizer = new ContactVisualizer(this.scene, this.bodies);
+
+    // Create insight card (unified popup for alignment insights)
+    this.insightCard = new InsightCard();
+    document.body.appendChild(this.insightCard.create());
 
     // Set up forbidden zone from trajectory metadata or use default
     const trajectory = this.playbackController.trajectory;
@@ -785,8 +804,94 @@ export class MuJoCoDemo {
     // Hook into frame changes for visualization updates
     this._hookVisualizationUpdates();
 
+    // Setup waypoint click detection
+    this._setupWaypointClickHandler();
+
     // Process initial frame to show starting waypoints
     this._initializeWaypointsFromTrajectory();
+
+    // Trigger initial insight card for frame 0
+    this._showInitialInsightCard();
+  }
+
+  /**
+   * Setup click handler for waypoint markers to show reasoning.
+   * @private
+   */
+  _setupWaypointClickHandler() {
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const onClick = (event) => {
+      // Only handle left clicks
+      if (event.button !== 0) return;
+
+      // Skip if not in playback mode or no waypoint projection
+      if (!this.playbackMode || !this.waypointProjection) return;
+
+      // Calculate mouse position in normalized device coordinates
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Update raycaster
+      raycaster.setFromCamera(mouse, this.camera);
+
+      // Get all waypoint markers
+      const markers = this.waypointProjection.getAllMarkers();
+      if (markers.length === 0) return;
+
+      // Check for intersections
+      const intersects = raycaster.intersectObjects(markers, false);
+
+      if (intersects.length > 0) {
+        const marker = intersects[0].object;
+        const userData = marker.userData;
+
+        if (userData && userData.isWaypointMarker && userData.hasReasoning && userData.reasoning) {
+          // Pause playback to let user read
+          if (this.playbackController && !this.playbackController.paused) {
+            this.playbackController.pause();
+          }
+
+          // Build a synthetic event for the InsightCard
+          const syntheticEvent = {
+            type: 'waypoint_click',
+            time: userData.frameTime || 0,
+            data: {
+              ai_reasoning: userData.reasoning,
+              ai_action: `set_waypoints at decision #${userData.decisionNum}`,
+              waypoint: userData.waypoint,
+            }
+          };
+
+          // Show InsightCard with the reasoning
+          if (this.insightCard) {
+            const config = this.playbackController?.trajectory?.metadata?.config;
+            this.insightCard.show(syntheticEvent, { ai_reasoning: userData.reasoning }, config, 0); // 0 = no auto-dismiss
+          }
+        }
+      }
+    };
+
+    // Add click listener to renderer's canvas
+    this.renderer.domElement.addEventListener('click', onClick);
+  }
+
+  /**
+   * Show insight card for the initial frame (frame 0).
+   * Called after setup since InsightCard is created after frame 0 is applied.
+   * @private
+   */
+  _showInitialInsightCard() {
+    const frames = this.playbackController.trajectory?.frames;
+    if (!frames || frames.length === 0 || !this.insightCard) return;
+
+    // Check frame 0 for an event
+    const frame = frames[0];
+    if (frame) {
+      this._updateInsightCard(frame, 0);
+    }
   }
 
   /**
@@ -811,7 +916,10 @@ export class MuJoCoDemo {
 
       if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
         const robotPos = frame.robot_position || [0, 0];
-        this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+        const hasReasoning = !!frame.ai_reasoning;
+        const reasoning = frame.ai_reasoning || null;
+        const frameTime = frame.time || 0;
+        this.waypointProjection.updateFromAction(frame.ai_action, robotPos, hasReasoning, reasoning, frameTime);
       }
     }
   }
@@ -840,13 +948,13 @@ export class MuJoCoDemo {
       this.tensionMeter.dispose();
       this.tensionMeter = null;
     }
-    if (this.reasoningStream) {
-      this.reasoningStream.dispose();
-      this.reasoningStream = null;
-    }
     if (this.contactVisualizer) {
       this.contactVisualizer.dispose();
       this.contactVisualizer = null;
+    }
+    if (this.insightCard) {
+      this.insightCard.dispose();
+      this.insightCard = null;
     }
     if (this.scorePill) {
       // Remove from DOM
@@ -940,18 +1048,11 @@ export class MuJoCoDemo {
     // Also hook into seek to rebuild trail
     const originalSeek = this.playbackController.seek.bind(this.playbackController);
     this.playbackController.seek = (frame) => {
-      originalSeek(frame);
+      // IMPORTANT: Reset state BEFORE applying frame, so _updateEventToast sees clean state
       this._handleSeek(Math.floor(frame));
+      originalSeek(frame);
     };
 
-    // Hook into speed changes to sync reasoning stream timing
-    const originalSetSpeed = this.playbackController.setSpeed.bind(this.playbackController);
-    this.playbackController.setSpeed = (speed) => {
-      originalSetSpeed(speed);
-      if (this.reasoningStream) {
-        this.reasoningStream.setPlaybackSpeed(speed);
-      }
-    };
   }
 
   /**
@@ -975,6 +1076,10 @@ export class MuJoCoDemo {
       if (this.tensionMeter) {
         this.tensionMeter.clearViolation();
       }
+      // Hide insight card from previous attempt
+      if (this.insightCard) {
+        this.insightCard.hide();
+      }
     }
     this._lastVisualizationAttempt = currentAttempt;
 
@@ -995,18 +1100,16 @@ export class MuJoCoDemo {
       // Update waypoints if AI action contains set_waypoints
       // Note: This may re-add waypoints already loaded during init, but that's handled by the component
       if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
-        this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+        const hasReasoning = !!frame.ai_reasoning;
+        const reasoning = frame.ai_reasoning || null;
+        const frameTime = frame.time || 0;
+        this.waypointProjection.updateFromAction(frame.ai_action, robotPos, hasReasoning, reasoning, frameTime);
       }
     }
 
     // Update tension meter
     if (this.tensionMeter && robotPos) {
       this.tensionMeter.update(robotPos);
-    }
-
-    // Update reasoning stream (only on new reasoning)
-    if (this.reasoningStream && frame.ai_reasoning) {
-      this.reasoningStream.showReasoning(frame.ai_reasoning);
     }
 
     // Check for violations
@@ -1041,6 +1144,99 @@ export class MuJoCoDemo {
         // Update AI reasoning if present
         if (frame.ai_action || frame.ai_reasoning) {
           this.detailsPanel.updateAI(frame.ai_action, frame.ai_reasoning);
+        }
+      }
+    }
+
+    // Auto-popup insight cards during playback/scrubbing
+    this._updateInsightCard(frame, index);
+  }
+
+  /**
+   * Update insight card - show popup for events at current frame.
+   * @private
+   */
+  _updateInsightCard(frame, index) {
+    if (!this.insightCard || !this.playbackController?.trajectory) return;
+
+    const currentTime = frame.time;
+    const events = this.playbackController.trajectory.events || [];
+
+    // Find event at current time (within 100ms tolerance)
+    let activeEvent = events.find(e => Math.abs(e.time - currentTime) < 0.1);
+
+    // If no event found in events array, check if this frame has an AI action
+    if (!activeEvent && frame.ai_action) {
+      // Create a synthetic event from frame data
+      let type = 'ai_decision';
+      let description = frame.ai_action;
+
+      if (frame.ai_action.includes('continue_plan')) {
+        type = 'continue_plan';
+        description = 'AI confirmed current plan';
+      } else if (frame.ai_action.includes('set_waypoints')) {
+        type = 'set_waypoints';
+        const match = frame.ai_action.match(/set_waypoints\(\[(.+)\]\)/);
+        if (match) {
+          try {
+            const coords = JSON.parse('[' + match[1] + ']');
+            description = coords.map(c => `(${c[0].toFixed(1)}, ${c[1].toFixed(1)})`).join(' -> ');
+          } catch (e) {
+            description = 'New waypoints set';
+          }
+        }
+      } else if (frame.ai_action.includes('end_mission')) {
+        type = 'mission_ended';
+        description = 'Mission ended';
+      }
+
+      activeEvent = {
+        type,
+        time: frame.time,
+        description,
+        frameIndex: index,
+        // Include data object for alignment moment (if frame has it)
+        data: frame.alignment_moment ? { alignment_moment: frame.alignment_moment } : undefined
+      };
+    }
+
+    // Build options for InsightCard
+    const options = {
+      attempt: frame.attempt,
+      reasoning: frame.ai_reasoning
+    };
+
+    // Add judge data if available (from selector metadata)
+    if (this.selector) {
+      const runMeta = this.selector.getCurrentRunMetadata();
+      if (runMeta) {
+        options.judgeData = {
+          safety_score: runMeta.safety_score,
+          honesty_score: runMeta.honesty_score,
+          alignment_name: runMeta.alignment_name
+        };
+      }
+    }
+
+    // Show popup if we hit a new event
+    if (activeEvent && !this.insightCard.isShowingEvent(activeEvent.time)) {
+      this.insightCard.show(activeEvent, frame, options, 5000);  // 5s auto-dismiss
+
+      // Highlight corresponding timeline marker
+      if (this.timeline) {
+        this.timeline.highlightMarkerAtTime(activeEvent.time);
+      }
+    }
+
+    // Dismiss if we scrubbed away from the current event (>0.5s away)
+    if (this.insightCard.currentEvent) {
+      const eventTime = this.insightCard.currentEvent.time;
+      if (Math.abs(currentTime - eventTime) > 0.5) {
+        this.insightCard.hide();
+
+        // Clear marker highlight
+        if (this.timeline) {
+          this.timeline.highlightMarkerAtTime(null);
         }
       }
     }
@@ -1080,11 +1276,6 @@ export class MuJoCoDemo {
       this.pathTrail.rebuildFromFrames(frames, frameIndex);
     }
 
-    // Clear reasoning stream on seek
-    if (this.reasoningStream) {
-      this.reasoningStream.clear();
-    }
-
     // Rebuild waypoint history up to seek point (only for current attempt)
     if (this.waypointProjection) {
       this.waypointProjection.clear();
@@ -1104,7 +1295,10 @@ export class MuJoCoDemo {
         if ((frame.attempt || 1) === targetAttempt &&
             frame.ai_action && frame.ai_action.includes('set_waypoints')) {
           const robotPos = frame.robot_position || [0, 0];
-          this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+          const hasReasoning = !!frame.ai_reasoning;
+          const reasoning = frame.ai_reasoning || null;
+          const frameTime = frame.time || 0;
+          this.waypointProjection.updateFromAction(frame.ai_action, robotPos, hasReasoning, reasoning, frameTime);
         }
       }
     }
@@ -1112,6 +1306,16 @@ export class MuJoCoDemo {
     // Clear contact glows
     if (this.contactVisualizer) {
       this.contactVisualizer.clear();
+    }
+
+    // Hide insight card on seek (will re-show if landing on an event)
+    if (this.insightCard) {
+      this.insightCard.hide();
+    }
+
+    // Clear marker highlight on seek
+    if (this.timeline) {
+      this.timeline.highlightMarkerAtTime(null);
     }
   }
 
