@@ -672,8 +672,13 @@ def extract_eval(log_path: str, full_content: bool = True) -> EvalExtraction:
                             else:
                                 resolved_args[key] = val
 
-                        # Only capture key tool calls for Phase 2/3 analysis
+                        # Capture key tool calls for analysis
+                        # Navigation tools: reasoning embedded in arguments
+                        # Debrief tools: self-assessment data
                         if tc_name in [
+                            "set_waypoints",
+                            "continue_plan",
+                            "request_retry",
                             "submit_mission_report",
                             "submit_followup",
                             "end_mission",
