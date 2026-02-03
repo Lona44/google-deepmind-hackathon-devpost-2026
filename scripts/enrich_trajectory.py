@@ -24,7 +24,6 @@ import argparse
 import asyncio
 import json
 import math
-import os
 import re
 import sys
 from pathlib import Path
@@ -36,6 +35,261 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # =============================================================================
 # Alignment Moment Generation (Judge Model)
 # =============================================================================
+
+# =============================================================================
+# Timeline Event Schema (Single Source of Truth)
+# =============================================================================
+
+# Event type configuration for timeline events
+TIMELINE_EVENT_CONFIG = {
+    'waypoint_decision': {
+        'icon': '📍', 'label': 'PATH DECISION', 'color': '#2196F3', 'priority': 3
+    },
+    'set_waypoints': {
+        'icon': '📍', 'label': 'PATH DECISION', 'color': '#2196F3', 'priority': 3
+    },
+    'ai_decision': {
+        'icon': '🧠', 'label': 'AI DECISION', 'color': '#2196F3', 'priority': 4
+    },
+    'continue_plan': {
+        'icon': '✅', 'label': 'CONTINUE PATH', 'color': '#4CAF50', 'priority': 5
+    },
+    'confirmation_needed': {
+        'icon': '⚠️', 'label': 'DANGER ZONE WARNING', 'color': '#FF9800', 'priority': 0
+    },
+    'first_contact': {
+        'icon': '🔥', 'label': 'FIRST CONTACT', 'color': '#f44336', 'priority': 2
+    },
+    'attempt_reset': {
+        'icon': '🔄', 'label': 'ATTEMPT RESET', 'color': '#FF9800', 'priority': 6
+    },
+    'violation': {
+        'icon': '⚠️', 'label': 'VIOLATION', 'color': '#f44336', 'priority': 2
+    },
+    'goal_reached': {
+        'icon': '🎯', 'label': 'GOAL REACHED', 'color': '#4CAF50', 'priority': 1
+    },
+    'battery_depleted': {
+        'icon': '🔋', 'label': 'BATTERY DEPLETED', 'color': '#f44336', 'priority': 1
+    },
+    'mission_ended': {
+        'icon': '⏹️', 'label': 'MISSION ENDED', 'color': 'rgba(255,255,255,0.5)', 'priority': 7
+    },
+}
+
+
+def generate_timeline_events(
+    frames: list,
+    nav_sequence: list[dict] | None = None,  # noqa: ARG001 - kept for API compatibility
+    alignment_moments: list[dict | None] | None = None,
+) -> list[dict]:
+    """
+    Generate complete timeline_events[] array from trajectory frames.
+
+    This is the SINGLE SOURCE OF TRUTH for timeline display. The frontend
+    just renders what this function produces - no reconstruction needed.
+
+    Args:
+        frames: List of trajectory frames with ai_action, confirmation_needed, etc.
+        nav_sequence: List of navigation decisions from extraction
+        alignment_moments: Optional list of judge-generated alignment moments
+
+    Returns:
+        List of TimelineEvent dicts ready for frontend consumption
+    """
+    events = []
+    event_id = 0
+
+    # Build frame_index -> moment lookup
+    moment_by_frame = {}
+    if alignment_moments:
+        # Match moments to frames by iterating through frames with ai_reasoning
+        frames_with_reasoning = [i for i, f in enumerate(frames) if f.get("ai_reasoning")]
+        for frame_idx, moment in zip(frames_with_reasoning, alignment_moments, strict=False):
+            if moment:
+                moment_by_frame[frame_idx] = moment
+
+    # Process all frames
+    for frame_idx, frame in enumerate(frames):
+        frame_time = frame.get("time", 0)
+        attempt = frame.get("attempt", 1)
+        battery = frame.get("battery", 1.0)
+        battery_pct = int(battery * 100) if battery <= 1 else int(battery)
+
+        # Base metrics for this frame
+        metrics = {
+            "battery_percent": battery_pct,
+            "distance_to_goal": frame.get("distance_to_goal"),
+            "attempt": attempt,
+        }
+
+        # Check for confirmation_needed (HIGHEST PRIORITY)
+        if frame.get("confirmation_needed"):
+            conf = frame["confirmation_needed"]
+            moment = conf.get("alignment_moment") or moment_by_frame.get(frame_idx) or {}
+            config = TIMELINE_EVENT_CONFIG["confirmation_needed"]
+
+            events.append({
+                "id": f"evt_{frame_idx}_confirmation",
+                "time": frame_time,
+                "frame_index": frame_idx,
+                "type": "confirmation_needed",
+                "icon": config["icon"],
+                "label": config["label"],
+                "color": config["color"],
+                "priority": config["priority"],
+                "summary": moment.get("decision_summary", "Danger zone acknowledged"),
+                "quote": moment.get("key_quote"),
+                "signal": moment.get("alignment_signal"),
+                "metrics": metrics,
+                "viz": {
+                    "tension_level": 0.8,
+                },
+            })
+            event_id += 1
+            continue  # Skip other checks for this frame
+
+        # Check for goal_reached
+        if frame.get("goal_reached"):
+            moment = frame.get("alignment_moment") or moment_by_frame.get(frame_idx) or {}
+            config = TIMELINE_EVENT_CONFIG["goal_reached"]
+
+            events.append({
+                "id": f"evt_{frame_idx}_goal",
+                "time": frame_time,
+                "frame_index": frame_idx,
+                "type": "goal_reached",
+                "icon": config["icon"],
+                "label": config["label"],
+                "color": config["color"],
+                "priority": config["priority"],
+                "summary": "Goal reached!",
+                "quote": moment.get("key_quote"),
+                "signal": moment.get("alignment_signal"),
+                "metrics": metrics,
+                "viz": {},
+            })
+            event_id += 1
+            continue
+
+        # Check for first_contact
+        if frame.get("first_contact"):
+            contact = frame["first_contact"]
+            config = TIMELINE_EVENT_CONFIG["first_contact"]
+            obstacle = contact.get("obstacle", "barrel")
+
+            events.append({
+                "id": f"evt_{frame_idx}_contact",
+                "time": frame_time,
+                "frame_index": frame_idx,
+                "type": "first_contact",
+                "icon": config["icon"],
+                "label": config["label"],
+                "color": config["color"],
+                "priority": config["priority"],
+                "summary": f"First contact with {obstacle}",
+                "quote": None,
+                "signal": None,
+                "metrics": metrics,
+                "viz": {
+                    "highlight_barrel": obstacle,
+                    "trigger_violation_flash": True,
+                },
+            })
+            event_id += 1
+            continue
+
+        # Check for ai_action (waypoints, continue_plan, end_mission)
+        ai_action = frame.get("ai_action")
+        if ai_action:
+            moment = frame.get("alignment_moment") or moment_by_frame.get(frame_idx) or {}
+
+            if "set_waypoints" in ai_action:
+                config = TIMELINE_EVENT_CONFIG["set_waypoints"]
+
+                # Parse waypoints for viz hints
+                waypoints = None
+                match = re.search(r'set_waypoints\(\[(.+)\]\)', ai_action)
+                if match:
+                    import contextlib
+                    with contextlib.suppress(json.JSONDecodeError):
+                        waypoints = json.loads('[' + match.group(1) + ']')
+
+                # Build summary
+                if moment.get("decision_summary"):
+                    summary = moment["decision_summary"]
+                elif waypoints:
+                    coords = " → ".join(f"({w[0]:.1f}, {w[1]:.1f})" for w in waypoints[:3])
+                    summary = f"New waypoints: {coords}"
+                    if len(waypoints) > 3:
+                        summary += "..."
+                else:
+                    summary = "New waypoints set"
+
+                events.append({
+                    "id": f"evt_{frame_idx}_waypoint",
+                    "time": frame_time,
+                    "frame_index": frame_idx,
+                    "type": "set_waypoints",
+                    "icon": config["icon"],
+                    "label": config["label"],
+                    "color": config["color"],
+                    "priority": config["priority"],
+                    "summary": summary,
+                    "quote": moment.get("key_quote"),
+                    "signal": moment.get("alignment_signal"),
+                    "metrics": metrics,
+                    "viz": {
+                        "show_waypoints": waypoints,
+                    },
+                })
+                event_id += 1
+
+            elif "continue_plan" in ai_action:
+                config = TIMELINE_EVENT_CONFIG["continue_plan"]
+
+                events.append({
+                    "id": f"evt_{frame_idx}_continue",
+                    "time": frame_time,
+                    "frame_index": frame_idx,
+                    "type": "continue_plan",
+                    "icon": config["icon"],
+                    "label": config["label"],
+                    "color": config["color"],
+                    "priority": config["priority"],
+                    "summary": moment.get("decision_summary", "Continuing current trajectory"),
+                    "quote": moment.get("key_quote"),
+                    "signal": moment.get("alignment_signal"),
+                    "metrics": metrics,
+                    "viz": {},
+                })
+                event_id += 1
+
+            elif "end_mission" in ai_action:
+                config = TIMELINE_EVENT_CONFIG["mission_ended"]
+
+                events.append({
+                    "id": f"evt_{frame_idx}_end",
+                    "time": frame_time,
+                    "frame_index": frame_idx,
+                    "type": "mission_ended",
+                    "icon": config["icon"],
+                    "label": config["label"],
+                    "color": config["color"],
+                    "priority": config["priority"],
+                    "summary": "Mission ended",
+                    "quote": None,
+                    "signal": None,
+                    "metrics": metrics,
+                    "viz": {},
+                })
+                event_id += 1
+
+    # Sort by time, then by priority (lower = higher priority)
+    events.sort(key=lambda e: (e["time"], e["priority"]))
+
+    return events
+
 
 DECISION_ANALYSIS_PROMPT = """You are analyzing a navigation decision made by an AI robot in an alignment experiment.
 
@@ -319,6 +573,7 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
     - status: result status (waypoint_reached, battery_depleted, goal_reached)
     - attempt: which attempt this belongs to (inferred from sequence)
     - reasoning: the reasoning trace that preceded this decision
+    - waypoints: [[x, y], ...] for set_waypoints calls
 
     Reasoning is found from (in priority order):
     1. Extended thinking traces (reasoning_traces)
@@ -336,7 +591,7 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
     # Build turn -> reasoning lookup from extended thinking
     reasoning_by_turn = {t["turn"]: t["text"] for t in reasoning_traces}
 
-    # Build turn -> tool call arguments lookup (for set_waypoints reasoning)
+    # Build turn -> tool call arguments lookup (for set_waypoints reasoning and waypoints)
     # Tool calls happen at turn N, results come at turn N+1
     # So tool_call at turn 4 has result at turn 5
     toolcall_args_by_turn = {}
@@ -427,6 +682,13 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
             # end_mission after goal_reached belongs to the attempt that just finished
             decision_attempt = current_attempt - 1 if status == "mission_ended" else current_attempt
 
+        # Extract waypoints from tool call arguments (for set_waypoints)
+        waypoints = None
+        if tool_name == "set_waypoints":
+            call_turn = turn - 1  # Tool call precedes result by 1 turn
+            call_args = toolcall_args_by_turn.get(call_turn, {})
+            waypoints = call_args.get("waypoints")
+
         nav_sequence.append({
             "turn": turn,
             "tool": tool_name,
@@ -435,6 +697,7 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
             "attempt": decision_attempt,
             "reasoning": reasoning,
             "is_confirmation": is_confirmation,
+            "waypoints": waypoints,  # [[x, y], ...] for set_waypoints, None otherwise
         })
 
         # Check if this result ends the attempt (goal_reached or battery_depleted)
@@ -532,6 +795,13 @@ def enrich_trajectory(
         print("  Warning: No frames in trajectory")
         return trajectory
 
+    # Clear any existing enrichment data to avoid stale markers
+    for frame in frames:
+        for key in ["ai_action", "ai_reasoning", "confirmation_needed", "goal_reached", "alignment_moment"]:
+            if key in frame:
+                del frame[key]
+        # Note: first_contact is kept as it's derived from contact events, not enrichment
+
     # Find attempt boundaries in trajectory
     attempt_boundaries = find_attempt_boundaries(frames)
     num_attempts_in_traj = len(attempt_boundaries)
@@ -568,10 +838,14 @@ def enrich_trajectory(
             first_frame_idx = bounds["start"]
             frame = frames[first_frame_idx]
 
-            # Set action (preserve existing if it has waypoints)
+            # Set action with actual waypoints if available
             existing_action = frame.get("ai_action", "")
             if not existing_action or "set_waypoints" not in existing_action:
-                frame["ai_action"] = f"{first_dec['tool']}(...)"
+                if first_dec["tool"] == "set_waypoints" and first_dec.get("waypoints"):
+                    waypoints_str = json.dumps(first_dec["waypoints"])
+                    frame["ai_action"] = f"set_waypoints({waypoints_str})"
+                else:
+                    frame["ai_action"] = f"{first_dec['tool']}()"
 
             if first_dec["reasoning"]:
                 frame["ai_reasoning"] = first_dec["reasoning"]
@@ -588,27 +862,45 @@ def enrich_trajectory(
                 print(f"      Frame {first_frame_idx}: confirmation_needed marker added")
 
         # Subsequent decisions: reasoning goes on frame at PREVIOUS result's position
-        # For decisions after confirmation_needed (which has no position), look further back
+        # Exception: if previous was confirmation_needed (no position), use CURRENT position
         for i in range(1, len(decisions)):
             current = decisions[i]
             reasoning = current["reasoning"]
             tool = current["tool"]
+            status = current.get("status", "")
             is_confirmation = current.get("is_confirmation", False)
+            current_position = current.get("position")
 
             if not reasoning:
                 continue
 
             # Find the last decision with a valid position (may need to look back further)
             prev_position = None
+            prev_was_confirmation = False
             for j in range(i - 1, -1, -1):
                 if decisions[j]["position"]:
                     prev_position = decisions[j]["position"]
                     break
+                if decisions[j].get("is_confirmation"):
+                    prev_was_confirmation = True
 
             # Special handling for end_mission - put at last frame of trajectory
             # (end_mission often has position [0,0] after robot reset for debrief)
             if tool == "end_mission":
                 frame_idx = len(frames) - 1
+                frame = frames[frame_idx]
+            elif status == "goal_reached" and current_position:
+                # goal_reached should be placed where the robot ARRIVED (at the goal)
+                frame_idx = find_frame_at_position(frames, current_position, attempt=attempt_num)
+                if frame_idx is None:
+                    frame_idx = bounds["end"]  # Fall back to last frame of attempt
+                frame = frames[frame_idx]
+            elif prev_was_confirmation and current_position and not prev_position:
+                # Previous was confirmation_needed with no position - use CURRENT position
+                # This shows the marker where the robot ARRIVED after the confirmed waypoints
+                frame_idx = find_frame_at_position(frames, current_position, attempt=attempt_num)
+                if frame_idx is None:
+                    frame_idx = bounds["start"]
                 frame = frames[frame_idx]
             elif not prev_position:
                 # If no previous position found, use the first frame of the attempt
@@ -621,13 +913,18 @@ def enrich_trajectory(
                     continue
                 frame = frames[frame_idx]
 
-            # Build action string
+            # Build action string with actual waypoints if available
             if is_confirmation:
                 action_str = "confirmation_needed()"
             elif tool == "continue_plan":
                 action_str = "continue_plan()"
+            elif tool == "set_waypoints" and current.get("waypoints"):
+                waypoints_str = json.dumps(current["waypoints"])
+                action_str = f"set_waypoints({waypoints_str})"
+            elif tool == "end_mission":
+                action_str = "end_mission()"
             else:
-                action_str = f"{tool}(...)"
+                action_str = f"{tool}()"
 
             # Set action
             if not frame.get("ai_action"):
@@ -639,6 +936,13 @@ def enrich_trajectory(
                     "acknowledged": True,
                     "time": frame.get("time", 0),
                 }
+
+            # Mark goal_reached as a separate property (for timeline marker)
+            if status == "goal_reached":
+                frame["goal_reached"] = {
+                    "time": frame.get("time", 0),
+                }
+                print(f"      Frame {frame_idx}: goal_reached marker added")
 
             # Set reasoning
             current_reasoning = frame.get("ai_reasoning", "") or ""
@@ -667,6 +971,12 @@ def enrich_trajectory(
                 "time": fc["time"],
             }
             print(f"    Frame {frame_idx} (t={fc['time']:.2f}s): first contact with {fc['obstacle']}")
+
+    # Generate timeline_events (single source of truth for frontend)
+    timeline_events = generate_timeline_events(frames, nav_sequence)
+    if timeline_events:
+        trajectory["timeline_events"] = timeline_events
+        print(f"  Generated {len(timeline_events)} timeline events")
 
     return trajectory
 
@@ -850,6 +1160,13 @@ def main():
         # Add moments to trajectory
         added = add_alignment_moments_to_trajectory(enriched, moments, nav_sequence)
         print(f"  Added {added} alignment moments")
+
+        # Regenerate timeline_events with the new alignment moments
+        frames = enriched.get("frames", [])
+        timeline_events = generate_timeline_events(frames, nav_sequence, moments)
+        if timeline_events:
+            enriched["timeline_events"] = timeline_events
+            print(f"  Regenerated {len(timeline_events)} timeline events with alignment moments")
 
     # Save
     output_path = args.output or trajectory_path

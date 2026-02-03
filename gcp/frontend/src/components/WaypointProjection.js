@@ -22,20 +22,24 @@ const DECISION_COLORS = [
   0xFF8A65,  // Deep orange (decision 8)
 ];
 
-// Special color for waypoints with AI reasoning (golden amber - stands out)
-const REASONING_COLOR = 0xFFD700;  // Gold
-const REASONING_MARKER_SCALE = 1.5;  // 50% larger when has reasoning
+// All markers are the same base size now - colors distinguish decisions
+const REASONING_MARKER_SCALE = 1.0;  // No special sizing for reasoning
 
 // Visual constants
 const LINE_HEIGHT = 0.1;            // Height above ground
-const MARKER_RADIUS = 0.08;         // Waypoint sphere radius
+const MARKER_RADIUS = 0.05;         // Waypoint sphere radius (smaller)
+const GLOW_RADIUS = 0.12;           // Outer glow sphere radius
 const DASH_SIZE = 0.15;
 const GAP_SIZE = 0.1;
 
 // History settings
 const MAX_HISTORICAL_PLANS = 8;     // Keep last N plans visible
-const FADE_OPACITY_MIN = 0.08;      // Oldest plan opacity (nearly invisible)
-const FADE_OPACITY_MAX = 0.9;       // Newest plan opacity (prominent)
+const FADE_OPACITY_MIN = 0.05;      // Oldest plan opacity (nearly invisible)
+const FADE_OPACITY_MAX = 0.5;       // Newest plan opacity (more transparent)
+
+// Pulse animation settings
+const PULSE_SPEED = 0.3;            // Cycles per second (slow, dreamy)
+const PULSE_INTENSITY = 0.12;       // How much opacity varies (±)
 
 // Scale settings for fading
 const FADE_SCALE_MIN = 0.4;         // Oldest markers scale down to 40%
@@ -68,10 +72,51 @@ export class WaypointProjection {
     // Goal marker (always visible)
     this.goalMarker = null;
     this.goalPosition = null;
+
+    // Animation state
+    this.animationTime = 0;
+  }
+
+  /**
+   * Update projection from a TimelineEvent (new format - no parsing needed).
+   * This is the preferred method for new trajectories with timeline_events[].
+   * @param {Object} evt - TimelineEvent object with viz.show_waypoints
+   * @param {number[]} robotPosition - Current robot position [x, y]
+   */
+  updateFromEvent(evt, robotPosition) {
+    if (!evt || !robotPosition) return;
+
+    this.robotPosition = robotPosition;
+
+    // Get waypoints from evt.viz.show_waypoints (pre-parsed by backend)
+    const waypoints = evt.viz?.show_waypoints;
+    if (!waypoints || !Array.isArray(waypoints) || waypoints.length === 0) {
+      return;
+    }
+
+    // Normalize waypoints (handle both [x, y] and {x, y} formats)
+    const normalizedWaypoints = waypoints.map(wp => {
+      if (Array.isArray(wp)) {
+        return wp;  // Already [x, y]
+      } else if (wp && typeof wp === 'object' && 'x' in wp && 'y' in wp) {
+        return [wp.x, wp.y];  // Convert {x, y} to [x, y]
+      }
+      return null;
+    }).filter(wp => wp !== null);
+
+    if (normalizedWaypoints.length > 0) {
+      // Use summary as a proxy for reasoning (if it's detailed)
+      const hasReasoning = evt.quote !== null || (evt.summary && evt.summary.length > 30);
+      const reasoning = evt.quote || evt.summary || null;
+      const frameTime = evt.time || null;
+
+      this.addWaypointPlan(normalizedWaypoints, robotPosition, hasReasoning, reasoning, frameTime);
+    }
   }
 
   /**
    * Update projection from AI action and robot position.
+   * LEGACY METHOD - kept for backward compatibility.
    * @param {string} aiAction - The ai_action string (e.g., "set_waypoints([[2.5, -1.5], [5.0, 0.0]])")
    * @param {number[]} robotPosition - Current robot position [x, y]
    * @param {boolean} hasReasoning - Whether this decision has AI reasoning attached
@@ -87,8 +132,23 @@ export class WaypointProjection {
     const match = aiAction.match(/set_waypoints\(\[(.+)\]\)/);
     if (match) {
       try {
-        const waypoints = JSON.parse('[' + match[1] + ']');
-        this.addWaypointPlan(waypoints, robotPosition, hasReasoning, reasoning, frameTime);
+        const rawWaypoints = JSON.parse('[' + match[1] + ']');
+
+        // Normalize waypoints - handle both formats:
+        // Format 1 (arrays): [[x, y], [x, y]]
+        // Format 2 (objects): [{x: ..., y: ...}, {x: ..., y: ...}]
+        const waypoints = rawWaypoints.map(wp => {
+          if (Array.isArray(wp)) {
+            return wp;  // Already [x, y] format
+          } else if (wp && typeof wp === 'object' && 'x' in wp && 'y' in wp) {
+            return [wp.x, wp.y];  // Convert {x, y} to [x, y]
+          }
+          return null;
+        }).filter(wp => wp !== null);
+
+        if (waypoints.length > 0) {
+          this.addWaypointPlan(waypoints, robotPosition, hasReasoning, reasoning, frameTime);
+        }
       } catch (e) {
         console.warn('Failed to parse waypoints:', e);
       }
@@ -185,12 +245,57 @@ export class WaypointProjection {
   }
 
   /**
+   * Update animation (call each frame).
+   * @param {number} deltaTime - Time since last frame in seconds
+   */
+  update(deltaTime) {
+    this.animationTime += deltaTime;
+
+    // Soft sine wave pulse
+    const pulse = Math.sin(this.animationTime * Math.PI * 2 * PULSE_SPEED) * PULSE_INTENSITY;
+
+    // Apply pulse to all markers in historical plans
+    for (let p = 0; p < this.historicalPlans.length; p++) {
+      const plan = this.historicalPlans[p];
+      const isNewest = p === this.historicalPlans.length - 1;
+
+      // Only pulse the newest plan noticeably, older ones get subtle pulse
+      const pulseAmount = isNewest ? pulse : pulse * 0.3;
+
+      for (const marker of plan.markers) {
+        if (marker.material) {
+          // Get base opacity for this plan (stored when created/faded)
+          const baseOpacity = marker.userData?.baseOpacity ?? marker.material.opacity;
+          if (!marker.userData) marker.userData = {};
+          if (marker.userData.baseOpacity === undefined) {
+            marker.userData.baseOpacity = marker.material.opacity;
+          }
+          // Glow spheres pulse more dramatically
+          const isGlow = marker.userData?.isGlow;
+          const amount = isGlow ? pulseAmount * 1.5 : pulseAmount;
+          marker.material.opacity = Math.max(0.03, baseOpacity + amount);
+        }
+      }
+
+      // Pulse the line too
+      if (plan.line?.material) {
+        const baseOpacity = plan.line.userData?.baseOpacity ?? plan.line.material.opacity;
+        if (!plan.line.userData) plan.line.userData = {};
+        if (plan.line.userData.baseOpacity === undefined) {
+          plan.line.userData.baseOpacity = plan.line.material.opacity;
+        }
+        plan.line.material.opacity = Math.max(0.05, baseOpacity + pulseAmount);
+      }
+    }
+  }
+
+  /**
    * Create visuals for a waypoint plan.
    * @private
    */
   _createPlanVisuals(waypoints, startPos, decisionNum, hasReasoning = false, reasoning = null, frameTime = null) {
-    // Use gold color for waypoints with reasoning, otherwise use decision color
-    const color = hasReasoning ? REASONING_COLOR : DECISION_COLORS[(decisionNum - 1) % DECISION_COLORS.length];
+    // Always use decision color for variety - reasoning markers are distinguished by size/glow
+    const color = DECISION_COLORS[(decisionNum - 1) % DECISION_COLORS.length];
     const opacity = FADE_OPACITY_MAX;
     const markerScale = hasReasoning ? REASONING_MARKER_SCALE : 1.0;
 
@@ -231,17 +336,19 @@ export class WaypointProjection {
       this.group.add(plan.line);
     }
 
-    // Create waypoint markers
+    // Create waypoint markers with glow
     for (let i = 0; i < waypoints.length; i++) {
       const wp = waypoints[i];
-      const sphereGeom = new THREE.SphereGeometry(MARKER_RADIUS, 16, 12);
-      const sphereMat = new THREE.MeshBasicMaterial({
+
+      // Inner solid core (smaller, brighter)
+      const coreGeom = new THREE.SphereGeometry(MARKER_RADIUS, 16, 12);
+      const coreMat = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
-        opacity: opacity,
+        opacity: opacity * 0.9,
       });
 
-      const marker = new THREE.Mesh(sphereGeom, sphereMat);
+      const marker = new THREE.Mesh(coreGeom, coreMat);
       marker.position.set(wp[0], LINE_HEIGHT, -wp[1]);
       marker.name = `waypoint-plan-${decisionNum}-marker-${i}`;
 
@@ -267,6 +374,23 @@ export class WaypointProjection {
       marker.scale.setScalar(scale);
       plan.markers.push(marker);
       this.group.add(marker);
+
+      // Outer glow sphere (larger, misty)
+      const glowGeom = new THREE.SphereGeometry(GLOW_RADIUS, 16, 12);
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: opacity * 0.25,
+        depthWrite: false,  // Prevents z-fighting, allows see-through
+      });
+
+      const glow = new THREE.Mesh(glowGeom, glowMat);
+      glow.position.set(wp[0], LINE_HEIGHT, -wp[1]);
+      glow.scale.setScalar(scale);
+      glow.name = `waypoint-plan-${decisionNum}-glow-${i}`;
+      glow.userData = { isGlow: true };
+      plan.markers.push(glow);
+      this.group.add(glow);
     }
 
     // Add decision number label at start position

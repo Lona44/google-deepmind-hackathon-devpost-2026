@@ -10,8 +10,9 @@
  */
 
 export class Timeline {
-  constructor(controller) {
+  constructor(controller, demo = null) {
     this.controller = controller;
+    this.demo = demo;  // Reference to MuJoCoDemo for getTimelineEvents()
     this.container = null;
     this.markers = [];
     this.tooltip = null;
@@ -53,7 +54,186 @@ export class Timeline {
   }
 
   /**
+   * Initialize markers from TimelineEvent array (new format - single source of truth).
+   * This is the preferred method - events come pre-curated from the backend.
+   * @param {Array} timelineEvents - Array of TimelineEvent objects
+   * @param {number} duration - Total duration in seconds
+   */
+  initFromTimelineEvents(timelineEvents, duration) {
+    console.log(`[Timeline] initFromTimelineEvents: ${timelineEvents?.length || 0} events, duration=${duration}`);
+
+    if (!duration || !timelineEvents?.length) {
+      console.warn('[Timeline] initFromTimelineEvents: No duration or events');
+      return;
+    }
+
+    const markersContainer = this.container.querySelector('#timeline-markers');
+    if (!markersContainer) {
+      console.warn('[Timeline] No markers container found!');
+      return;
+    }
+
+    // Clear existing markers
+    markersContainer.innerHTML = '';
+    this.markers = [];
+
+    // Sort by time, then priority (lower priority = higher importance)
+    const sortedEvents = [...timelineEvents].sort((a, b) =>
+      a.time - b.time || a.priority - b.priority
+    );
+
+    // Filter to keep only highest priority event at each time slot
+    const eventsByTimeSlot = new Map();
+    for (const evt of sortedEvents) {
+      const slot = Math.round(evt.time * 2) / 2; // 0.5s slots
+      const existing = eventsByTimeSlot.get(slot);
+      if (!existing || evt.priority < existing.priority) {
+        eventsByTimeSlot.set(slot, evt);
+      }
+    }
+
+    const filteredEvents = Array.from(eventsByTimeSlot.values());
+
+    // Create markers
+    for (const evt of filteredEvents) {
+      const position = (evt.time / duration) * 100;
+
+      const marker = document.createElement('div');
+      marker.className = `timeline-marker timeline-marker-${evt.type}`;
+      marker.style.left = `${position}%`;
+      marker.dataset.time = evt.time;
+      marker.dataset.type = evt.type;
+      marker.dataset.frameIndex = evt.frame_index;
+      marker.innerHTML = `<span class="marker-icon">${evt.icon}</span>`;
+
+      // Click to seek directly to frame_index (no tolerance needed!)
+      marker.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.controller && evt.frame_index !== undefined) {
+          this.controller.seek(evt.frame_index);
+        }
+        this.showReasoningToastFromEvent(evt);
+      });
+
+      // Hover for tooltip
+      marker.addEventListener('mouseenter', (e) => {
+        this.showTooltipFromEvent(evt, e.target);
+      });
+      marker.addEventListener('mouseleave', () => {
+        this.hideTooltip();
+      });
+
+      markersContainer.appendChild(marker);
+      this.markers.push({ element: marker, event: evt });
+
+      console.log(`[Timeline] Added marker: ${evt.icon} ${evt.type} at ${position.toFixed(1)}% (frame ${evt.frame_index})`);
+    }
+
+    console.log(`[Timeline] Created ${this.markers.length} markers from TimelineEvents`);
+  }
+
+  /**
+   * Show tooltip from a TimelineEvent.
+   * @param {Object} evt - TimelineEvent object
+   * @param {HTMLElement} markerEl - The marker element
+   */
+  showTooltipFromEvent(evt, markerEl) {
+    if (!this.tooltip) return;
+
+    const timeStr = this.formatTime(evt.time);
+
+    this.tooltip.innerHTML = `
+      <div class="tooltip-header">
+        <span class="tooltip-icon">${evt.icon}</span>
+        <span class="tooltip-label">${evt.label}</span>
+      </div>
+      <div class="tooltip-time">${timeStr}</div>
+      ${evt.summary ? `<div class="tooltip-details">${evt.summary}</div>` : ''}
+    `;
+
+    // Position tooltip above marker
+    const markerRect = markerEl.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+
+    this.tooltip.style.display = 'block';
+    this.tooltip.style.left = `${markerRect.left - containerRect.left + markerRect.width / 2}px`;
+    this.tooltip.style.bottom = '32px';
+  }
+
+  /**
+   * Show reasoning toast from a TimelineEvent.
+   * @param {Object} evt - TimelineEvent object
+   */
+  showReasoningToastFromEvent(evt) {
+    if (!this.reasoningToast || !this.controller) return;
+
+    // Pause playback
+    this.controller.pause();
+    this.activeMarkerEvent = evt;
+
+    const timeStr = this.formatTime(evt.time);
+
+    // Get reasoning from frame if available
+    const frame = this.controller.trajectory?.frames?.[evt.frame_index];
+    const reasoning = frame?.ai_reasoning;
+    const reasoningWordCount = reasoning ? reasoning.split(/\s+/).length : 0;
+
+    this.reasoningToast.innerHTML = `
+      <div class="toast-header">
+        <span class="toast-icon">${evt.icon}</span>
+        <span class="toast-title">${evt.label}</span>
+        <span class="toast-time">@ ${timeStr}</span>
+        <button class="toast-close" id="toast-close-btn" title="Close (Escape)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="toast-action">
+        <div class="toast-summary">${evt.summary || ''}</div>
+        ${evt.quote ? `<blockquote class="toast-quote">"${evt.quote}"</blockquote>` : ''}
+        ${evt.signal ? `<div class="toast-signal">🎯 ${evt.signal.replace(/_/g, ' ')}</div>` : ''}
+      </div>
+      ${reasoning ? `
+        <details class="toast-reasoning-details">
+          <summary>View reasoning (${reasoningWordCount.toLocaleString()} words)</summary>
+          <div class="toast-reasoning-content">${this.renderMarkdown(reasoning)}</div>
+        </details>
+      ` : ''}
+    `;
+
+    this.reasoningToast.style.display = 'block';
+
+    // Wire up close button
+    const closeBtn = this.reasoningToast.querySelector('#toast-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.hideReasoningToast());
+    }
+
+    // Close on Escape
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        this.hideReasoningToast();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Close on click outside
+    const clickOutsideHandler = (e) => {
+      if (!this.reasoningToast.contains(e.target)) {
+        this.hideReasoningToast();
+        document.removeEventListener('click', clickOutsideHandler);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', clickOutsideHandler);
+    }, 100);
+  }
+
+  /**
    * Initialize markers from trajectory events AND frames with AI actions.
+   * LEGACY METHOD - kept for backward compatibility with old trajectories.
    * The events array is often incomplete, so we also scan frames for ai_action.
    */
   initMarkers(events, duration, frames) {
@@ -91,107 +271,134 @@ export class Timeline {
       mission_ended: { icon: '⏹️', color: 'var(--color-text-tertiary, rgba(255,255,255,0.5))', label: 'Mission Ended' }
     };
 
-    // Collect all marker points: FRAMES FIRST (they have specific action types), then events
-    const markerPoints = [];
-    const seenTimes = new Set();
+    // Priority values (lower = higher priority, confirmation_needed always wins)
+    const typePriority = {
+      'confirmation_needed': 0,  // HIGHEST - always takes precedence
+      'goal_reached': 1,
+      'first_contact': 2,
+      'set_waypoints': 3,
+      'continue_plan': 4,
+      'mission_ended': 5,
+      'ai_decision': 6,
+      'event': 10  // Generic events are lowest priority
+    };
 
-    // Add frames with markers - prioritize special properties over ai_action
-    // Priority: confirmation_needed > first_contact > ai_action
+    // Collect ALL potential markers first (don't filter yet)
+    const allMarkers = [];
+
+    // Collect frame markers
     if (frames) {
       frames.forEach((frame, frameIndex) => {
-        const roundedTime = Math.round(frame.time * 2) / 2;
-
-        // Priority 1: confirmation_needed (most important alignment signal)
+        // Check for confirmation_needed (highest priority)
         if (frame.confirmation_needed) {
-          if (!seenTimes.has(roundedTime)) {
-            seenTimes.add(roundedTime);
-            console.log(`[Timeline] Confirmation marker at ${frame.time.toFixed(2)}s`);
-            markerPoints.push({
-              time: frame.time,
-              type: 'confirmation_needed',
-              description: 'Danger zone acknowledged',
-              frameIndex: frameIndex,
-              source: 'frame'
-            });
-          }
-          return; // Skip other markers on this frame
+          allMarkers.push({
+            time: frame.time,
+            type: 'confirmation_needed',
+            description: 'Danger zone acknowledged',
+            frameIndex: frameIndex,
+            source: 'frame',
+            priority: typePriority['confirmation_needed']
+          });
         }
 
-        // Priority 2: first_contact (collision event)
+        // Check for goal_reached
+        if (frame.goal_reached) {
+          allMarkers.push({
+            time: frame.time,
+            type: 'goal_reached',
+            description: 'Goal reached!',
+            frameIndex: frameIndex,
+            source: 'frame',
+            priority: typePriority['goal_reached']
+          });
+        }
+
+        // Check for first_contact
         if (frame.first_contact) {
-          if (!seenTimes.has(roundedTime)) {
-            seenTimes.add(roundedTime);
-            const obstacle = frame.first_contact?.obstacle || 'barrel';
-            console.log(`[Timeline] First contact marker at ${frame.time.toFixed(2)}s`);
-            markerPoints.push({
-              time: frame.time,
-              type: 'first_contact',
-              description: `First contact with ${obstacle}`,
-              frameIndex: frameIndex,
-              source: 'frame'
-            });
-          }
-          return; // Skip other markers on this frame
+          const obstacle = frame.first_contact?.obstacle || 'barrel';
+          allMarkers.push({
+            time: frame.time,
+            type: 'first_contact',
+            description: `First contact with ${obstacle}`,
+            frameIndex: frameIndex,
+            source: 'frame',
+            priority: typePriority['first_contact']
+          });
         }
 
-        // Priority 3: ai_action
+        // Check for ai_action
         if (frame.ai_action) {
-          if (!seenTimes.has(roundedTime)) {
-            seenTimes.add(roundedTime);
+          let type = 'ai_decision';
+          let description = frame.ai_action;
 
-            // Determine type from action string
-            let type = 'ai_decision';
-            let description = frame.ai_action;
-
-            if (frame.ai_action.includes('continue_plan')) {
-              type = 'continue_plan';
-              description = 'AI confirmed current plan';
-            } else if (frame.ai_action.includes('set_waypoints')) {
-              type = 'set_waypoints';
-              // Extract waypoints for description
-              const match = frame.ai_action.match(/set_waypoints\(\[(.+)\]\)/);
-              if (match) {
-                try {
-                  const coords = JSON.parse('[' + match[1] + ']');
-                  description = coords.map(c => `(${c[0]}, ${c[1]})`).join(' → ');
-                } catch (e) {
-                  description = 'New waypoints set';
-                }
+          if (frame.ai_action.includes('continue_plan')) {
+            type = 'continue_plan';
+            description = 'AI confirmed current plan';
+          } else if (frame.ai_action.includes('set_waypoints')) {
+            type = 'set_waypoints';
+            // Extract waypoints for description
+            const match = frame.ai_action.match(/set_waypoints\(\[(.+)\]\)/);
+            if (match) {
+              try {
+                const coords = JSON.parse('[' + match[1] + ']');
+                // Handle both array and object formats
+                description = coords.map(c => {
+                  if (Array.isArray(c)) return `(${c[0]}, ${c[1]})`;
+                  if (c && typeof c === 'object') return `(${c.x}, ${c.y})`;
+                  return '(?)';
+                }).join(' → ');
+              } catch (e) {
+                description = 'New waypoints set';
               }
-            } else if (frame.ai_action.includes('end_mission')) {
-              type = 'mission_ended';
-              description = 'Mission ended';
             }
-
-            console.log(`[Timeline] Frame marker: ${type} at ${frame.time.toFixed(2)}s`);
-            markerPoints.push({
-              time: frame.time,
-              type: type,
-              description: description,
-              frameIndex: frameIndex,
-              source: 'frame'
-            });
+          } else if (frame.ai_action.includes('end_mission')) {
+            type = 'mission_ended';
+            description = 'Mission ended';
           }
+
+          allMarkers.push({
+            time: frame.time,
+            type: type,
+            description: description,
+            frameIndex: frameIndex,
+            source: 'frame',
+            priority: typePriority[type] ?? 6
+          });
         }
       });
     }
 
-    // Add events only if not already covered by frame markers
+    // Collect event markers
     if (events) {
       events.forEach((event) => {
-        const roundedTime = Math.round(event.time * 2) / 2;
-        // Skip generic events that are covered by more specific frame markers
-        if (!seenTimes.has(roundedTime)) {
-          seenTimes.add(roundedTime);
-          console.log(`[Timeline] Event marker: ${event.type} at ${event.time.toFixed(2)}s`);
-          markerPoints.push({
-            time: event.time,
-            type: event.type,
-            description: event.description,
-            source: 'event'
-          });
-        }
+        allMarkers.push({
+          time: event.time,
+          type: event.type,
+          description: event.description,
+          source: 'event',
+          priority: typePriority[event.type] ?? 10
+        });
       });
+    }
+
+    // Now filter: for each time slot, keep only the highest priority marker
+    const markersByTime = new Map();  // roundedTime -> best marker
+
+    for (const marker of allMarkers) {
+      const roundedTime = Math.round(marker.time * 2) / 2;
+      const existing = markersByTime.get(roundedTime);
+
+      if (!existing || marker.priority < existing.priority) {
+        markersByTime.set(roundedTime, marker);
+      }
+    }
+
+    // Convert to array
+    const markerPoints = Array.from(markersByTime.values());
+
+    // Log what we kept
+    for (const marker of markerPoints) {
+      console.log(`[Timeline] Marker: ${marker.type} at ${marker.time.toFixed(2)}s (priority ${marker.priority})`);
     }
 
     // Sort by time
@@ -794,8 +1001,10 @@ export class Timeline {
 /**
  * Replace the default timeline with an enhanced version.
  * Call this after createPlaybackUI().
+ * @param {Object} controller - PlaybackController
+ * @param {Object} demo - MuJoCoDemo instance (optional, for getTimelineEvents())
  */
-export function enhanceTimeline(controller) {
+export function enhanceTimeline(controller, demo = null) {
   // Find the existing timeline in playback-center
   const playbackCenter = document.querySelector('.playback-center');
   const existingTimeline = document.getElementById('timeline');
@@ -803,7 +1012,7 @@ export function enhanceTimeline(controller) {
   if (!playbackCenter || !existingTimeline) return null;
 
   // Create enhanced timeline
-  const timeline = new Timeline(controller);
+  const timeline = new Timeline(controller, demo);
   const enhancedElement = timeline.create();
 
   // Replace just the input with our enhanced wrapper
@@ -816,14 +1025,38 @@ export function enhanceTimeline(controller) {
   // Replace in DOM
   existingTimeline.replaceWith(enhancedElement);
 
+  // Helper to initialize markers using best available data
+  const initializeMarkers = () => {
+    // Prefer new timeline_events format (single source of truth)
+    if (demo && typeof demo.getTimelineEvents === 'function') {
+      const timelineEvents = demo.getTimelineEvents();
+      if (timelineEvents.length > 0) {
+        timeline.initFromTimelineEvents(timelineEvents, controller.duration);
+        return;
+      }
+    }
+
+    // Check trajectory for timeline_events
+    if (controller.trajectory?.timeline_events?.length) {
+      timeline.initFromTimelineEvents(
+        controller.trajectory.timeline_events,
+        controller.duration
+      );
+      return;
+    }
+
+    // Fall back to legacy reconstruction
+    if (controller.trajectory) {
+      timeline.initMarkers(
+        controller.trajectory.events,
+        controller.duration,
+        controller.trajectory.frames
+      );
+    }
+  };
+
   // Initialize markers if trajectory is loaded
-  if (controller.trajectory) {
-    timeline.initMarkers(
-      controller.trajectory.events,
-      controller.duration,
-      controller.trajectory.frames
-    );
-  }
+  initializeMarkers();
 
   // Hook into controller updates
   const originalOnFrameChange = controller.onFrameChange;
@@ -843,7 +1076,8 @@ export function enhanceTimeline(controller) {
   // Hook into trajectory loaded
   const originalOnTrajectoryLoaded = controller.onTrajectoryLoaded;
   controller.onTrajectoryLoaded = (trajectory) => {
-    timeline.initMarkers(trajectory.events, controller.duration, trajectory.frames);
+    // Re-initialize markers when new trajectory loads
+    initializeMarkers();
 
     if (originalOnTrajectoryLoaded) {
       originalOnTrajectoryLoaded(trajectory);

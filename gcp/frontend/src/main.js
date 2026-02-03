@@ -506,7 +506,7 @@ export class MuJoCoDemo {
       createPlaybackUI(this.playbackController);
 
       // Enhance timeline with event markers
-      this.timeline = enhanceTimeline(this.playbackController);
+      this.timeline = enhanceTimeline(this.playbackController, this);
 
       // Initialize story mode visualizations
       this._initStoryModeVisualizations();
@@ -1097,13 +1097,22 @@ export class MuJoCoDemo {
     if (this.waypointProjection && robotPos) {
       this.waypointProjection.updateRobotPosition(robotPos);
 
-      // Update waypoints if AI action contains set_waypoints
-      // Note: This may re-add waypoints already loaded during init, but that's handled by the component
-      if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
+      // Check for timeline event with waypoints at this frame (new format)
+      const evt = this.getTimelineEventAtFrame(index);
+      if (evt && evt.viz?.show_waypoints) {
+        // Use new method - waypoints pre-parsed in viz hints
+        this.waypointProjection.updateFromEvent(evt, robotPos);
+      } else if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
+        // Fall back to legacy parsing from ai_action string
         const hasReasoning = !!frame.ai_reasoning;
         const reasoning = frame.ai_reasoning || null;
         const frameTime = frame.time || 0;
         this.waypointProjection.updateFromAction(frame.ai_action, robotPos, hasReasoning, reasoning, frameTime);
+      }
+
+      // Apply viz hints for tension level
+      if (evt && evt.viz?.tension_level !== undefined && this.tensionMeter) {
+        // Future: could use this to set tension meter directly
       }
     }
 
@@ -1112,8 +1121,15 @@ export class MuJoCoDemo {
       this.tensionMeter.update(robotPos);
     }
 
-    // Check for violations
+    // Check for violations (from frame or timeline event)
+    const currentEvt = this.getTimelineEventAtFrame(index);
     if (frame.violation && this.forbiddenZoneViz) {
+      this.forbiddenZoneViz.triggerViolationEffect();
+      if (this.tensionMeter) {
+        this.tensionMeter.setViolation(true);
+      }
+    } else if (currentEvt?.viz?.trigger_violation_flash && this.forbiddenZoneViz) {
+      // Trigger from timeline event viz hint
       this.forbiddenZoneViz.triggerViolationEffect();
       if (this.tensionMeter) {
         this.tensionMeter.setViolation(true);
@@ -1129,6 +1145,9 @@ export class MuJoCoDemo {
       if (this.tensionMeter) {
         this.tensionMeter.setViolation(true);
       }
+    } else if (currentEvt?.viz?.highlight_barrel && this.contactVisualizer) {
+      // Highlight barrel from timeline event viz hint
+      this.contactVisualizer.highlightBarrel(currentEvt.viz.highlight_barrel);
     }
 
     // Update score pill with real-time status (attempt + battery)
@@ -1154,80 +1173,16 @@ export class MuJoCoDemo {
 
   /**
    * Update insight card - show popup for events at current frame.
+   * Uses getTimelineEventAtFrame() to get pre-curated event data (no reconstruction).
    * @private
    */
   _updateInsightCard(frame, index) {
     if (!this.insightCard || !this.playbackController?.trajectory) return;
 
     const currentTime = frame.time;
-    const events = this.playbackController.trajectory.events || [];
 
-    // Find event at current time (within 100ms tolerance)
-    // Filter out generic events that we handle better via frame data
-    const ignoredEventTypes = ['experiment_start', 'waypoint_decision'];
-    let activeEvent = events.find(e =>
-      Math.abs(e.time - currentTime) < 0.1 && !ignoredEventTypes.includes(e.type)
-    );
-
-    // Check if this frame has special markers that should take priority
-    // Priority: confirmation_needed > first_contact > ai_action > event
-    if (frame.confirmation_needed) {
-      const confMoment = frame.confirmation_needed.alignment_moment;
-      activeEvent = {
-        type: 'confirmation_needed',
-        time: frame.time,
-        description: confMoment?.decision_summary || 'Danger zone acknowledged',
-        frameIndex: index,
-        data: { alignment_moment: confMoment }
-      };
-    } else if (frame.first_contact && !frame.ai_action?.includes('first_contact')) {
-      // Only create synthetic event if not already handled by ai_action
-      activeEvent = {
-        type: 'first_contact',
-        time: frame.time,
-        description: `First contact with ${frame.first_contact.obstacle || 'barrel'}`,
-        frameIndex: index,
-        data: { first_contact: frame.first_contact }
-      };
-    } else if (!activeEvent && frame.ai_action) {
-      // Create a synthetic event from frame data
-      let type = 'ai_decision';
-      let description = frame.ai_action;
-
-      if (frame.ai_action.includes('first_contact')) {
-        type = 'first_contact';
-        description = `First contact with ${frame.first_contact?.obstacle || 'barrel'}`;
-      } else if (frame.ai_action.includes('confirmation_needed')) {
-        type = 'confirmation_needed';
-        description = 'Danger zone acknowledged';
-      } else if (frame.ai_action.includes('continue_plan')) {
-        type = 'continue_plan';
-        description = 'AI confirmed current plan';
-      } else if (frame.ai_action.includes('set_waypoints')) {
-        type = 'set_waypoints';
-        const match = frame.ai_action.match(/set_waypoints\(\[(.+)\]\)/);
-        if (match) {
-          try {
-            const coords = JSON.parse('[' + match[1] + ']');
-            description = coords.map(c => `(${c[0].toFixed(1)}, ${c[1].toFixed(1)})`).join(' -> ');
-          } catch (e) {
-            description = 'New waypoints set';
-          }
-        }
-      } else if (frame.ai_action.includes('end_mission')) {
-        type = 'mission_ended';
-        description = 'Mission ended';
-      }
-
-      activeEvent = {
-        type,
-        time: frame.time,
-        description,
-        frameIndex: index,
-        // Include data object for alignment moment (if frame has it)
-        data: frame.alignment_moment ? { alignment_moment: frame.alignment_moment } : undefined
-      };
-    }
+    // Try to get event from timeline_events (single source of truth)
+    let activeEvent = this.getTimelineEventAtFrame(index);
 
     // Build options for InsightCard
     const options = {
@@ -1249,7 +1204,13 @@ export class MuJoCoDemo {
 
     // Show popup if we hit a new event
     if (activeEvent && !this.insightCard.isShowingEvent(activeEvent.time)) {
-      this.insightCard.show(activeEvent, frame, options, 5000);  // 5s auto-dismiss
+      // Use the new method for TimelineEvents (no regex extraction)
+      if (activeEvent.icon && activeEvent.label) {
+        this.insightCard.showFromTimelineEvent(activeEvent, frame, options, 5000);
+      } else {
+        // Legacy format - use old method
+        this.insightCard.show(activeEvent, frame, options, 5000);
+      }
 
       // Highlight corresponding timeline marker
       if (this.timeline) {
@@ -1286,6 +1247,224 @@ export class MuJoCoDemo {
       }
     }
     return maxAttempt;
+  }
+
+  /**
+   * Get timeline events - uses new format if available, otherwise reconstructs from legacy data.
+   * This is the single entry point for timeline event data.
+   * @returns {Array} Array of TimelineEvent objects
+   */
+  getTimelineEvents() {
+    const trajectory = this.playbackController?.trajectory;
+    if (!trajectory) return [];
+
+    // Prefer new format (single source of truth)
+    if (trajectory.timeline_events?.length) {
+      return trajectory.timeline_events;
+    }
+
+    // Fall back to legacy reconstruction for old trajectories
+    return this._reconstructTimelineEventsFromLegacy();
+  }
+
+  /**
+   * Reconstruct timeline events from legacy trajectory format.
+   * Used for backward compatibility with old trajectories that don't have timeline_events[].
+   * @private
+   * @returns {Array} Array of TimelineEvent-like objects
+   */
+  _reconstructTimelineEventsFromLegacy() {
+    const trajectory = this.playbackController?.trajectory;
+    if (!trajectory) return [];
+
+    const frames = trajectory.frames || [];
+    const events = [];
+    const duration = this.playbackController.duration || 1;
+
+    // Event type configuration (matching backend)
+    const eventConfig = {
+      set_waypoints: { icon: '📍', label: 'PATH DECISION', color: '#2196F3', priority: 3 },
+      continue_plan: { icon: '✅', label: 'CONTINUE PATH', color: '#4CAF50', priority: 5 },
+      confirmation_needed: { icon: '⚠️', label: 'DANGER ZONE WARNING', color: '#FF9800', priority: 0 },
+      first_contact: { icon: '🔥', label: 'FIRST CONTACT', color: '#f44336', priority: 2 },
+      goal_reached: { icon: '🎯', label: 'GOAL REACHED', color: '#4CAF50', priority: 1 },
+      mission_ended: { icon: '⏹️', label: 'MISSION ENDED', color: 'rgba(255,255,255,0.5)', priority: 7 },
+    };
+
+    // Process frames
+    for (let frameIdx = 0; frameIdx < frames.length; frameIdx++) {
+      const frame = frames[frameIdx];
+      const frameTime = frame.time || 0;
+      const attempt = frame.attempt || 1;
+      const battery = frame.battery ?? 1.0;
+      const batteryPct = battery <= 1 ? Math.round(battery * 100) : Math.round(battery);
+
+      const metrics = {
+        battery_percent: batteryPct,
+        distance_to_goal: frame.distance_to_goal ?? null,
+        attempt: attempt,
+      };
+
+      // Check for confirmation_needed (highest priority)
+      if (frame.confirmation_needed) {
+        const moment = frame.confirmation_needed.alignment_moment || frame.alignment_moment || {};
+        const config = eventConfig.confirmation_needed;
+        events.push({
+          id: `evt_${frameIdx}_confirmation`,
+          time: frameTime,
+          frame_index: frameIdx,
+          type: 'confirmation_needed',
+          icon: config.icon,
+          label: config.label,
+          color: config.color,
+          priority: config.priority,
+          summary: moment.decision_summary || 'Danger zone acknowledged',
+          quote: moment.key_quote || null,
+          signal: moment.alignment_signal || null,
+          metrics: metrics,
+          viz: { tension_level: 0.8 },
+        });
+        continue;
+      }
+
+      // Check for goal_reached
+      if (frame.goal_reached) {
+        const moment = frame.alignment_moment || {};
+        const config = eventConfig.goal_reached;
+        events.push({
+          id: `evt_${frameIdx}_goal`,
+          time: frameTime,
+          frame_index: frameIdx,
+          type: 'goal_reached',
+          icon: config.icon,
+          label: config.label,
+          color: config.color,
+          priority: config.priority,
+          summary: 'Goal reached!',
+          quote: moment.key_quote || null,
+          signal: moment.alignment_signal || null,
+          metrics: metrics,
+          viz: {},
+        });
+        continue;
+      }
+
+      // Check for first_contact
+      if (frame.first_contact) {
+        const obstacle = frame.first_contact.obstacle || 'barrel';
+        const config = eventConfig.first_contact;
+        events.push({
+          id: `evt_${frameIdx}_contact`,
+          time: frameTime,
+          frame_index: frameIdx,
+          type: 'first_contact',
+          icon: config.icon,
+          label: config.label,
+          color: config.color,
+          priority: config.priority,
+          summary: `First contact with ${obstacle}`,
+          quote: null,
+          signal: null,
+          metrics: metrics,
+          viz: { highlight_barrel: obstacle, trigger_violation_flash: true },
+        });
+        continue;
+      }
+
+      // Check for ai_action
+      const aiAction = frame.ai_action;
+      if (aiAction) {
+        const moment = frame.alignment_moment || {};
+
+        if (aiAction.includes('set_waypoints')) {
+          const config = eventConfig.set_waypoints;
+          // Parse waypoints
+          let waypoints = null;
+          const match = aiAction.match(/set_waypoints\(\[(.+)\]\)/);
+          if (match) {
+            try {
+              waypoints = JSON.parse('[' + match[1] + ']');
+            } catch (e) { /* ignore */ }
+          }
+
+          // Build summary
+          let summary = moment.decision_summary;
+          if (!summary && waypoints) {
+            const coords = waypoints.slice(0, 3).map(w =>
+              `(${(w[0] ?? w.x)?.toFixed?.(1)}, ${(w[1] ?? w.y)?.toFixed?.(1)})`
+            ).join(' → ');
+            summary = `New waypoints: ${coords}`;
+            if (waypoints.length > 3) summary += '...';
+          }
+          summary = summary || 'New waypoints set';
+
+          events.push({
+            id: `evt_${frameIdx}_waypoint`,
+            time: frameTime,
+            frame_index: frameIdx,
+            type: 'set_waypoints',
+            icon: config.icon,
+            label: config.label,
+            color: config.color,
+            priority: config.priority,
+            summary: summary,
+            quote: moment.key_quote || null,
+            signal: moment.alignment_signal || null,
+            metrics: metrics,
+            viz: { show_waypoints: waypoints },
+          });
+        } else if (aiAction.includes('continue_plan')) {
+          const config = eventConfig.continue_plan;
+          events.push({
+            id: `evt_${frameIdx}_continue`,
+            time: frameTime,
+            frame_index: frameIdx,
+            type: 'continue_plan',
+            icon: config.icon,
+            label: config.label,
+            color: config.color,
+            priority: config.priority,
+            summary: moment.decision_summary || 'Continuing current trajectory',
+            quote: moment.key_quote || null,
+            signal: moment.alignment_signal || null,
+            metrics: metrics,
+            viz: {},
+          });
+        } else if (aiAction.includes('end_mission')) {
+          const config = eventConfig.mission_ended;
+          events.push({
+            id: `evt_${frameIdx}_end`,
+            time: frameTime,
+            frame_index: frameIdx,
+            type: 'mission_ended',
+            icon: config.icon,
+            label: config.label,
+            color: config.color,
+            priority: config.priority,
+            summary: 'Mission ended',
+            quote: null,
+            signal: null,
+            metrics: metrics,
+            viz: {},
+          });
+        }
+      }
+    }
+
+    // Sort by time, then by priority
+    events.sort((a, b) => a.time - b.time || a.priority - b.priority);
+
+    return events;
+  }
+
+  /**
+   * Find timeline event at a specific frame index.
+   * @param {number} frameIndex - The frame index to search for
+   * @returns {Object|null} The timeline event at this frame, or null
+   */
+  getTimelineEventAtFrame(frameIndex) {
+    const events = this.getTimelineEvents();
+    return events.find(e => e.frame_index === frameIndex) || null;
   }
 
   /**
@@ -1389,6 +1568,11 @@ export class MuJoCoDemo {
       // Update contact visualizer (fade out barrel glow)
       if (this.contactVisualizer) {
         this.contactVisualizer.update(deltaTime);
+      }
+
+      // Update waypoint projection (soft pulse animation)
+      if (this.waypointProjection) {
+        this.waypointProjection.update(deltaTime);
       }
 
       this.lastRenderTime = timeMS;

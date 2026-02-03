@@ -133,6 +133,131 @@ export class InsightCard {
   }
 
   /**
+   * Show the insight card from a TimelineEvent (new format - no regex needed).
+   * This is the preferred method for new trajectories with timeline_events[].
+   * @param {Object} evt - TimelineEvent object with icon, label, summary, quote, signal, metrics
+   * @param {Object} frame - Current frame data (for ai_reasoning fallback)
+   * @param {Object} options - Additional options (judgeData)
+   * @param {number} autoDismissMs - Auto-dismiss delay (default 5000ms)
+   */
+  showFromTimelineEvent(evt, frame = {}, options = {}, autoDismissMs = 5000) {
+    if (!this.element) return;
+
+    // Clear previous timer
+    if (this.dismissTimer) {
+      clearTimeout(this.dismissTimer);
+      this.dismissTimer = null;
+    }
+
+    // Update content directly from TimelineEvent (no regex!)
+    this._updateContentFromTimelineEvent(evt, frame, options);
+
+    // Apply event-specific styling
+    this.element.setAttribute('data-type', evt.type);
+
+    // Show card
+    this.element.classList.add('visible');
+    this.currentEvent = evt;
+    this._lastEventTime = evt.time;
+
+    // Track timer for pause/resume
+    this._dismissDuration = autoDismissMs;
+    this._timerStartTime = Date.now();
+    this._remainingTime = autoDismissMs;
+
+    // Only start timer if not paused
+    if (!this._isPaused) {
+      this.dismissTimer = setTimeout(() => this.hide(), autoDismissMs);
+    }
+  }
+
+  /**
+   * Update card content from TimelineEvent (no regex extraction needed).
+   * @private
+   */
+  _updateContentFromTimelineEvent(evt, frame, options) {
+    const iconEl = this.element.querySelector('.insight-card-icon');
+    const titleEl = this.element.querySelector('.insight-card-title');
+    const badgeEl = this.element.querySelector('.insight-card-badge');
+    const summaryEl = this.element.querySelector('.insight-card-summary');
+    const quoteEl = this.element.querySelector('.insight-card-quote');
+    const metricsEl = this.element.querySelector('.insight-card-metrics');
+    const signalEl = this.element.querySelector('.insight-card-signal');
+
+    // Set header directly from event
+    iconEl.textContent = evt.icon;
+    iconEl.style.color = evt.color;
+    titleEl.textContent = evt.label;
+
+    // Set badge (attempt number from metrics)
+    const attempt = evt.metrics?.attempt || frame?.attempt;
+    if (attempt) {
+      badgeEl.textContent = `Attempt ${attempt}`;
+      badgeEl.style.display = 'block';
+    } else {
+      badgeEl.style.display = 'none';
+    }
+
+    // Summary - directly from event
+    const summary = evt.summary || '';
+    summaryEl.textContent = summary;
+    summaryEl.style.display = summary ? 'block' : 'none';
+
+    // Quote - directly from event (pre-extracted by judge)
+    if (evt.quote) {
+      quoteEl.innerHTML = `<span class="quote-mark">"</span>${evt.quote}<span class="quote-mark">"</span>`;
+      quoteEl.style.display = 'block';
+    } else {
+      quoteEl.style.display = 'none';
+    }
+
+    // Metrics - directly from event
+    const metrics = this._buildMetricsFromEvtMetrics(evt.metrics);
+    metricsEl.innerHTML = metrics;
+    metricsEl.style.display = metrics ? 'flex' : 'none';
+
+    // Signal - directly from event (pre-classified by judge)
+    if (evt.signal && evt.signal !== 'NEUTRAL') {
+      const formattedSignal = evt.signal.replace(/_/g, ' ');
+      signalEl.innerHTML = `<span class="signal-icon">🎯</span> <span class="signal-text">${formattedSignal}</span>`;
+      signalEl.style.display = 'flex';
+    } else if (options?.judgeData) {
+      // Fall back to judge data if available
+      const judgeSignal = this._buildJudgeSignal(options.judgeData);
+      if (judgeSignal) {
+        signalEl.innerHTML = `<span class="signal-icon">🎯</span> <span class="signal-text">${judgeSignal}</span>`;
+        signalEl.style.display = 'flex';
+      } else {
+        signalEl.style.display = 'none';
+      }
+    } else {
+      signalEl.style.display = 'none';
+    }
+  }
+
+  /**
+   * Build metrics display from TimelineEvent metrics object.
+   * @private
+   */
+  _buildMetricsFromEvtMetrics(metrics) {
+    if (!metrics) return '';
+
+    const parts = [];
+
+    if (metrics.battery_percent !== undefined) {
+      const batteryPct = metrics.battery_percent;
+      const batteryColor = batteryPct < 20 ? '#f44336' : batteryPct < 50 ? '#FF9800' : '#4CAF50';
+      parts.push(`<div class="metric"><span class="metric-icon">🔋</span> <span class="metric-value" style="color:${batteryColor}">${batteryPct}%</span></div>`);
+    }
+
+    if (metrics.distance_to_goal !== null && metrics.distance_to_goal !== undefined) {
+      parts.push(`<div class="metric"><span class="metric-icon">📍</span> <span class="metric-value">${metrics.distance_to_goal.toFixed(1)}m to goal</span></div>`);
+    }
+
+    return parts.join('');
+  }
+
+  /**
    * Pause the auto-dismiss timer (called when playback pauses).
    */
   onPause() {
