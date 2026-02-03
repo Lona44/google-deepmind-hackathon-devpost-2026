@@ -30,6 +30,8 @@ import { TensionMeter } from './components/TensionMeter.js';
 import { ReasoningStream } from './components/ReasoningStream.js';
 import { ForbiddenZoneVisualizer } from './components/ForbiddenZoneVisualizer.js';
 import { ContactVisualizer } from './components/ContactVisualizer.js';
+import { ScorePill } from './components/ScorePill.js';
+import { DetailsPanel } from './components/DetailsPanel.js';
 
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
@@ -77,6 +79,8 @@ export class MuJoCoDemo {
     this.lastRenderTime = 0;
     this.contactVisualizer = null;  // Barrel contact glow effect
     this._lastVisualizationAttempt = null;  // Track attempt for waypoint clearing
+    this.scorePill = null;  // Floating metrics panel
+    this.detailsPanel = null;  // Expandable details panel
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -725,6 +729,28 @@ export class MuJoCoDemo {
     // Sync with current playback speed
     this.reasoningStream.setPlaybackSpeed(this.playbackController.playbackSpeed);
 
+    // Create score pill (DOM-based metrics panel)
+    this.scorePill = new ScorePill();
+    document.body.appendChild(this.scorePill.create());
+
+    // Create details panel (expandable panel)
+    this.detailsPanel = new DetailsPanel();
+    this.detailsPanel.create();  // Adds itself to body
+
+    // Connect scorePill details button to detailsPanel
+    this.scorePill.onDetailsClick = () => {
+      this.detailsPanel.toggle();
+    };
+
+    // Update score pill with judge data from manifest
+    if (this.selector) {
+      const runMeta = this.selector.getCurrentRunMetadata();
+      if (runMeta) {
+        this.scorePill.update(runMeta, runMeta.model);
+        this.detailsPanel.updateJudge(runMeta, runMeta.model);
+      }
+    }
+
     // Create contact visualizer (subtle barrel glow on contact)
     this.contactVisualizer = new ContactVisualizer(this.scene, this.bodies);
 
@@ -821,6 +847,24 @@ export class MuJoCoDemo {
     if (this.contactVisualizer) {
       this.contactVisualizer.dispose();
       this.contactVisualizer = null;
+    }
+    if (this.scorePill) {
+      // Remove from DOM
+      if (this.scorePill.container && this.scorePill.container.parentNode) {
+        this.scorePill.container.parentNode.removeChild(this.scorePill.container);
+      }
+      this.scorePill = null;
+    }
+    if (this.detailsPanel) {
+      // DetailsPanel removes itself via its close method or we can just null it
+      // The overlay and container are added to body
+      if (this.detailsPanel.container && this.detailsPanel.container.parentNode) {
+        this.detailsPanel.container.parentNode.removeChild(this.detailsPanel.container);
+      }
+      if (this.detailsPanel.overlay && this.detailsPanel.overlay.parentNode) {
+        this.detailsPanel.overlay.parentNode.removeChild(this.detailsPanel.overlay);
+      }
+      this.detailsPanel = null;
     }
     if (this.composer) {
       this.composer.dispose();
@@ -983,6 +1027,40 @@ export class MuJoCoDemo {
         this.tensionMeter.setViolation(true);
       }
     }
+
+    // Update score pill with real-time status (attempt + battery)
+    if (this.scorePill) {
+      const battery = frame.battery !== undefined ? frame.battery : 1.0;
+      // Get total attempts from trajectory (find max attempt number)
+      const totalAttempts = this._getTotalAttempts();
+      this.scorePill.updateStatus(currentAttempt, totalAttempts, battery);
+
+      // Also update details panel status
+      if (this.detailsPanel) {
+        this.detailsPanel.updateStatus(currentAttempt, totalAttempts, battery);
+        // Update AI reasoning if present
+        if (frame.ai_action || frame.ai_reasoning) {
+          this.detailsPanel.updateAI(frame.ai_action, frame.ai_reasoning);
+        }
+      }
+    }
+  }
+
+  /**
+   * Get total number of attempts from trajectory.
+   * @private
+   */
+  _getTotalAttempts() {
+    const frames = this.playbackController?.trajectory?.frames;
+    if (!frames || frames.length === 0) return 5;  // Default
+
+    let maxAttempt = 1;
+    for (const frame of frames) {
+      if (frame.attempt && frame.attempt > maxAttempt) {
+        maxAttempt = frame.attempt;
+      }
+    }
+    return maxAttempt;
   }
 
   /**
