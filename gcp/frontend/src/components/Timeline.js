@@ -95,27 +95,55 @@ export class Timeline {
     const markerPoints = [];
     const seenTimes = new Set();
 
-    // Add frames with ai_action FIRST - these have the actual action types we want
+    // Add frames with markers - prioritize special properties over ai_action
+    // Priority: confirmation_needed > first_contact > ai_action
     if (frames) {
       frames.forEach((frame, frameIndex) => {
-        if (frame.ai_action) {
-          const roundedTime = Math.round(frame.time * 2) / 2;
-          const isDupe = seenTimes.has(roundedTime);
+        const roundedTime = Math.round(frame.time * 2) / 2;
 
-          if (!isDupe) {
+        // Priority 1: confirmation_needed (most important alignment signal)
+        if (frame.confirmation_needed) {
+          if (!seenTimes.has(roundedTime)) {
+            seenTimes.add(roundedTime);
+            console.log(`[Timeline] Confirmation marker at ${frame.time.toFixed(2)}s`);
+            markerPoints.push({
+              time: frame.time,
+              type: 'confirmation_needed',
+              description: 'Danger zone acknowledged',
+              frameIndex: frameIndex,
+              source: 'frame'
+            });
+          }
+          return; // Skip other markers on this frame
+        }
+
+        // Priority 2: first_contact (collision event)
+        if (frame.first_contact) {
+          if (!seenTimes.has(roundedTime)) {
+            seenTimes.add(roundedTime);
+            const obstacle = frame.first_contact?.obstacle || 'barrel';
+            console.log(`[Timeline] First contact marker at ${frame.time.toFixed(2)}s`);
+            markerPoints.push({
+              time: frame.time,
+              type: 'first_contact',
+              description: `First contact with ${obstacle}`,
+              frameIndex: frameIndex,
+              source: 'frame'
+            });
+          }
+          return; // Skip other markers on this frame
+        }
+
+        // Priority 3: ai_action
+        if (frame.ai_action) {
+          if (!seenTimes.has(roundedTime)) {
             seenTimes.add(roundedTime);
 
             // Determine type from action string
             let type = 'ai_decision';
             let description = frame.ai_action;
-            if (frame.ai_action.includes('confirmation_needed')) {
-              type = 'confirmation_needed';
-              description = 'Danger zone acknowledged';
-            } else if (frame.ai_action.includes('first_contact')) {
-              type = 'first_contact';
-              const obstacle = frame.first_contact?.obstacle || 'barrel';
-              description = `First contact with ${obstacle}`;
-            } else if (frame.ai_action.includes('continue_plan')) {
+
+            if (frame.ai_action.includes('continue_plan')) {
               type = 'continue_plan';
               description = 'AI confirmed current plan';
             } else if (frame.ai_action.includes('set_waypoints')) {
@@ -140,39 +168,6 @@ export class Timeline {
               time: frame.time,
               type: type,
               description: description,
-              frameIndex: frameIndex,
-              source: 'frame'
-            });
-          }
-        }
-
-        // Also check for confirmation_needed property (may be on same frame as another action)
-        if (frame.confirmation_needed && !frame.ai_action?.includes('confirmation_needed')) {
-          const roundedTime = Math.round(frame.time * 2) / 2 + 0.01; // Slight offset to avoid collision
-          if (!seenTimes.has(roundedTime)) {
-            seenTimes.add(roundedTime);
-            console.log(`[Timeline] Confirmation marker at ${frame.time.toFixed(2)}s`);
-            markerPoints.push({
-              time: frame.time,
-              type: 'confirmation_needed',
-              description: 'Danger zone acknowledged',
-              frameIndex: frameIndex,
-              source: 'frame'
-            });
-          }
-        }
-
-        // Also check for first_contact property (may be on same frame as another action)
-        if (frame.first_contact && !frame.ai_action?.includes('first_contact')) {
-          const roundedTime = Math.round(frame.time * 2) / 2 + 0.02; // Slight offset to avoid collision
-          if (!seenTimes.has(roundedTime)) {
-            seenTimes.add(roundedTime);
-            const obstacle = frame.first_contact?.obstacle || 'barrel';
-            console.log(`[Timeline] First contact marker at ${frame.time.toFixed(2)}s`);
-            markerPoints.push({
-              time: frame.time,
-              type: 'first_contact',
-              description: `First contact with ${obstacle}`,
               frameIndex: frameIndex,
               source: 'frame'
             });

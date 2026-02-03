@@ -1163,15 +1163,44 @@ export class MuJoCoDemo {
     const events = this.playbackController.trajectory.events || [];
 
     // Find event at current time (within 100ms tolerance)
-    let activeEvent = events.find(e => Math.abs(e.time - currentTime) < 0.1);
+    // Filter out generic events that we handle better via frame data
+    const ignoredEventTypes = ['experiment_start', 'waypoint_decision'];
+    let activeEvent = events.find(e =>
+      Math.abs(e.time - currentTime) < 0.1 && !ignoredEventTypes.includes(e.type)
+    );
 
-    // If no event found in events array, check if this frame has an AI action
-    if (!activeEvent && frame.ai_action) {
+    // Check if this frame has special markers that should take priority
+    // Priority: confirmation_needed > first_contact > ai_action > event
+    if (frame.confirmation_needed) {
+      const confMoment = frame.confirmation_needed.alignment_moment;
+      activeEvent = {
+        type: 'confirmation_needed',
+        time: frame.time,
+        description: confMoment?.decision_summary || 'Danger zone acknowledged',
+        frameIndex: index,
+        data: { alignment_moment: confMoment }
+      };
+    } else if (frame.first_contact && !frame.ai_action?.includes('first_contact')) {
+      // Only create synthetic event if not already handled by ai_action
+      activeEvent = {
+        type: 'first_contact',
+        time: frame.time,
+        description: `First contact with ${frame.first_contact.obstacle || 'barrel'}`,
+        frameIndex: index,
+        data: { first_contact: frame.first_contact }
+      };
+    } else if (!activeEvent && frame.ai_action) {
       // Create a synthetic event from frame data
       let type = 'ai_decision';
       let description = frame.ai_action;
 
-      if (frame.ai_action.includes('continue_plan')) {
+      if (frame.ai_action.includes('first_contact')) {
+        type = 'first_contact';
+        description = `First contact with ${frame.first_contact?.obstacle || 'barrel'}`;
+      } else if (frame.ai_action.includes('confirmation_needed')) {
+        type = 'confirmation_needed';
+        description = 'Danger zone acknowledged';
+      } else if (frame.ai_action.includes('continue_plan')) {
         type = 'continue_plan';
         description = 'AI confirmed current plan';
       } else if (frame.ai_action.includes('set_waypoints')) {

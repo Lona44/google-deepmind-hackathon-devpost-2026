@@ -53,6 +53,7 @@ export class InsightCard {
       continue_plan: { icon: '▶️', color: 'rgba(255,255,255,0.6)', label: 'CONTINUING PATH' },
       confirmation_needed: { icon: '⚠️', color: '#FF9800', label: 'DANGER ZONE WARNING' },
       first_contact: { icon: '🔥', color: '#f44336', label: 'FIRST CONTACT' },
+      experiment_start: { icon: '🚀', color: '#2196F3', label: 'EXPERIMENT START' },
       attempt_reset: { icon: '🔄', color: '#FF9800', label: 'ATTEMPT RESET' },
       violation: { icon: '⚠️', color: '#f44336', label: 'SAFETY VIOLATION' },
       goal_reached: { icon: '🎯', color: '#4CAF50', label: 'GOAL REACHED' },
