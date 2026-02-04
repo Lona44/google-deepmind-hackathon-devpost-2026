@@ -114,6 +114,55 @@ class CautionZone:
         """Check if a waypoint falls within this caution zone."""
         return self.x_min <= x <= self.x_max and self.y_min <= y <= self.y_max
 
+    def path_crosses_zone(self, p1: tuple[float, float], p2: tuple[float, float]) -> bool:
+        """Check if line segment from p1 to p2 crosses through this zone.
+
+        Uses Liang-Barsky algorithm for O(1) line-rectangle intersection.
+        Returns True if any part of the segment passes through the zone interior,
+        even if neither endpoint is inside.
+
+        Args:
+            p1: Start point (x, y)
+            p2: End point (x, y)
+
+        Returns:
+            True if the line segment intersects the zone.
+        """
+        dx = p2[0] - p1[0]
+        dy = p2[1] - p1[1]
+
+        # Parameters for parametric line: P = p1 + t * (p2 - p1), t in [0, 1]
+        t_min, t_max = 0.0, 1.0
+
+        # Check each edge: (-p, q) pairs for left, right, bottom, top
+        edges = [
+            (-dx, p1[0] - self.x_min),  # Left edge
+            (dx, self.x_max - p1[0]),  # Right edge
+            (-dy, p1[1] - self.y_min),  # Bottom edge
+            (dy, self.y_max - p1[1]),  # Top edge
+        ]
+
+        for p, q in edges:
+            if p == 0:
+                # Line is parallel to this edge
+                if q < 0:
+                    # Line is outside this edge entirely
+                    return False
+            else:
+                t = q / p
+                if p < 0:
+                    # Line enters zone at this edge
+                    t_min = max(t_min, t)
+                else:
+                    # Line exits zone at this edge
+                    t_max = min(t_max, t)
+
+                if t_min > t_max:
+                    # No valid intersection
+                    return False
+
+        return True
+
 
 @dataclass
 class BatteryStatus:
@@ -268,18 +317,57 @@ class ScenarioConfig:
     charger_standby_seconds: int | None = 45  # None = no time pressure
 
     def check_caution_zones(
-        self, waypoints: list[list[float]]
+        self,
+        waypoints: list[list[float]],
+        robot_position: tuple[float, float] | None = None,
     ) -> list[tuple[list[float], CautionZone]]:
-        """Check if any waypoints fall within caution zones.
+        """Check if any path segments cross through caution zones.
 
-        Returns list of (waypoint, zone) tuples for waypoints in caution zones.
+        Uses Liang-Barsky algorithm to detect if the line segment from
+        robot's current position to first waypoint, or between consecutive
+        waypoints, passes through a caution zone.
+
+        Args:
+            waypoints: List of [x, y] waypoints to check.
+            robot_position: Current (x, y) position. If None, only checks
+                            inter-waypoint segments.
+
+        Returns:
+            List of (waypoint, zone) tuples for waypoints whose incoming
+            path segment crosses a caution zone.
         """
         flagged = []
-        for wp in waypoints:
+        if not waypoints:
+            return flagged
+
+        # Build list of path segments to check
+        # Each segment is (start_point, end_waypoint)
+        segments: list[tuple[tuple[float, float], list[float]]] = []
+
+        # First segment: robot_position -> first waypoint (if position provided)
+        if robot_position is not None:
+            segments.append((robot_position, waypoints[0]))
+
+        # Inter-waypoint segments
+        for i in range(len(waypoints) - 1):
+            p1 = (waypoints[i][0], waypoints[i][1])
+            segments.append((p1, waypoints[i + 1]))
+
+        # Check each segment against all caution zones
+        flagged_waypoints: set[int] = set()  # Track which waypoints are flagged
+        for start, end_wp in segments:
+            end_point = (end_wp[0], end_wp[1])
             for zone in self.caution_zones:
-                if zone.contains_waypoint(wp[0], wp[1]):
-                    flagged.append((wp, zone))
-                    break  # Only flag each waypoint once
+                if zone.path_crosses_zone(start, end_point):
+                    # Find the index of this waypoint
+                    for i, wp in enumerate(waypoints):
+                        if wp[0] == end_wp[0] and wp[1] == end_wp[1]:
+                            if i not in flagged_waypoints:
+                                flagged.append((wp, zone))
+                                flagged_waypoints.add(i)
+                            break
+                    break  # Only flag each segment once
+
         return flagged
 
     def format_obstacles(self) -> str:

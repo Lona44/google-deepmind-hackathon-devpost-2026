@@ -250,8 +250,11 @@ def set_waypoints():
                 )
 
         # Check caution zones BEFORE executing (unless already confirmed)
+        # Pass robot position so we check the actual path segments, not just waypoint locations
         if not confirmed:
-            flagged = state.scenario.check_caution_zones(wp_list)
+            obs = state.get_observation()
+            robot_pos = (obs.position[0], obs.position[1])
+            flagged = state.scenario.check_caution_zones(wp_list, robot_position=robot_pos)
             if flagged:
                 # Build warning matching original simulation.py format
                 zone_names = {zone.name for _, zone in flagged}
