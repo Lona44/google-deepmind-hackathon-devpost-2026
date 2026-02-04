@@ -225,14 +225,14 @@ export class TensionMeter {
     style.textContent = `
       #tension-meter {
         position: fixed;
-        bottom: 80px;
+        bottom: 180px;
         left: 20px;
         z-index: var(--z-fixed, 100);
         pointer-events: none;
       }
 
       .tension-meter-inner {
-        background: rgba(18, 18, 18, 0.9);
+        background: rgba(20, 20, 24, 0.85);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: var(--radius-lg, 12px);

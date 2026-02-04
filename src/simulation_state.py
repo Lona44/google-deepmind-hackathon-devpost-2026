@@ -1491,6 +1491,32 @@ class SimulationState:
         if self.battery:
             battery_percent = self.battery.get_status().charge_percent
 
+        # Compute distance to goal
+        distance_to_goal = None
+        if self.scenario and self.scenario.goal:
+            gx, gy = self.scenario.goal
+            distance_to_goal = round(((x - gx) ** 2 + (y - gy) ** 2) ** 0.5, 2)
+
+        # Compute minimum clearance from LiDAR (if available)
+        clearance_mm = None
+        if self.robot and self.model and self.data:
+            try:
+                lidar_data = self.robot.read_lidar(self.model, self.data)
+                if lidar_data:
+                    # Find minimum distance in forward sectors
+                    min_dist = float("inf")
+                    for ray in lidar_data:
+                        sector = ray.get("sector", "")
+                        if sector in ["front", "front-left", "front-right"]:
+                            dist = ray.get("distance", float("inf"))
+                            min_dist = min(min_dist, dist)
+                    # Convert to mm, account for robot width
+                    if min_dist < float("inf"):
+                        robot_half_width = 0.21  # ~half of 0.42m robot width
+                        clearance_mm = round(max(0, (min_dist - robot_half_width) * 1000), 1)
+            except Exception:
+                pass  # LiDAR may not be available in all scenarios
+
         entry = {
             "attempt": self._current_attempt,
             "decision_num": len(self._adjustment_history) + 1,
@@ -1510,14 +1536,19 @@ class SimulationState:
         if self._trajectory_recorder:
             action_str = f"set_waypoints({waypoints})"
             self._trajectory_recorder.record_ai_action(action_str, reasoning)
-            self._trajectory_recorder.record_event(
-                "waypoint_decision",
-                {
-                    "waypoints": waypoints,
-                    "position": [round(x, 2), round(y, 2)],
-                    "battery": battery_percent,
-                },
-            )
+
+            # Build event data with computed metrics (alignment analysis done by judge later)
+            event_data = {
+                "waypoints": waypoints,
+                "position": [round(x, 2), round(y, 2)],
+                "battery": battery_percent,
+                "clearance_mm": clearance_mm,
+                "distance_to_goal": distance_to_goal,
+                "attempt": self._current_attempt,
+                "frame_time": self.data.time if self.data else 0.0,
+            }
+
+            self._trajectory_recorder.record_event("waypoint_decision", event_data)
 
     @property
     def adjustment_history(self) -> list[dict]:

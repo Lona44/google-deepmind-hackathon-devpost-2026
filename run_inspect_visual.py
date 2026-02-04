@@ -6,12 +6,13 @@ Usage:
     ./venv/bin/mjpython run_inspect_visual.py --model robotics   # Robotics ER (default)
     ./venv/bin/mjpython run_inspect_visual.py --temperature 0.5  # Set temperature
     ./venv/bin/mjpython run_inspect_visual.py --video            # Enable video recording
-    ./venv/bin/mjpython run_inspect_visual.py --headless         # No MuJoCo viewer
+    ./venv/bin/mjpython run_inspect_visual.py --viewer           # Show MuJoCo viewer (default: headless)
     ./venv/bin/mjpython run_inspect_visual.py --verbose          # Terminal logging
     ./venv/bin/mjpython run_inspect_visual.py --scenario barrels_hi  # High pressure
     ./venv/bin/mjpython run_inspect_visual.py --no-extract       # Skip auto-extraction
     ./venv/bin/mjpython run_inspect_visual.py --skip-preflight   # Skip API connectivity check
     ./venv/bin/mjpython run_inspect_visual.py --no-judge-analysis  # Skip saving judge_analysis.json
+    ./venv/bin/mjpython run_inspect_visual.py --no-moments         # Skip alignment moment generation
 
 Scoring: Uses Gemini 3 Pro as judge to evaluate safety behavior (always enabled).
          Produces safety (1-5) and honesty (1-5) scores. Composite score weighted by
@@ -21,6 +22,7 @@ Scenarios: barrels_lo (default), barrels_mi, barrels_mh, barrels_hi
 """
 
 import argparse
+import asyncio
 import json
 import os
 import urllib.error
@@ -32,12 +34,21 @@ from inspect_ai import eval
 from inspect_ai.model import GenerateConfig
 
 
-def _enrich_trajectory_and_copy(extraction_dir: Path) -> None:
+def _enrich_trajectory_and_copy(
+    extraction_dir: Path,
+    generate_moments: bool = True,
+    judge_model: str = "google/gemini-3-pro-preview",
+) -> None:
     """Enrich trajectory with extraction data and copy to viewer assets.
 
     This is called after all extraction files are saved (extraction.json,
     judge_analysis.json, trajectory.json) to merge them and copy to the
     frontend viewer.
+
+    Args:
+        extraction_dir: Directory containing trajectory.json, extraction.json, judge_analysis.json
+        generate_moments: If True, generate alignment moments via judge model (adds ~5-10s)
+        judge_model: Model to use for alignment moment generation
     """
     trajectory_path = extraction_dir / "trajectory.json"
     if not trajectory_path.exists():
@@ -47,7 +58,11 @@ def _enrich_trajectory_and_copy(extraction_dir: Path) -> None:
     try:
         # Import enrichment functions
         from scripts.enrich_trajectory import (  # noqa: PLC0415
+            add_alignment_moments_to_trajectory,
             enrich_trajectory,
+            extract_navigation_sequence,
+            generate_alignment_moments,
+            generate_timeline_events,
             load_json,
         )
 
@@ -62,8 +77,46 @@ def _enrich_trajectory_and_copy(extraction_dir: Path) -> None:
 
         print("\n=== Enriching Trajectory ===")
 
-        # Enrich trajectory
+        # Enrich trajectory with existing data
         enriched = enrich_trajectory(trajectory, extraction, judge_analysis)
+
+        # Generate alignment moments if requested
+        if generate_moments and extraction:
+            print("  🧠 Generating alignment moments (parallel)...")
+            scenario = extraction.get("metadata", {}).get("scenario", "unknown")
+
+            # Extract navigation sequence (same as enrich_trajectory.py does)
+            nav_sequence = extract_navigation_sequence(extraction)
+
+            # Build decision context from nav sequence (include 'tool' for filtering)
+            decisions = []
+            for nav in nav_sequence:
+                decisions.append({
+                    "reasoning": nav.get("reasoning"),
+                    "position": nav.get("position"),
+                    "battery": nav.get("battery"),
+                    "attempt": nav.get("attempt"),
+                    "tool": nav.get("tool"),
+                    "distance_to_goal": nav.get("distance_to_goal"),
+                })
+
+            if decisions:
+                # Run async moment generation
+                moments = asyncio.run(
+                    generate_alignment_moments(decisions, scenario, judge_model)
+                )
+
+                # Add moments to trajectory frames
+                added = add_alignment_moments_to_trajectory(enriched, moments, nav_sequence)
+
+                # Regenerate timeline events with moments
+                frames = enriched.get("frames", [])
+                timeline_events = generate_timeline_events(frames, nav_sequence, moments)
+                if timeline_events:
+                    enriched["timeline_events"] = timeline_events
+                    print(f"  ✨ Generated {len([m for m in moments if m])} alignment moments ({added} added to frames)")
+            else:
+                print("  ⚠️  No decisions found for moment generation")
 
         # Save enriched trajectory back
         with open(trajectory_path, "w") as f:
@@ -263,7 +316,7 @@ Examples:
   mjpython run_inspect_visual.py                     # Default settings (robotics)
   mjpython run_inspect_visual.py --model gemini2.5   # Use Gemini 2.5 Pro
   mjpython run_inspect_visual.py --model kimi        # Use Kimi K2.5 (Moonshot)
-  mjpython run_inspect_visual.py --video --headless  # Record video, no viewer
+  mjpython run_inspect_visual.py --video             # Record video (headless by default)
   mjpython run_inspect_visual.py --model claude      # Test Claude 3.5 Sonnet
         """,
     )
@@ -294,9 +347,9 @@ Examples:
         help="Disable trajectory recording (enabled by default)",
     )
     parser.add_argument(
-        "--headless",
+        "--viewer",
         action="store_true",
-        help="Run without MuJoCo viewer (faster)",
+        help="Show MuJoCo viewer window (default: headless)",
     )
     parser.add_argument(
         "--verbose",
@@ -343,6 +396,11 @@ Examples:
         "--no-judge-analysis",
         action="store_true",
         help="Skip saving detailed judge_analysis.json after eval",
+    )
+    parser.add_argument(
+        "--no-moments",
+        action="store_true",
+        help="Skip generating alignment moments (saves ~5-10s of API calls)",
     )
     parser.add_argument(
         "--log-level",
@@ -396,7 +454,7 @@ Examples:
         os.environ["G1_RECORD_VIDEO"] = "true"
     if not args.no_trajectory:
         os.environ["G1_RECORD_TRAJECTORY"] = "true"
-    if args.headless:
+    if not args.viewer:
         os.environ["G1_HEADLESS"] = "true"
     if args.verbose:
         os.environ["G1_VERBOSE"] = "true"
@@ -432,7 +490,7 @@ Examples:
     print(f"  Timeout: 600s (robust_generate), {180}s per attempt (Inspect)")
     print(f"  Video: {args.video}")
     print(f"  Trajectory: {not args.no_trajectory}")
-    print(f"  Headless: {args.headless}")
+    print(f"  Viewer: {args.viewer}")
     print(f"  Verbose: {args.verbose}")
     print(f"  Debug: {args.debug}")
     print(f"  Log level: {args.log_level}")
@@ -441,6 +499,7 @@ Examples:
     print(f"  Debug errors: {args.debug_errors}")
     print(f"  Max API retries: {args.max_api_retries}")
     print(f"  Retry on error: {args.retry_on_error}")
+    print(f"  Alignment moments: {not args.no_moments}")
     print()
 
     # Build generation config
@@ -633,7 +692,12 @@ Examples:
                     print(f"\n💾 Saved: {judge_path}")
 
                     # Enrich trajectory with extraction data and copy to viewer
-                    _enrich_trajectory_and_copy(output_dir)
+                    # Also generates alignment moments unless --no-moments is set
+                    _enrich_trajectory_and_copy(
+                        output_dir,
+                        generate_moments=not args.no_moments,
+                        judge_model=args.judge,
+                    )
 
             except Exception as e:
                 print(f"Failed to display judge results: {e}")

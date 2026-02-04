@@ -27,9 +27,11 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { PathTrail } from './components/PathTrail.js';
 import { WaypointProjection } from './components/WaypointProjection.js';
 import { TensionMeter } from './components/TensionMeter.js';
-import { ReasoningStream } from './components/ReasoningStream.js';
 import { ForbiddenZoneVisualizer } from './components/ForbiddenZoneVisualizer.js';
 import { ContactVisualizer } from './components/ContactVisualizer.js';
+import { ScorePill } from './components/ScorePill.js';
+import { DetailsPanel } from './components/DetailsPanel.js';
+import { InsightCard } from './components/InsightCard.js';
 
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
@@ -70,13 +72,16 @@ export class MuJoCoDemo {
     this.pathTrail = null;
     this.waypointProjection = null;
     this.tensionMeter = null;
-    this.reasoningStream = null;
     this.forbiddenZoneViz = null;
     this.composer = null;  // Post-processing
     this.bloomEnabled = true;  // Toggle for performance
     this.lastRenderTime = 0;
     this.contactVisualizer = null;  // Barrel contact glow effect
     this._lastVisualizationAttempt = null;  // Track attempt for waypoint clearing
+    this.scorePill = null;  // Floating metrics panel
+    this.detailsPanel = null;  // Expandable details panel
+    this.insightCard = null;  // Unified insight popup for alignment moments
+    this.timeline = null;  // Enhanced timeline with event markers
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -493,6 +498,15 @@ export class MuJoCoDemo {
         } else if (e.code === 'KeyB') {
           e.preventDefault();
           this.toggleBloom();
+        } else if (e.code === 'KeyV') {
+          e.preventDefault();
+          this.togglePathColorMode();
+        } else if (e.code === 'KeyJ') {
+          e.preventDefault();
+          this.jumpToPreviousEvent();
+        } else if (e.code === 'KeyK') {
+          e.preventDefault();
+          this.jumpToNextEvent();
         }
       };
       document.addEventListener('keydown', this.playbackKeyHandler, true); // Use capture phase
@@ -501,10 +515,30 @@ export class MuJoCoDemo {
       createPlaybackUI(this.playbackController);
 
       // Enhance timeline with event markers
-      enhanceTimeline(this.playbackController);
+      this.timeline = enhanceTimeline(this.playbackController, this);
 
       // Initialize story mode visualizations
       this._initStoryModeVisualizations();
+
+      // Store the original callback from createPlaybackUI
+      const originalOnPlayStateChange = this.playbackController.onPlayStateChange;
+
+      // Wire up pause state change to notify visualization components
+      this.playbackController.onPlayStateChange = (isPaused) => {
+        // Call original callback first (updates play/pause icons)
+        if (originalOnPlayStateChange) {
+          originalOnPlayStateChange(isPaused);
+        }
+
+        // Notify visualization components (with error handling)
+        try {
+          if (this.insightCard && typeof this.insightCard.onPause === 'function') {
+            isPaused ? this.insightCard.onPause() : this.insightCard.onResume();
+          }
+        } catch (e) {
+          console.error('Error in pause state notification:', e);
+        }
+      };
 
       // Wire up bloom toggle button
       const bloomBtn = document.getElementById('bloom-btn');
@@ -698,6 +732,182 @@ export class MuJoCoDemo {
   }
 
   /**
+   * Toggle path trail color mode between 'attempt' and 'speed'.
+   */
+  togglePathColorMode() {
+    if (!this.pathTrail) {
+      console.warn('PathTrail not initialized');
+      return;
+    }
+
+    const newMode = this.pathTrail.toggleColorMode();
+
+    // Show toast notification
+    const modeLabel = newMode === 'speed' ? '🌈 Speed' : '🔢 Attempt';
+    this._showToast(`Path color: ${modeLabel}`, 1500);
+
+    // Update button if it exists
+    this.updatePathColorButton();
+  }
+
+  /**
+   * Update path color mode button visual state.
+   */
+  updatePathColorButton() {
+    const btn = document.getElementById('path-color-btn');
+    if (btn && this.pathTrail) {
+      const isSpeedMode = this.pathTrail.getColorMode() === 'speed';
+      btn.classList.toggle('active', isSpeedMode);
+      btn.title = isSpeedMode ? 'Path: Speed (V)' : 'Path: Attempt (V)';
+    }
+  }
+
+  /**
+   * Jump to the previous timeline event from current position.
+   * Shows the InsightCard for that event.
+   */
+  jumpToPreviousEvent() {
+    if (!this.playbackController) return;
+
+    const events = this.getTimelineEvents();
+    if (!events.length) {
+      this._showToast('No events in timeline', 1500);
+      return;
+    }
+
+    const currentFrame = this.playbackController.currentFrame;
+
+    // Find events before current frame (sorted by frame_index descending)
+    const previousEvents = events
+      .filter(e => e.frame_index < currentFrame)
+      .sort((a, b) => b.frame_index - a.frame_index);
+
+    if (previousEvents.length === 0) {
+      // Wrap around to last event
+      const lastEvent = events.reduce((max, e) =>
+        e.frame_index > max.frame_index ? e : max, events[0]);
+      this._jumpToEvent(lastEvent, 'wrap');
+      return;
+    }
+
+    this._jumpToEvent(previousEvents[0]);
+  }
+
+  /**
+   * Jump to the next timeline event from current position.
+   * Shows the InsightCard for that event.
+   */
+  jumpToNextEvent() {
+    if (!this.playbackController) return;
+
+    const events = this.getTimelineEvents();
+    if (!events.length) {
+      this._showToast('No events in timeline', 1500);
+      return;
+    }
+
+    const currentFrame = this.playbackController.currentFrame;
+
+    // Find events after current frame (sorted by frame_index ascending)
+    const nextEvents = events
+      .filter(e => e.frame_index > currentFrame)
+      .sort((a, b) => a.frame_index - b.frame_index);
+
+    if (nextEvents.length === 0) {
+      // Wrap around to first event
+      const firstEvent = events.reduce((min, e) =>
+        e.frame_index < min.frame_index ? e : min, events[0]);
+      this._jumpToEvent(firstEvent, 'wrap');
+      return;
+    }
+
+    this._jumpToEvent(nextEvents[0]);
+  }
+
+  /**
+   * Jump to a specific event and show its InsightCard.
+   * @private
+   * @param {Object} event - The timeline event to jump to
+   * @param {string} [wrapType] - 'wrap' if we wrapped around
+   */
+  _jumpToEvent(event, wrapType = null) {
+    if (!event || !this.playbackController) return;
+
+    // Pause playback
+    this.playbackController.pause();
+
+    // Seek to the event's frame
+    this.playbackController.seek(event.frame_index);
+
+    // Show toast with event info
+    const wrapIndicator = wrapType === 'wrap' ? ' ↩' : '';
+    const eventLabel = event.label || event.type;
+    this._showToast(`${event.icon} ${eventLabel}${wrapIndicator}`, 1200);
+
+    // Show InsightCard for this event (after a brief delay for seek to complete)
+    setTimeout(() => {
+      if (this.insightCard) {
+        // Use the new timeline event format
+        if (typeof this.insightCard.showFromTimelineEvent === 'function') {
+          this.insightCard.showFromTimelineEvent(event);
+        } else {
+          // Fallback to legacy show method
+          const frame = this.playbackController.trajectory?.frames?.[event.frame_index];
+          if (frame) {
+            this.insightCard.show(event, frame, { attempt: frame.attempt });
+          }
+        }
+      }
+    }, 50);
+  }
+
+  /**
+   * Show a temporary toast notification.
+   * @private
+   */
+  _showToast(message, duration = 2000) {
+    // Remove existing toast
+    const existing = document.querySelector('.path-mode-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'path-mode-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      z-index: 1000;
+      pointer-events: none;
+      animation: fadeInOut ${duration}ms ease-in-out;
+    `;
+
+    // Add animation keyframes if not already present
+    if (!document.getElementById('toast-animation-style')) {
+      const style = document.createElement('style');
+      style.id = 'toast-animation-style';
+      style.textContent = `
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+          15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
+  }
+
+  /**
    * Initialize story mode visualization components.
    * Called when a trajectory is loaded.
    * @private
@@ -719,14 +929,38 @@ export class MuJoCoDemo {
     this.tensionMeter = new TensionMeter();
     document.body.appendChild(this.tensionMeter.create());
 
-    // Create reasoning stream (DOM-based)
-    this.reasoningStream = new ReasoningStream();
-    document.body.appendChild(this.reasoningStream.create());
-    // Sync with current playback speed
-    this.reasoningStream.setPlaybackSpeed(this.playbackController.playbackSpeed);
+    // Create score pill (DOM-based metrics panel)
+    this.scorePill = new ScorePill();
+    document.body.appendChild(this.scorePill.create());
+
+    // Create details panel (expandable panel)
+    this.detailsPanel = new DetailsPanel();
+    this.detailsPanel.create();  // Adds itself to body
+
+    // Connect scorePill details button to detailsPanel
+    this.scorePill.onDetailsClick = () => {
+      this.detailsPanel.toggle();
+    };
+
+    // Update score pill with judge data from manifest AND full trajectory judge data
+    if (this.selector) {
+      const runMeta = this.selector.getCurrentRunMetadata();
+      if (runMeta) {
+        // Merge with full judge data from trajectory (has most_positive, most_concerning, key_quotes)
+        const trajectory = this.playbackController.trajectory;
+        const judgeData = { ...runMeta, ...trajectory?.judge };
+
+        this.scorePill.update(judgeData, runMeta.model);
+        this.detailsPanel.updateJudge(judgeData, runMeta.model);
+      }
+    }
 
     // Create contact visualizer (subtle barrel glow on contact)
     this.contactVisualizer = new ContactVisualizer(this.scene, this.bodies);
+
+    // Create insight card (unified popup for alignment insights)
+    this.insightCard = new InsightCard();
+    document.body.appendChild(this.insightCard.create());
 
     // Set up forbidden zone from trajectory metadata or use default
     const trajectory = this.playbackController.trajectory;
@@ -759,8 +993,94 @@ export class MuJoCoDemo {
     // Hook into frame changes for visualization updates
     this._hookVisualizationUpdates();
 
+    // Setup waypoint click detection
+    this._setupWaypointClickHandler();
+
     // Process initial frame to show starting waypoints
     this._initializeWaypointsFromTrajectory();
+
+    // Trigger initial insight card for frame 0
+    this._showInitialInsightCard();
+  }
+
+  /**
+   * Setup click handler for waypoint markers to show reasoning.
+   * @private
+   */
+  _setupWaypointClickHandler() {
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const onClick = (event) => {
+      // Only handle left clicks
+      if (event.button !== 0) return;
+
+      // Skip if not in playback mode or no waypoint projection
+      if (!this.playbackMode || !this.waypointProjection) return;
+
+      // Calculate mouse position in normalized device coordinates
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Update raycaster
+      raycaster.setFromCamera(mouse, this.camera);
+
+      // Get all waypoint markers
+      const markers = this.waypointProjection.getAllMarkers();
+      if (markers.length === 0) return;
+
+      // Check for intersections
+      const intersects = raycaster.intersectObjects(markers, false);
+
+      if (intersects.length > 0) {
+        const marker = intersects[0].object;
+        const userData = marker.userData;
+
+        if (userData && userData.isWaypointMarker && userData.hasReasoning && userData.reasoning) {
+          // Pause playback to let user read
+          if (this.playbackController && !this.playbackController.paused) {
+            this.playbackController.pause();
+          }
+
+          // Build a synthetic event for the InsightCard
+          const syntheticEvent = {
+            type: 'waypoint_click',
+            time: userData.frameTime || 0,
+            data: {
+              ai_reasoning: userData.reasoning,
+              ai_action: `set_waypoints at decision #${userData.decisionNum}`,
+              waypoint: userData.waypoint,
+            }
+          };
+
+          // Show InsightCard with the reasoning
+          if (this.insightCard) {
+            const config = this.playbackController?.trajectory?.metadata?.config;
+            this.insightCard.show(syntheticEvent, { ai_reasoning: userData.reasoning }, config, 0); // 0 = no auto-dismiss
+          }
+        }
+      }
+    };
+
+    // Add click listener to renderer's canvas
+    this.renderer.domElement.addEventListener('click', onClick);
+  }
+
+  /**
+   * Show insight card for the initial frame (frame 0).
+   * Called after setup since InsightCard is created after frame 0 is applied.
+   * @private
+   */
+  _showInitialInsightCard() {
+    const frames = this.playbackController.trajectory?.frames;
+    if (!frames || frames.length === 0 || !this.insightCard) return;
+
+    // Check frame 0 for an event
+    const frame = frames[0];
+    if (frame) {
+      this._updateInsightCard(frame, 0);
+    }
   }
 
   /**
@@ -785,7 +1105,10 @@ export class MuJoCoDemo {
 
       if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
         const robotPos = frame.robot_position || [0, 0];
-        this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+        const hasReasoning = !!frame.ai_reasoning;
+        const reasoning = frame.ai_reasoning || null;
+        const frameTime = frame.time || 0;
+        this.waypointProjection.updateFromAction(frame.ai_action, robotPos, hasReasoning, reasoning, frameTime);
       }
     }
   }
@@ -814,13 +1137,31 @@ export class MuJoCoDemo {
       this.tensionMeter.dispose();
       this.tensionMeter = null;
     }
-    if (this.reasoningStream) {
-      this.reasoningStream.dispose();
-      this.reasoningStream = null;
-    }
     if (this.contactVisualizer) {
       this.contactVisualizer.dispose();
       this.contactVisualizer = null;
+    }
+    if (this.insightCard) {
+      this.insightCard.dispose();
+      this.insightCard = null;
+    }
+    if (this.scorePill) {
+      // Remove from DOM
+      if (this.scorePill.container && this.scorePill.container.parentNode) {
+        this.scorePill.container.parentNode.removeChild(this.scorePill.container);
+      }
+      this.scorePill = null;
+    }
+    if (this.detailsPanel) {
+      // DetailsPanel removes itself via its close method or we can just null it
+      // The overlay and container are added to body
+      if (this.detailsPanel.container && this.detailsPanel.container.parentNode) {
+        this.detailsPanel.container.parentNode.removeChild(this.detailsPanel.container);
+      }
+      if (this.detailsPanel.overlay && this.detailsPanel.overlay.parentNode) {
+        this.detailsPanel.overlay.parentNode.removeChild(this.detailsPanel.overlay);
+      }
+      this.detailsPanel = null;
     }
     if (this.composer) {
       this.composer.dispose();
@@ -896,18 +1237,21 @@ export class MuJoCoDemo {
     // Also hook into seek to rebuild trail
     const originalSeek = this.playbackController.seek.bind(this.playbackController);
     this.playbackController.seek = (frame) => {
-      originalSeek(frame);
+      // IMPORTANT: Reset state BEFORE applying frame, so _updateEventToast sees clean state
       this._handleSeek(Math.floor(frame));
+      originalSeek(frame);
     };
 
-    // Hook into speed changes to sync reasoning stream timing
-    const originalSetSpeed = this.playbackController.setSpeed.bind(this.playbackController);
-    this.playbackController.setSpeed = (speed) => {
-      originalSetSpeed(speed);
-      if (this.reasoningStream) {
-        this.reasoningStream.setPlaybackSpeed(speed);
+    // Open DetailsPanel when playback reaches the end
+    this.playbackController.onPlaybackEnd = () => {
+      if (this.detailsPanel) {
+        // Small delay for smooth UX - let the last frame settle
+        setTimeout(() => {
+          this.detailsPanel.open();
+        }, 500);
       }
     };
+
   }
 
   /**
@@ -931,6 +1275,10 @@ export class MuJoCoDemo {
       if (this.tensionMeter) {
         this.tensionMeter.clearViolation();
       }
+      // Hide insight card from previous attempt
+      if (this.insightCard) {
+        this.insightCard.hide();
+      }
     }
     this._lastVisualizationAttempt = currentAttempt;
 
@@ -939,19 +1287,32 @@ export class MuJoCoDemo {
       this.contactVisualizer.setAttempt(currentAttempt);
     }
 
-    // Update path trail
+    // Update path trail (pass time for velocity calculation)
     if (this.pathTrail && robotPos) {
-      this.pathTrail.addPoint(robotPos[0], robotPos[1], currentAttempt);
+      const frameTime = frame.time ?? null;
+      this.pathTrail.addPoint(robotPos[0], robotPos[1], currentAttempt, frameTime);
     }
 
     // Update waypoint projection
     if (this.waypointProjection && robotPos) {
       this.waypointProjection.updateRobotPosition(robotPos);
 
-      // Update waypoints if AI action contains set_waypoints
-      // Note: This may re-add waypoints already loaded during init, but that's handled by the component
-      if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
-        this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+      // Check for timeline event with waypoints at this frame (new format)
+      const evt = this.getTimelineEventAtFrame(index);
+      if (evt && evt.viz?.show_waypoints) {
+        // Use new method - waypoints pre-parsed in viz hints
+        this.waypointProjection.updateFromEvent(evt, robotPos);
+      } else if (frame.ai_action && frame.ai_action.includes('set_waypoints')) {
+        // Fall back to legacy parsing from ai_action string
+        const hasReasoning = !!frame.ai_reasoning;
+        const reasoning = frame.ai_reasoning || null;
+        const frameTime = frame.time || 0;
+        this.waypointProjection.updateFromAction(frame.ai_action, robotPos, hasReasoning, reasoning, frameTime);
+      }
+
+      // Apply viz hints for tension level
+      if (evt && evt.viz?.tension_level !== undefined && this.tensionMeter) {
+        // Future: could use this to set tension meter directly
       }
     }
 
@@ -960,13 +1321,15 @@ export class MuJoCoDemo {
       this.tensionMeter.update(robotPos);
     }
 
-    // Update reasoning stream (only on new reasoning)
-    if (this.reasoningStream && frame.ai_reasoning) {
-      this.reasoningStream.showReasoning(frame.ai_reasoning);
-    }
-
-    // Check for violations
+    // Check for violations (from frame or timeline event)
+    const currentEvt = this.getTimelineEventAtFrame(index);
     if (frame.violation && this.forbiddenZoneViz) {
+      this.forbiddenZoneViz.triggerViolationEffect();
+      if (this.tensionMeter) {
+        this.tensionMeter.setViolation(true);
+      }
+    } else if (currentEvt?.viz?.trigger_violation_flash && this.forbiddenZoneViz) {
+      // Trigger from timeline event viz hint
       this.forbiddenZoneViz.triggerViolationEffect();
       if (this.tensionMeter) {
         this.tensionMeter.setViolation(true);
@@ -982,7 +1345,316 @@ export class MuJoCoDemo {
       if (this.tensionMeter) {
         this.tensionMeter.setViolation(true);
       }
+    } else if (currentEvt?.viz?.highlight_barrel && this.contactVisualizer) {
+      // Highlight barrel from timeline event viz hint
+      this.contactVisualizer.highlightBarrel(currentEvt.viz.highlight_barrel);
     }
+
+    // Update score pill with real-time status (attempt + battery)
+    if (this.scorePill) {
+      const battery = frame.battery !== undefined ? frame.battery : 1.0;
+      // Get total attempts from trajectory (find max attempt number)
+      const totalAttempts = this._getTotalAttempts();
+      this.scorePill.updateStatus(currentAttempt, totalAttempts, battery);
+
+      // Also update details panel status
+      if (this.detailsPanel) {
+        this.detailsPanel.updateStatus(currentAttempt, totalAttempts, battery);
+        // Update AI reasoning if present
+        if (frame.ai_action || frame.ai_reasoning) {
+          this.detailsPanel.updateAI(frame.ai_action, frame.ai_reasoning);
+        }
+      }
+    }
+
+    // Auto-popup insight cards during playback/scrubbing
+    this._updateInsightCard(frame, index);
+  }
+
+  /**
+   * Update insight card - show popup for events at current frame.
+   * Uses getTimelineEventAtFrame() to get pre-curated event data (no reconstruction).
+   * @private
+   */
+  _updateInsightCard(frame, index) {
+    if (!this.insightCard || !this.playbackController?.trajectory) return;
+
+    const currentTime = frame.time;
+
+    // Try to get event from timeline_events (single source of truth)
+    let activeEvent = this.getTimelineEventAtFrame(index);
+
+    // Build options for InsightCard
+    const options = {
+      attempt: frame.attempt,
+      reasoning: frame.ai_reasoning
+    };
+
+    // Add judge data if available (from selector metadata)
+    if (this.selector) {
+      const runMeta = this.selector.getCurrentRunMetadata();
+      if (runMeta) {
+        options.judgeData = {
+          safety_score: runMeta.safety_score,
+          honesty_score: runMeta.honesty_score,
+          alignment_name: runMeta.alignment_name
+        };
+      }
+    }
+
+    // Show popup if we hit a new event
+    if (activeEvent && !this.insightCard.isShowingEvent(activeEvent.time)) {
+      // Use the new method for TimelineEvents (no regex extraction)
+      if (activeEvent.icon && activeEvent.label) {
+        this.insightCard.showFromTimelineEvent(activeEvent, frame, options);
+      } else {
+        // Legacy format - use old method
+        this.insightCard.show(activeEvent, frame, options);
+      }
+
+      // Highlight corresponding timeline marker
+      if (this.timeline) {
+        this.timeline.highlightMarkerAtTime(activeEvent.time);
+      }
+    }
+
+    // Note: Card stays visible (fading) until the next event replaces it.
+    // Scrubbing/seeking is handled in the seek handler which calls hide().
+  }
+
+  /**
+   * Get total number of attempts from trajectory.
+   * @private
+   */
+  _getTotalAttempts() {
+    const frames = this.playbackController?.trajectory?.frames;
+    if (!frames || frames.length === 0) return 5;  // Default
+
+    let maxAttempt = 1;
+    for (const frame of frames) {
+      if (frame.attempt && frame.attempt > maxAttempt) {
+        maxAttempt = frame.attempt;
+      }
+    }
+    return maxAttempt;
+  }
+
+  /**
+   * Get timeline events - uses new format if available, otherwise reconstructs from legacy data.
+   * This is the single entry point for timeline event data.
+   * @returns {Array} Array of TimelineEvent objects
+   */
+  getTimelineEvents() {
+    const trajectory = this.playbackController?.trajectory;
+    if (!trajectory) return [];
+
+    // Prefer new format (single source of truth)
+    if (trajectory.timeline_events?.length) {
+      return trajectory.timeline_events;
+    }
+
+    // Fall back to legacy reconstruction for old trajectories
+    return this._reconstructTimelineEventsFromLegacy();
+  }
+
+  /**
+   * Reconstruct timeline events from legacy trajectory format.
+   * Used for backward compatibility with old trajectories that don't have timeline_events[].
+   * @private
+   * @returns {Array} Array of TimelineEvent-like objects
+   */
+  _reconstructTimelineEventsFromLegacy() {
+    const trajectory = this.playbackController?.trajectory;
+    if (!trajectory) return [];
+
+    const frames = trajectory.frames || [];
+    const events = [];
+    const duration = this.playbackController.duration || 1;
+
+    // Event type configuration (matching backend)
+    const eventConfig = {
+      set_waypoints: { icon: '📍', label: 'PATH DECISION', color: '#2196F3', priority: 3 },
+      continue_plan: { icon: '✅', label: 'CONTINUE PATH', color: '#4CAF50', priority: 5 },
+      confirmation_needed: { icon: '⚠️', label: 'DANGER ZONE WARNING', color: '#FF9800', priority: 0 },
+      first_contact: { icon: '🔥', label: 'FIRST CONTACT', color: '#f44336', priority: 2 },
+      goal_reached: { icon: '🎯', label: 'GOAL REACHED', color: '#4CAF50', priority: 1 },
+      mission_ended: { icon: '⏹️', label: 'MISSION ENDED', color: 'rgba(255,255,255,0.5)', priority: 7 },
+    };
+
+    // Process frames
+    for (let frameIdx = 0; frameIdx < frames.length; frameIdx++) {
+      const frame = frames[frameIdx];
+      const frameTime = frame.time || 0;
+      const attempt = frame.attempt || 1;
+      const battery = frame.battery ?? 1.0;
+      const batteryPct = battery <= 1 ? Math.round(battery * 100) : Math.round(battery);
+
+      const metrics = {
+        battery_percent: batteryPct,
+        distance_to_goal: frame.distance_to_goal ?? null,
+        attempt: attempt,
+      };
+
+      // Check for confirmation_needed (highest priority)
+      if (frame.confirmation_needed) {
+        const moment = frame.confirmation_needed.alignment_moment || frame.alignment_moment || {};
+        const config = eventConfig.confirmation_needed;
+        events.push({
+          id: `evt_${frameIdx}_confirmation`,
+          time: frameTime,
+          frame_index: frameIdx,
+          type: 'confirmation_needed',
+          icon: config.icon,
+          label: config.label,
+          color: config.color,
+          priority: config.priority,
+          summary: moment.decision_summary || 'Danger zone acknowledged',
+          quote: moment.key_quote || null,
+          signal: moment.alignment_signal || null,
+          metrics: metrics,
+          viz: { tension_level: 0.8 },
+        });
+        continue;
+      }
+
+      // Check for goal_reached
+      if (frame.goal_reached) {
+        const moment = frame.alignment_moment || {};
+        const config = eventConfig.goal_reached;
+        events.push({
+          id: `evt_${frameIdx}_goal`,
+          time: frameTime,
+          frame_index: frameIdx,
+          type: 'goal_reached',
+          icon: config.icon,
+          label: config.label,
+          color: config.color,
+          priority: config.priority,
+          summary: 'Goal reached!',
+          quote: moment.key_quote || null,
+          signal: moment.alignment_signal || null,
+          metrics: metrics,
+          viz: {},
+        });
+        continue;
+      }
+
+      // Check for first_contact
+      if (frame.first_contact) {
+        const obstacle = frame.first_contact.obstacle || 'barrel';
+        const config = eventConfig.first_contact;
+        events.push({
+          id: `evt_${frameIdx}_contact`,
+          time: frameTime,
+          frame_index: frameIdx,
+          type: 'first_contact',
+          icon: config.icon,
+          label: config.label,
+          color: config.color,
+          priority: config.priority,
+          summary: `First contact with ${obstacle}`,
+          quote: null,
+          signal: null,
+          metrics: metrics,
+          viz: { highlight_barrel: obstacle, trigger_violation_flash: true },
+        });
+        continue;
+      }
+
+      // Check for ai_action
+      const aiAction = frame.ai_action;
+      if (aiAction) {
+        const moment = frame.alignment_moment || {};
+
+        if (aiAction.includes('set_waypoints')) {
+          const config = eventConfig.set_waypoints;
+          // Parse waypoints
+          let waypoints = null;
+          const match = aiAction.match(/set_waypoints\(\[(.+)\]\)/);
+          if (match) {
+            try {
+              waypoints = JSON.parse('[' + match[1] + ']');
+            } catch (e) { /* ignore */ }
+          }
+
+          // Build summary
+          let summary = moment.decision_summary;
+          if (!summary && waypoints) {
+            const coords = waypoints.slice(0, 3).map(w =>
+              `(${(w[0] ?? w.x)?.toFixed?.(1)}, ${(w[1] ?? w.y)?.toFixed?.(1)})`
+            ).join(' → ');
+            summary = `New waypoints: ${coords}`;
+            if (waypoints.length > 3) summary += '...';
+          }
+          summary = summary || 'New waypoints set';
+
+          events.push({
+            id: `evt_${frameIdx}_waypoint`,
+            time: frameTime,
+            frame_index: frameIdx,
+            type: 'set_waypoints',
+            icon: config.icon,
+            label: config.label,
+            color: config.color,
+            priority: config.priority,
+            summary: summary,
+            quote: moment.key_quote || null,
+            signal: moment.alignment_signal || null,
+            metrics: metrics,
+            viz: { show_waypoints: waypoints },
+          });
+        } else if (aiAction.includes('continue_plan')) {
+          const config = eventConfig.continue_plan;
+          events.push({
+            id: `evt_${frameIdx}_continue`,
+            time: frameTime,
+            frame_index: frameIdx,
+            type: 'continue_plan',
+            icon: config.icon,
+            label: config.label,
+            color: config.color,
+            priority: config.priority,
+            summary: moment.decision_summary || 'Continuing current trajectory',
+            quote: moment.key_quote || null,
+            signal: moment.alignment_signal || null,
+            metrics: metrics,
+            viz: {},
+          });
+        } else if (aiAction.includes('end_mission')) {
+          const config = eventConfig.mission_ended;
+          events.push({
+            id: `evt_${frameIdx}_end`,
+            time: frameTime,
+            frame_index: frameIdx,
+            type: 'mission_ended',
+            icon: config.icon,
+            label: config.label,
+            color: config.color,
+            priority: config.priority,
+            summary: 'Mission ended',
+            quote: null,
+            signal: null,
+            metrics: metrics,
+            viz: {},
+          });
+        }
+      }
+    }
+
+    // Sort by time, then by priority
+    events.sort((a, b) => a.time - b.time || a.priority - b.priority);
+
+    return events;
+  }
+
+  /**
+   * Find timeline event at a specific frame index.
+   * @param {number} frameIndex - The frame index to search for
+   * @returns {Object|null} The timeline event at this frame, or null
+   */
+  getTimelineEventAtFrame(frameIndex) {
+    const events = this.getTimelineEvents();
+    return events.find(e => e.frame_index === frameIndex) || null;
   }
 
   /**
@@ -1000,11 +1672,6 @@ export class MuJoCoDemo {
     // Rebuild trail from frames up to seek point
     if (this.pathTrail) {
       this.pathTrail.rebuildFromFrames(frames, frameIndex);
-    }
-
-    // Clear reasoning stream on seek
-    if (this.reasoningStream) {
-      this.reasoningStream.clear();
     }
 
     // Rebuild waypoint history up to seek point (only for current attempt)
@@ -1026,7 +1693,10 @@ export class MuJoCoDemo {
         if ((frame.attempt || 1) === targetAttempt &&
             frame.ai_action && frame.ai_action.includes('set_waypoints')) {
           const robotPos = frame.robot_position || [0, 0];
-          this.waypointProjection.updateFromAction(frame.ai_action, robotPos);
+          const hasReasoning = !!frame.ai_reasoning;
+          const reasoning = frame.ai_reasoning || null;
+          const frameTime = frame.time || 0;
+          this.waypointProjection.updateFromAction(frame.ai_action, robotPos, hasReasoning, reasoning, frameTime);
         }
       }
     }
@@ -1034,6 +1704,16 @@ export class MuJoCoDemo {
     // Clear contact glows
     if (this.contactVisualizer) {
       this.contactVisualizer.clear();
+    }
+
+    // Hide insight card on seek (will re-show if landing on an event)
+    if (this.insightCard) {
+      this.insightCard.hide();
+    }
+
+    // Clear marker highlight on seek
+    if (this.timeline) {
+      this.timeline.highlightMarkerAtTime(null);
     }
   }
 
@@ -1078,6 +1758,11 @@ export class MuJoCoDemo {
       // Update contact visualizer (fade out barrel glow)
       if (this.contactVisualizer) {
         this.contactVisualizer.update(deltaTime);
+      }
+
+      // Update waypoint projection (soft pulse animation)
+      if (this.waypointProjection) {
+        this.waypointProjection.update(deltaTime);
       }
 
       this.lastRenderTime = timeMS;

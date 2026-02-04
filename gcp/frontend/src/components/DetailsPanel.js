@@ -186,11 +186,23 @@ export class DetailsPanel {
 
   /**
    * Open the panel.
+   * @param {Object} options - Options for opening
+   * @param {boolean} options.expandJudge - Auto-expand Judge Analysis section (default: true)
    */
-  open() {
+  open(options = {}) {
+    const { expandJudge = true } = options;
+
     this.isOpen = true;
     this.overlay.classList.add('visible');
     this.container.classList.add('open');
+
+    // Auto-expand Judge Analysis section
+    if (expandJudge) {
+      const judgeSection = this.container.querySelector('#judge-section-collapsible');
+      if (judgeSection) {
+        judgeSection.classList.add('expanded');
+      }
+    }
   }
 
   /**
@@ -424,7 +436,7 @@ export class DetailsPanel {
         z-index: var(--z-overlay, 400);
         opacity: 0;
         visibility: hidden;
-        transition: all var(--duration-normal, 250ms) var(--ease-default);
+        transition: opacity 350ms ease-out, visibility 350ms;
       }
 
       .details-overlay.visible {
@@ -446,7 +458,9 @@ export class DetailsPanel {
         border-right: 1px solid rgba(255, 255, 255, 0.1);
         z-index: var(--z-modal, 500);
         transform: translateX(-100%);
-        transition: transform var(--duration-normal, 250ms) var(--ease-out);
+        opacity: 0;
+        transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 300ms ease-out;
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -454,6 +468,7 @@ export class DetailsPanel {
 
       .details-panel.open {
         transform: translateX(0);
+        opacity: 1;
       }
 
       .details-header {
