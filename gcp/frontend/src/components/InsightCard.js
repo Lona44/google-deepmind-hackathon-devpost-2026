@@ -39,18 +39,21 @@ export class InsightCard {
     this.element = null;
     this.currentEvent = null;
     this.dismissTimer = null;
+    this.fadeTimer = null;
     this._isPaused = false;
     this._remainingTime = 0;
-    this._dismissDuration = 5000;
+    this._dismissDuration = 3000; // Time before fade starts
+    this._fadeDuration = 8000;    // Total fade duration (slow dim)
     this._timerStartTime = 0;
     this._lastEventTime = null;
+    this._isFading = false;
 
     // Event type configuration
     this.eventConfig = {
       waypoint_decision: { icon: '📍', color: '#2196F3', label: 'PATH DECISION' },
       set_waypoints: { icon: '📍', color: '#2196F3', label: 'PATH DECISION' },
       ai_decision: { icon: '🧠', color: '#2196F3', label: 'AI DECISION' },
-      continue_plan: { icon: '▶️', color: 'rgba(255,255,255,0.6)', label: 'CONTINUING PATH' },
+      continue_plan: { icon: '✅', color: '#4CAF50', label: 'CONTINUE PATH' },
       confirmation_needed: { icon: '⚠️', color: '#FF9800', label: 'DANGER ZONE WARNING' },
       first_contact: { icon: '🔥', color: '#f44336', label: 'FIRST CONTACT' },
       experiment_start: { icon: '🚀', color: '#2196F3', label: 'EXPERIMENT START' },
@@ -94,14 +97,12 @@ export class InsightCard {
    * @param {Object} options - Additional options (trajectoryData, judgeData)
    * @param {number} autoDismissMs - Auto-dismiss delay (default 5000ms)
    */
-  show(event, frame, options = {}, autoDismissMs = 5000) {
+  show(event, frame, options = {}, autoDismissMs = 3000) {
     if (!this.element) return;
 
-    // Clear previous timer
-    if (this.dismissTimer) {
-      clearTimeout(this.dismissTimer);
-      this.dismissTimer = null;
-    }
+    // Clear previous timers and reset fade state
+    this._clearTimers();
+    this._resetFade();
 
     // Get config for event type
     const config = this.eventConfig[event.type] || {
@@ -116,7 +117,7 @@ export class InsightCard {
     // Apply event-specific styling
     this.element.setAttribute('data-type', event.type);
 
-    // Show card
+    // Show card at full opacity
     this.element.classList.add('visible');
     this.currentEvent = event;
     this._lastEventTime = event.time;
@@ -126,9 +127,9 @@ export class InsightCard {
     this._timerStartTime = Date.now();
     this._remainingTime = autoDismissMs;
 
-    // Only start timer if not paused
+    // Only start timer if not paused - starts FADE, not hide
     if (!this._isPaused) {
-      this.dismissTimer = setTimeout(() => this.hide(), autoDismissMs);
+      this.dismissTimer = setTimeout(() => this._startFade(), autoDismissMs);
     }
   }
 
@@ -140,14 +141,12 @@ export class InsightCard {
    * @param {Object} options - Additional options (judgeData)
    * @param {number} autoDismissMs - Auto-dismiss delay (default 5000ms)
    */
-  showFromTimelineEvent(evt, frame = {}, options = {}, autoDismissMs = 5000) {
+  showFromTimelineEvent(evt, frame = {}, options = {}, autoDismissMs = 3000) {
     if (!this.element) return;
 
-    // Clear previous timer
-    if (this.dismissTimer) {
-      clearTimeout(this.dismissTimer);
-      this.dismissTimer = null;
-    }
+    // Clear previous timers and reset fade state
+    this._clearTimers();
+    this._resetFade();
 
     // Update content directly from TimelineEvent (no regex!)
     this._updateContentFromTimelineEvent(evt, frame, options);
@@ -155,7 +154,7 @@ export class InsightCard {
     // Apply event-specific styling
     this.element.setAttribute('data-type', evt.type);
 
-    // Show card
+    // Show card at full opacity
     this.element.classList.add('visible');
     this.currentEvent = evt;
     this._lastEventTime = evt.time;
@@ -165,9 +164,9 @@ export class InsightCard {
     this._timerStartTime = Date.now();
     this._remainingTime = autoDismissMs;
 
-    // Only start timer if not paused
+    // Only start timer if not paused - starts FADE, not hide
     if (!this._isPaused) {
-      this.dismissTimer = setTimeout(() => this.hide(), autoDismissMs);
+      this.dismissTimer = setTimeout(() => this._startFade(), autoDismissMs);
     }
   }
 
@@ -263,10 +262,24 @@ export class InsightCard {
   onPause() {
     this._isPaused = true;
 
+    // Pause fade animation
+    if (this._isFading && this.element) {
+      // Get current computed opacity and freeze it
+      const computed = window.getComputedStyle(this.element);
+      this._pausedOpacity = computed.opacity;
+      this.element.style.transition = 'none';
+      this.element.style.opacity = this._pausedOpacity;
+    }
+
     if (this.dismissTimer && this.currentEvent) {
       clearTimeout(this.dismissTimer);
       this.dismissTimer = null;
       this._remainingTime = Math.max(0, this._dismissDuration - (Date.now() - this._timerStartTime));
+    }
+
+    if (this.fadeTimer) {
+      clearTimeout(this.fadeTimer);
+      this.fadeTimer = null;
     }
   }
 
@@ -276,26 +289,75 @@ export class InsightCard {
   onResume() {
     this._isPaused = false;
 
-    if (this.currentEvent && this._remainingTime > 0) {
+    // Resume fade animation if we were fading
+    if (this._isFading && this.element) {
+      this.element.style.transition = `opacity ${this._fadeDuration}ms ease-out`;
+      this.element.style.opacity = '0.25';
+    }
+
+    if (this.currentEvent && this._remainingTime > 0 && !this._isFading) {
       this._timerStartTime = Date.now();
-      this.dismissTimer = setTimeout(() => this.hide(), this._remainingTime);
+      this.dismissTimer = setTimeout(() => this._startFade(), this._remainingTime);
     }
   }
 
   /**
-   * Hide the insight card.
+   * Hide the insight card immediately.
    */
   hide() {
     if (!this.element) return;
+
+    this._clearTimers();
+    this._resetFade();
 
     this.element.classList.remove('visible');
     this.currentEvent = null;
     this._lastEventTime = null;
     this._remainingTime = 0;
+  }
 
+  /**
+   * Start the slow fade-out effect.
+   * Card remains visible but dims gradually.
+   * @private
+   */
+  _startFade() {
+    if (!this.element || this._isPaused) return;
+
+    this._isFading = true;
+    this.element.classList.add('fading');
+
+    // Apply slow fade via inline style (CSS transition handles animation)
+    this.element.style.transition = `opacity ${this._fadeDuration}ms ease-out`;
+    this.element.style.opacity = '0.25'; // Fade to 25% opacity, not fully hidden
+  }
+
+  /**
+   * Reset fade state and restore full opacity.
+   * @private
+   */
+  _resetFade() {
+    if (!this.element) return;
+
+    this._isFading = false;
+    this._pausedOpacity = null;
+    this.element.classList.remove('fading');
+    this.element.style.transition = '';
+    this.element.style.opacity = '';
+  }
+
+  /**
+   * Clear all timers.
+   * @private
+   */
+  _clearTimers() {
     if (this.dismissTimer) {
       clearTimeout(this.dismissTimer);
       this.dismissTimer = null;
+    }
+    if (this.fadeTimer) {
+      clearTimeout(this.fadeTimer);
+      this.fadeTimer = null;
     }
   }
 
@@ -854,12 +916,12 @@ export class InsightCard {
     style.textContent = `
       .insight-card {
         position: fixed;
-        bottom: 100px;
-        left: 50%;
-        transform: translateX(-50%) translateY(30px);
-        width: 520px;
+        top: 50%;
+        right: 20px;
+        transform: translateY(-50%) translateX(30px);
+        width: 420px;
         max-height: 400px;
-        background: rgba(20, 20, 24, 0.98);
+        background: rgba(20, 20, 24, 0.85);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         border: 1px solid rgba(255, 255, 255, 0.15);
@@ -876,7 +938,13 @@ export class InsightCard {
       .insight-card.visible {
         opacity: 1;
         visibility: visible;
-        transform: translateX(-50%) translateY(0);
+        transform: translateY(-50%) translateX(0);
+      }
+
+      /* Fading state - card stays visible but dimmed */
+      .insight-card.visible.fading {
+        /* Opacity controlled by inline style for smooth transition */
+        /* Keep visibility visible so card remains clickable/readable */
       }
 
       /* Event type borders */
@@ -888,32 +956,26 @@ export class InsightCard {
 
       .insight-card[data-type="violation"] {
         border-left: 4px solid #f44336;
-        background: rgba(244, 67, 54, 0.08);
       }
 
       .insight-card[data-type="goal_reached"] {
         border-left: 4px solid #4CAF50;
-        background: rgba(76, 175, 80, 0.08);
       }
 
       .insight-card[data-type="battery_depleted"] {
         border-left: 4px solid #f44336;
-        background: rgba(244, 67, 54, 0.08);
       }
 
       .insight-card[data-type="attempt_reset"] {
         border-left: 4px solid #FF9800;
-        background: rgba(255, 152, 0, 0.08);
       }
 
       .insight-card[data-type="confirmation_needed"] {
         border-left: 4px solid #FF9800;
-        background: rgba(255, 152, 0, 0.08);
       }
 
       .insight-card[data-type="first_contact"] {
         border-left: 4px solid #f44336;
-        background: rgba(244, 67, 54, 0.08);
       }
 
       /* Header */
@@ -1043,10 +1105,7 @@ export class InsightCard {
    * Dispose the component.
    */
   dispose() {
-    if (this.dismissTimer) {
-      clearTimeout(this.dismissTimer);
-      this.dismissTimer = null;
-    }
+    this._clearTimers();
 
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
@@ -1054,5 +1113,6 @@ export class InsightCard {
 
     this.element = null;
     this.currentEvent = null;
+    this._isFading = false;
   }
 }

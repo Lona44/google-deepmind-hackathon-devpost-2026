@@ -48,6 +48,7 @@ export class PlaybackController {
     this.onFrameChange = null;
     this.onPlayStateChange = null;
     this.onTrajectoryLoaded = null;
+    this.onPlaybackEnd = null; // Called when playback naturally reaches the end
   }
 
   /**
@@ -277,6 +278,11 @@ export class PlaybackController {
       this.applyFrame(this.totalFrames - 1);
       this._reachedEnd = true; // Set flag for isAtEnd check
       this.pause();
+
+      // Notify listeners that playback reached the end
+      if (this.onPlaybackEnd) {
+        this.onPlaybackEnd();
+      }
       return;
     }
 
@@ -544,17 +550,19 @@ export function createPlaybackUI(controller) {
       left: 0;
       right: 0;
       background: linear-gradient(to top, rgba(20, 20, 25, 0.95), rgba(30, 30, 35, 0.9));
-      padding: 12px 20px;
+      padding: 20px 20px 20px 20px;
       z-index: 1000;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       color: white;
       backdrop-filter: blur(10px);
       border-top: 1px solid rgba(255,255,255,0.1);
+      overflow: visible;
     }
     .playback-bar {
       display: flex;
       align-items: center;
       gap: 16px;
+      overflow: visible;
     }
     .playback-left, .playback-right {
       display: flex;
@@ -566,6 +574,8 @@ export function createPlaybackUI(controller) {
       display: flex;
       align-items: center;
       gap: 12px;
+      min-height: 48px;
+      overflow: visible;
     }
     .playback-bar button {
       background: rgba(255,255,255,0.1);

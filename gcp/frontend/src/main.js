@@ -498,6 +498,15 @@ export class MuJoCoDemo {
         } else if (e.code === 'KeyB') {
           e.preventDefault();
           this.toggleBloom();
+        } else if (e.code === 'KeyV') {
+          e.preventDefault();
+          this.togglePathColorMode();
+        } else if (e.code === 'KeyJ') {
+          e.preventDefault();
+          this.jumpToPreviousEvent();
+        } else if (e.code === 'KeyK') {
+          e.preventDefault();
+          this.jumpToNextEvent();
         }
       };
       document.addEventListener('keydown', this.playbackKeyHandler, true); // Use capture phase
@@ -723,6 +732,182 @@ export class MuJoCoDemo {
   }
 
   /**
+   * Toggle path trail color mode between 'attempt' and 'speed'.
+   */
+  togglePathColorMode() {
+    if (!this.pathTrail) {
+      console.warn('PathTrail not initialized');
+      return;
+    }
+
+    const newMode = this.pathTrail.toggleColorMode();
+
+    // Show toast notification
+    const modeLabel = newMode === 'speed' ? '🌈 Speed' : '🔢 Attempt';
+    this._showToast(`Path color: ${modeLabel}`, 1500);
+
+    // Update button if it exists
+    this.updatePathColorButton();
+  }
+
+  /**
+   * Update path color mode button visual state.
+   */
+  updatePathColorButton() {
+    const btn = document.getElementById('path-color-btn');
+    if (btn && this.pathTrail) {
+      const isSpeedMode = this.pathTrail.getColorMode() === 'speed';
+      btn.classList.toggle('active', isSpeedMode);
+      btn.title = isSpeedMode ? 'Path: Speed (V)' : 'Path: Attempt (V)';
+    }
+  }
+
+  /**
+   * Jump to the previous timeline event from current position.
+   * Shows the InsightCard for that event.
+   */
+  jumpToPreviousEvent() {
+    if (!this.playbackController) return;
+
+    const events = this.getTimelineEvents();
+    if (!events.length) {
+      this._showToast('No events in timeline', 1500);
+      return;
+    }
+
+    const currentFrame = this.playbackController.currentFrame;
+
+    // Find events before current frame (sorted by frame_index descending)
+    const previousEvents = events
+      .filter(e => e.frame_index < currentFrame)
+      .sort((a, b) => b.frame_index - a.frame_index);
+
+    if (previousEvents.length === 0) {
+      // Wrap around to last event
+      const lastEvent = events.reduce((max, e) =>
+        e.frame_index > max.frame_index ? e : max, events[0]);
+      this._jumpToEvent(lastEvent, 'wrap');
+      return;
+    }
+
+    this._jumpToEvent(previousEvents[0]);
+  }
+
+  /**
+   * Jump to the next timeline event from current position.
+   * Shows the InsightCard for that event.
+   */
+  jumpToNextEvent() {
+    if (!this.playbackController) return;
+
+    const events = this.getTimelineEvents();
+    if (!events.length) {
+      this._showToast('No events in timeline', 1500);
+      return;
+    }
+
+    const currentFrame = this.playbackController.currentFrame;
+
+    // Find events after current frame (sorted by frame_index ascending)
+    const nextEvents = events
+      .filter(e => e.frame_index > currentFrame)
+      .sort((a, b) => a.frame_index - b.frame_index);
+
+    if (nextEvents.length === 0) {
+      // Wrap around to first event
+      const firstEvent = events.reduce((min, e) =>
+        e.frame_index < min.frame_index ? e : min, events[0]);
+      this._jumpToEvent(firstEvent, 'wrap');
+      return;
+    }
+
+    this._jumpToEvent(nextEvents[0]);
+  }
+
+  /**
+   * Jump to a specific event and show its InsightCard.
+   * @private
+   * @param {Object} event - The timeline event to jump to
+   * @param {string} [wrapType] - 'wrap' if we wrapped around
+   */
+  _jumpToEvent(event, wrapType = null) {
+    if (!event || !this.playbackController) return;
+
+    // Pause playback
+    this.playbackController.pause();
+
+    // Seek to the event's frame
+    this.playbackController.seek(event.frame_index);
+
+    // Show toast with event info
+    const wrapIndicator = wrapType === 'wrap' ? ' ↩' : '';
+    const eventLabel = event.label || event.type;
+    this._showToast(`${event.icon} ${eventLabel}${wrapIndicator}`, 1200);
+
+    // Show InsightCard for this event (after a brief delay for seek to complete)
+    setTimeout(() => {
+      if (this.insightCard) {
+        // Use the new timeline event format
+        if (typeof this.insightCard.showFromTimelineEvent === 'function') {
+          this.insightCard.showFromTimelineEvent(event);
+        } else {
+          // Fallback to legacy show method
+          const frame = this.playbackController.trajectory?.frames?.[event.frame_index];
+          if (frame) {
+            this.insightCard.show(event, frame, { attempt: frame.attempt });
+          }
+        }
+      }
+    }, 50);
+  }
+
+  /**
+   * Show a temporary toast notification.
+   * @private
+   */
+  _showToast(message, duration = 2000) {
+    // Remove existing toast
+    const existing = document.querySelector('.path-mode-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'path-mode-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      z-index: 1000;
+      pointer-events: none;
+      animation: fadeInOut ${duration}ms ease-in-out;
+    `;
+
+    // Add animation keyframes if not already present
+    if (!document.getElementById('toast-animation-style')) {
+      const style = document.createElement('style');
+      style.id = 'toast-animation-style';
+      style.textContent = `
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+          15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
+  }
+
+  /**
    * Initialize story mode visualization components.
    * Called when a trajectory is loaded.
    * @private
@@ -757,12 +942,16 @@ export class MuJoCoDemo {
       this.detailsPanel.toggle();
     };
 
-    // Update score pill with judge data from manifest
+    // Update score pill with judge data from manifest AND full trajectory judge data
     if (this.selector) {
       const runMeta = this.selector.getCurrentRunMetadata();
       if (runMeta) {
-        this.scorePill.update(runMeta, runMeta.model);
-        this.detailsPanel.updateJudge(runMeta, runMeta.model);
+        // Merge with full judge data from trajectory (has most_positive, most_concerning, key_quotes)
+        const trajectory = this.playbackController.trajectory;
+        const judgeData = { ...runMeta, ...trajectory?.judge };
+
+        this.scorePill.update(judgeData, runMeta.model);
+        this.detailsPanel.updateJudge(judgeData, runMeta.model);
       }
     }
 
@@ -1053,6 +1242,16 @@ export class MuJoCoDemo {
       originalSeek(frame);
     };
 
+    // Open DetailsPanel when playback reaches the end
+    this.playbackController.onPlaybackEnd = () => {
+      if (this.detailsPanel) {
+        // Small delay for smooth UX - let the last frame settle
+        setTimeout(() => {
+          this.detailsPanel.open();
+        }, 500);
+      }
+    };
+
   }
 
   /**
@@ -1088,9 +1287,10 @@ export class MuJoCoDemo {
       this.contactVisualizer.setAttempt(currentAttempt);
     }
 
-    // Update path trail
+    // Update path trail (pass time for velocity calculation)
     if (this.pathTrail && robotPos) {
-      this.pathTrail.addPoint(robotPos[0], robotPos[1], currentAttempt);
+      const frameTime = frame.time ?? null;
+      this.pathTrail.addPoint(robotPos[0], robotPos[1], currentAttempt, frameTime);
     }
 
     // Update waypoint projection
@@ -1206,10 +1406,10 @@ export class MuJoCoDemo {
     if (activeEvent && !this.insightCard.isShowingEvent(activeEvent.time)) {
       // Use the new method for TimelineEvents (no regex extraction)
       if (activeEvent.icon && activeEvent.label) {
-        this.insightCard.showFromTimelineEvent(activeEvent, frame, options, 5000);
+        this.insightCard.showFromTimelineEvent(activeEvent, frame, options);
       } else {
         // Legacy format - use old method
-        this.insightCard.show(activeEvent, frame, options, 5000);
+        this.insightCard.show(activeEvent, frame, options);
       }
 
       // Highlight corresponding timeline marker
@@ -1218,18 +1418,8 @@ export class MuJoCoDemo {
       }
     }
 
-    // Dismiss if we scrubbed away from the current event (>0.5s away)
-    if (this.insightCard.currentEvent) {
-      const eventTime = this.insightCard.currentEvent.time;
-      if (Math.abs(currentTime - eventTime) > 0.5) {
-        this.insightCard.hide();
-
-        // Clear marker highlight
-        if (this.timeline) {
-          this.timeline.highlightMarkerAtTime(null);
-        }
-      }
-    }
+    // Note: Card stays visible (fading) until the next event replaces it.
+    // Scrubbing/seeking is handled in the seek handler which calls hide().
   }
 
   /**

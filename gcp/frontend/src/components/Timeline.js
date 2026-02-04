@@ -60,7 +60,7 @@ export class Timeline {
    * @param {number} duration - Total duration in seconds
    */
   initFromTimelineEvents(timelineEvents, duration) {
-    console.log(`[Timeline] initFromTimelineEvents: ${timelineEvents?.length || 0} events, duration=${duration}`);
+    console.log(`[Timeline] initFromTimelineEvents: ${timelineEvents?.length || 0} events, duration=${duration?.toFixed(1)}s`);
 
     if (!duration || !timelineEvents?.length) {
       console.warn('[Timeline] initFromTimelineEvents: No duration or events');
@@ -82,21 +82,29 @@ export class Timeline {
       a.time - b.time || a.priority - b.priority
     );
 
-    // Filter to keep only highest priority event at each time slot
+    // Group events by time slot, keeping ALL events but showing highest priority marker
     const eventsByTimeSlot = new Map();
     for (const evt of sortedEvents) {
       const slot = Math.round(evt.time * 2) / 2; // 0.5s slots
-      const existing = eventsByTimeSlot.get(slot);
-      if (!existing || evt.priority < existing.priority) {
-        eventsByTimeSlot.set(slot, evt);
+      if (!eventsByTimeSlot.has(slot)) {
+        eventsByTimeSlot.set(slot, []);
       }
+      eventsByTimeSlot.get(slot).push(evt);
     }
 
-    const filteredEvents = Array.from(eventsByTimeSlot.values());
+    // For each slot, use highest priority event for marker but keep all events
+    const filteredEvents = Array.from(eventsByTimeSlot.values()).map(events => {
+      // Events are already sorted by priority, so first one is highest priority
+      const primaryEvent = events[0];
+      // Attach all events in group for tooltip access
+      primaryEvent._groupedEvents = events;
+      return primaryEvent;
+    });
 
     // Create markers
     for (const evt of filteredEvents) {
       const position = (evt.time / duration) * 100;
+
 
       const marker = document.createElement('div');
       marker.className = `timeline-marker timeline-marker-${evt.type}`;
@@ -104,15 +112,30 @@ export class Timeline {
       marker.dataset.time = evt.time;
       marker.dataset.type = evt.type;
       marker.dataset.frameIndex = evt.frame_index;
-      marker.innerHTML = `<span class="marker-icon">${evt.icon}</span>`;
+
+      marker.id = `marker-${evt.type}-${evt.frame_index}`;
+      marker.title = `${evt.type} @ ${evt.time.toFixed(1)}s`;
+
+      // Add signal class if present (for badge coloring)
+      const signal = evt.signal;
+      if (signal) {
+        marker.classList.add(`signal-${signal.toLowerCase().replace(/_/g, '-')}`);
+      }
+
+      // Build marker HTML with optional signal badge
+      const signalBadge = signal ? `<span class="signal-badge" title="${signal.replace(/_/g, ' ')}"></span>` : '';
+      const actualGroupSize = evt._groupedEvents?.length || 1;
+      const groupBadge = actualGroupSize > 1 ? `<span class="group-badge">${actualGroupSize}</span>` : '';
+      marker.innerHTML = `<span class="marker-icon">${evt.icon}</span>${signalBadge}${groupBadge}`;
 
       // Click to seek directly to frame_index (no tolerance needed!)
+      // InsightCard handles the popup display via main.js _updateInsightCard()
       marker.addEventListener('click', (e) => {
         e.stopPropagation();
         if (this.controller && evt.frame_index !== undefined) {
           this.controller.seek(evt.frame_index);
         }
-        this.showReasoningToastFromEvent(evt);
+        // Note: InsightCard shows automatically via _updateVisualizationsForFrame()
       });
 
       // Hover for tooltip
@@ -125,8 +148,6 @@ export class Timeline {
 
       markersContainer.appendChild(marker);
       this.markers.push({ element: marker, event: evt });
-
-      console.log(`[Timeline] Added marker: ${evt.icon} ${evt.type} at ${position.toFixed(1)}% (frame ${evt.frame_index})`);
     }
 
     console.log(`[Timeline] Created ${this.markers.length} markers from TimelineEvents`);
@@ -141,14 +162,42 @@ export class Timeline {
     if (!this.tooltip) return;
 
     const timeStr = this.formatTime(evt.time);
+    const groupedEvents = evt._groupedEvents || [evt];
+
+    // Build content for all events in group
+    let eventsHtml = '';
+    for (let i = 0; i < groupedEvents.length; i++) {
+      const e = groupedEvents[i];
+      const signalHtml = e.signal
+        ? `<span class="tooltip-signal signal-${e.signal.toLowerCase().replace(/_/g, '-')}">${this._formatSignal(e.signal)}</span>`
+        : '';
+
+      const isFirst = i === 0;
+      eventsHtml += `
+        <div class="tooltip-event ${isFirst ? 'primary' : 'secondary'}">
+          <div class="tooltip-header">
+            <span class="tooltip-icon">${e.icon}</span>
+            <span class="tooltip-label">${e.label}</span>
+            ${signalHtml}
+          </div>
+          ${e.summary ? `<div class="tooltip-details">${e.summary}</div>` : ''}
+        </div>
+      `;
+    }
+
+    // Group count indicator
+    const groupHtml = groupedEvents.length > 1
+      ? `<span class="tooltip-group">${groupedEvents.length} events</span>`
+      : '';
 
     this.tooltip.innerHTML = `
-      <div class="tooltip-header">
-        <span class="tooltip-icon">${evt.icon}</span>
-        <span class="tooltip-label">${evt.label}</span>
+      <div class="tooltip-meta">
+        <span class="tooltip-time">${timeStr}</span>
+        ${groupHtml}
       </div>
-      <div class="tooltip-time">${timeStr}</div>
-      ${evt.summary ? `<div class="tooltip-details">${evt.summary}</div>` : ''}
+      <div class="tooltip-events">
+        ${eventsHtml}
+      </div>
     `;
 
     // Position tooltip above marker
@@ -158,6 +207,17 @@ export class Timeline {
     this.tooltip.style.display = 'block';
     this.tooltip.style.left = `${markerRect.left - containerRect.left + markerRect.width / 2}px`;
     this.tooltip.style.bottom = '32px';
+  }
+
+  /**
+   * Format signal name for display.
+   * @private
+   */
+  _formatSignal(signal) {
+    if (!signal) return '';
+    // Convert SAFETY_PRIORITIZED -> Safety
+    const words = signal.toLowerCase().split('_');
+    return words[0].charAt(0).toUpperCase() + words[0].slice(1);
   }
 
   /**
@@ -689,16 +749,16 @@ export class Timeline {
       .enhanced-timeline {
         position: relative;
         flex: 1;
-        height: 36px;
         display: flex;
         align-items: center;
-        padding-top: 12px;
+        padding-top: 32px;
+        overflow: visible;
       }
 
       .timeline-track {
         position: relative;
         width: 100%;
-        height: 12px;
+        height: 8px;
         background: rgba(255, 255, 255, 0.15);
         border-radius: var(--radius-full, 9999px);
         overflow: visible;
@@ -718,25 +778,44 @@ export class Timeline {
 
       .timeline-markers {
         position: absolute;
-        top: -12px;
+        top: -52px;
         left: 0;
         right: 0;
-        height: 36px;
+        height: 52px;
         pointer-events: none;
         z-index: 10;
       }
 
       .timeline-marker {
-        position: absolute;
+        position: absolute !important;
+        bottom: 0 !important;
+        left: auto;
         transform: translateX(-50%);
         cursor: pointer;
         pointer-events: auto;
         z-index: 3;
         transition: transform var(--transition-fast, 150ms ease);
+        width: auto !important;
+        display: inline-block;
+      }
+
+      .timeline-marker::after {
+        content: '';
+        position: absolute;
+        bottom: -6px;
+        left: 50%;
+        width: 3px;
+        height: 10px;
+        background: rgba(255,255,255,0.3);
+        transform: translateX(-50%);
       }
 
       .timeline-marker:hover {
-        transform: translateX(-50%) scale(1.3);
+        transform: translateX(-50%) scale(1.2);
+      }
+
+      .timeline-marker:hover::after {
+        background: rgba(255,255,255,0.6);
       }
 
       .timeline-marker.active {
@@ -750,8 +829,10 @@ export class Timeline {
       }
 
       .marker-icon {
-        font-size: 18px;
-        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7));
+        font-size: 38px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9));
+        display: block;
+        line-height: 1;
       }
 
       .timeline-slider {
@@ -809,46 +890,125 @@ export class Timeline {
       /* Tooltip */
       .timeline-tooltip {
         position: absolute;
-        background: rgba(0, 0, 0, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: var(--radius-md, 6px);
-        padding: var(--space-2, 8px) var(--space-3, 12px);
-        font-size: var(--font-size-sm, 12px);
+        background: rgba(20, 20, 24, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: var(--radius-lg, 12px);
+        padding: 16px 20px;
+        font-size: 15px;
         color: var(--color-text-primary, #fff);
         white-space: nowrap;
         transform: translateX(-50%);
         z-index: 100;
         pointer-events: none;
-        box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.3));
+        box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.4));
       }
 
       .tooltip-header {
         display: flex;
         align-items: center;
-        gap: var(--space-2, 8px);
-        margin-bottom: var(--space-1, 4px);
+        gap: 10px;
+        margin-bottom: 8px;
       }
 
       .tooltip-icon {
-        font-size: 16px;
+        font-size: 22px;
       }
 
       .tooltip-label {
+        font-size: 17px;
         font-weight: var(--font-weight-semibold, 600);
       }
 
       .tooltip-time {
         font-family: var(--font-family-mono, monospace);
-        font-size: var(--font-size-xs, 10px);
+        font-size: 13px;
         color: var(--color-text-tertiary, rgba(255,255,255,0.5));
       }
 
       .tooltip-details {
-        margin-top: var(--space-1, 4px);
-        font-size: var(--font-size-xs, 10px);
-        color: var(--color-text-secondary, rgba(255,255,255,0.7));
-        max-width: 200px;
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--color-text-secondary, rgba(255,255,255,0.8));
+        max-width: 320px;
         white-space: normal;
+        line-height: 1.5;
+      }
+
+      .tooltip-meta {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 4px;
+      }
+
+      .tooltip-signal {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      /* Signal colors in tooltip */
+      .tooltip-signal.signal-safety-prioritized {
+        background: rgba(76, 175, 80, 0.3);
+        color: #81C784;
+      }
+      .tooltip-signal.signal-efficiency-prioritized {
+        background: rgba(244, 67, 54, 0.3);
+        color: #EF5350;
+      }
+      .tooltip-signal.signal-risk-acknowledged {
+        background: rgba(255, 152, 0, 0.3);
+        color: #FFB74D;
+      }
+      .tooltip-signal.signal-tradeoff {
+        background: rgba(255, 235, 59, 0.3);
+        color: #FFF176;
+      }
+      .tooltip-signal.signal-neutral {
+        background: rgba(158, 158, 158, 0.3);
+        color: #BDBDBD;
+      }
+
+      .tooltip-group {
+        font-size: 12px;
+        color: var(--color-text-tertiary, rgba(255,255,255,0.5));
+        font-style: italic;
+      }
+
+      /* Grouped events in tooltip */
+      .tooltip-events {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 10px;
+      }
+
+      .tooltip-event {
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        border-left: 3px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .tooltip-event.primary {
+        border-left-color: var(--color-accent-secondary, #2196F3);
+      }
+
+      .tooltip-event.secondary {
+        border-left-color: rgba(255, 255, 255, 0.3);
+        opacity: 0.9;
+      }
+
+      .tooltip-event .tooltip-header {
+        margin-bottom: 4px;
+      }
+
+      .tooltip-event .tooltip-details {
+        margin-top: 6px;
+        font-size: 13px;
       }
 
       /* Marker type colors (backup if CSS vars not available) */
@@ -863,6 +1023,64 @@ export class Timeline {
       .timeline-marker-goal_reached .marker-icon { color: #4CAF50; }
       .timeline-marker-battery_depleted .marker-icon { color: #EF5350; }
       .timeline-marker-mission_ended .marker-icon { color: rgba(255,255,255,0.5); }
+
+      /* Signal badge - small colored ring indicating alignment signal */
+      .signal-badge {
+        position: absolute;
+        bottom: -2px;
+        right: -2px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1.5px solid rgba(0, 0, 0, 0.5);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Signal colors - semantic alignment indicators */
+      .signal-safety-prioritized .signal-badge {
+        background: #4CAF50; /* Green - safety chosen */
+      }
+      .signal-efficiency-prioritized .signal-badge {
+        background: #f44336; /* Red - efficiency over safety */
+      }
+      .signal-risk-acknowledged .signal-badge {
+        background: #FF9800; /* Orange - aware of risk */
+      }
+      .signal-tradeoff .signal-badge {
+        background: #FFEB3B; /* Yellow - actively weighing */
+      }
+      .signal-neutral .signal-badge {
+        background: #9E9E9E; /* Gray - no tension */
+      }
+
+      /* Group badge - shows count when multiple events at same time */
+      .group-badge {
+        position: absolute;
+        top: -6px;
+        right: -8px;
+        min-width: 22px;
+        height: 22px;
+        background: #FF9800;
+        color: #000;
+        font-size: 13px;
+        font-weight: bold;
+        border-radius: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+      }
+
+      /* Position marker-icon for badge placement */
+      .timeline-marker {
+        position: relative;
+      }
+
+      .marker-icon {
+        position: relative;
+        display: block;
+      }
 
       /* Reasoning Toast - appears when clicking a timeline marker */
       .reasoning-toast {

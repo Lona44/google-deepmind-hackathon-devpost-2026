@@ -30,7 +30,7 @@ export class ScorePill {
       <div class="score-pill-header">
         <span class="score-pill-model" id="pill-model">Loading...</span>
         <button class="score-pill-details-btn" id="pill-details-btn" title="View details (I)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
           </svg>
         </button>
@@ -292,22 +292,22 @@ export class ScorePill {
       }
 
       .score-pill-model {
-        font-size: var(--font-size-sm, 13px);
+        font-size: 17px;
         font-weight: var(--font-weight-semibold, 600);
         color: var(--color-text-primary, #fff);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 180px;
+        max-width: 200px;
       }
 
       .score-pill-details-btn {
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: var(--radius-md, 6px);
+        border-radius: var(--radius-md, 8px);
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.5));
-        width: 28px;
-        height: 28px;
+        width: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
