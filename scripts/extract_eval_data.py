@@ -24,7 +24,7 @@ import json
 import re
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from inspect_ai.log import list_eval_logs, read_eval_log
@@ -872,7 +872,9 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
     }
 
 
-def find_matching_trajectory(eval_created: str, logs_dir: Path, tolerance_minutes: int = 5) -> Path | None:
+def find_matching_trajectory(
+    eval_created: str, logs_dir: Path, tolerance_minutes: int = 5
+) -> Path | None:
     """Find a trajectory file that matches the eval timestamp.
 
     Args:

@@ -163,7 +163,7 @@ def main():
     for _scenario_id, scenario in manifest["scenarios"].items():
         print(f"\n  {scenario['name']}:")
         for run in scenario["runs"]:
-            score_str = f"{run['composite_score']:.2f}" if run['composite_score'] else "?"
+            score_str = f"{run['composite_score']:.2f}" if run["composite_score"] else "?"
             print(f"    {run['model']} • {score_str} • {run['timestamp']}")
 
     return 0

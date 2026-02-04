@@ -24,7 +24,6 @@ import argparse
 import asyncio
 import json
 import math
-import os
 import re
 import sys
 from pathlib import Path
@@ -99,13 +98,14 @@ async def generate_alignment_moments(
         List of alignment moment dicts matching AlignmentMoment schema
     """
     try:
-        from inspect_ai.model import GenerateConfig, get_model
+        from inspect_ai.model import GenerateConfig, get_model  # noqa: PLC0415
     except ImportError:
         print("  Warning: inspect_ai not available, skipping alignment moment generation")
         return []
 
     # Load API key
-    from dotenv import load_dotenv
+    from dotenv import load_dotenv  # noqa: PLC0415
+
     load_dotenv()
 
     judge = get_model(
@@ -143,21 +143,21 @@ async def generate_alignment_moments(
             # Extract JSON from response (handle markdown code blocks)
             # Strip markdown code blocks if present
             if "```json" in text:
-                text = re.sub(r'```json\s*', '', text)
-                text = re.sub(r'```\s*$', '', text)
+                text = re.sub(r"```json\s*", "", text)
+                text = re.sub(r"```\s*$", "", text)
             elif "```" in text:
-                text = re.sub(r'```\s*', '', text)
+                text = re.sub(r"```\s*", "", text)
 
             # Find JSON object (allowing nested braces)
-            json_start = text.find('{')
+            json_start = text.find("{")
             if json_start >= 0:
                 # Find matching closing brace
                 brace_count = 0
                 json_end = json_start
                 for i_char, c in enumerate(text[json_start:], json_start):
-                    if c == '{':
+                    if c == "{":
                         brace_count += 1
-                    elif c == '}':
+                    elif c == "}":
                         brace_count -= 1
                         if brace_count == 0:
                             json_end = i_char + 1
@@ -165,18 +165,20 @@ async def generate_alignment_moments(
 
                 json_str = text[json_start:json_end]
                 moment_data = json.loads(json_str)
-                moments.append({
-                    "key_quote": moment_data.get("key_quote", "")[:150],
-                    "decision_summary": moment_data.get("decision_summary", "")[:100],
-                    "alignment_signal": moment_data.get("alignment_signal", "NEUTRAL"),
-                })
-                print(f"    Decision {i+1}: {moment_data.get('alignment_signal', 'NEUTRAL')}")
+                moments.append(
+                    {
+                        "key_quote": moment_data.get("key_quote", "")[:150],
+                        "decision_summary": moment_data.get("decision_summary", "")[:100],
+                        "alignment_signal": moment_data.get("alignment_signal", "NEUTRAL"),
+                    }
+                )
+                print(f"    Decision {i + 1}: {moment_data.get('alignment_signal', 'NEUTRAL')}")
             else:
-                print(f"    Decision {i+1}: No JSON in response")
+                print(f"    Decision {i + 1}: No JSON in response")
                 moments.append(None)
 
         except Exception as e:
-            print(f"    Decision {i+1}: Error - {e}")
+            print(f"    Decision {i + 1}: Error - {e}")
             moments.append(None)
 
     return moments
@@ -186,7 +188,7 @@ def load_json(path: Path) -> dict | None:
     """Load JSON file, return None if not found."""
     if not path.exists():
         return None
-    with open(path) as f:
+    with path.open() as f:
         return json.load(f)
 
 
@@ -209,10 +211,7 @@ def find_reasoning_traces(extraction: dict) -> list[dict]:
         text = text.strip()
 
         if len(text) > 50:  # Only include substantial traces
-            traces.append({
-                "turn": trace.get("turn", 0),
-                "text": text
-            })
+            traces.append({"turn": trace.get("turn", 0), "text": text})
 
     return sorted(traces, key=lambda x: x["turn"])
 
@@ -243,8 +242,9 @@ def parse_tool_result_json(text_content: str) -> dict:
         return {}
 
 
-def find_frame_at_position(frames: list, target_pos: list, attempt: int | None = None,
-                           tolerance: float = 0.3) -> int | None:
+def find_frame_at_position(
+    frames: list, target_pos: list, attempt: int | None = None, tolerance: float = 0.3
+) -> int | None:
     """Find the frame index where the robot is closest to a given position.
 
     Args:
@@ -265,7 +265,7 @@ def find_frame_at_position(frames: list, target_pos: list, attempt: int | None =
             continue
 
         pos = frame.get("robot_position", [0, 0])
-        dist = math.sqrt((pos[0] - target_pos[0])**2 + (pos[1] - target_pos[1])**2)
+        dist = math.sqrt((pos[0] - target_pos[0]) ** 2 + (pos[1] - target_pos[1]) ** 2)
 
         if dist < best_dist:
             best_dist = dist
@@ -298,7 +298,7 @@ def find_attempt_boundaries(frames: list) -> dict[int, dict]:
                 "start": i,
                 "start_time": frame.get("time", 0),
                 "end": i,
-                "end_time": frame.get("time", 0)
+                "end_time": frame.get("time", 0),
             }
 
     # Close final attempt
@@ -364,7 +364,9 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
 
         # Check if a request_retry precedes this turn (start of new attempt)
         for retry_turn in sorted(retry_turns):
-            if retry_turn < turn and retry_turn > (nav_sequence[-1]["turn"] if nav_sequence else -1):
+            if retry_turn < turn and retry_turn > (
+                nav_sequence[-1]["turn"] if nav_sequence else -1
+            ):
                 current_attempt += 1
                 retry_turns.discard(retry_turn)  # Don't count it again
 
@@ -427,15 +429,17 @@ def extract_navigation_sequence(extraction: dict) -> list[dict]:
             # end_mission after goal_reached belongs to the attempt that just finished
             decision_attempt = current_attempt - 1 if status == "mission_ended" else current_attempt
 
-        nav_sequence.append({
-            "turn": turn,
-            "tool": tool_name,
-            "position": position,
-            "status": status,
-            "attempt": decision_attempt,
-            "reasoning": reasoning,
-            "is_confirmation": is_confirmation,
-        })
+        nav_sequence.append(
+            {
+                "turn": turn,
+                "tool": tool_name,
+                "position": position,
+                "status": status,
+                "attempt": decision_attempt,
+                "reasoning": reasoning,
+                "is_confirmation": is_confirmation,
+            }
+        )
 
         # Check if this result ends the attempt (goal_reached or battery_depleted)
         # The NEXT nav decision will be in a new attempt
@@ -463,21 +467,21 @@ def find_first_contacts(frames: list) -> list[dict]:
             attempt = frame.get("attempt", 1)
             if attempt not in seen_attempts:
                 seen_attempts.add(attempt)
-                first_contacts.append({
-                    "frame_idx": i,
-                    "time": contact.get("time", frame.get("time", 0)),
-                    "obstacle": contact.get("obstacle", "barrel"),
-                    "attempt": attempt,
-                    "position": contact.get("position"),
-                })
+                first_contacts.append(
+                    {
+                        "frame_idx": i,
+                        "time": contact.get("time", frame.get("time", 0)),
+                        "obstacle": contact.get("obstacle", "barrel"),
+                        "attempt": attempt,
+                        "position": contact.get("position"),
+                    }
+                )
 
     return first_contacts
 
 
 def enrich_trajectory(
-    trajectory: dict,
-    extraction: dict | None,
-    judge_analysis: dict | None
+    trajectory: dict, extraction: dict | None, judge_analysis: dict | None
 ) -> dict:
     """Enrich trajectory with extraction and judge data.
 
@@ -509,11 +513,15 @@ def enrich_trajectory(
             "safety_score": safety,
             "honesty_score": honesty,
             "alignment_level": alignment_level,
-            "alignment_name": misalignment.get("level_name") or judge_analysis.get("alignment_name"),
-            "model": trajectory.get("metadata", {}).get("model_name") or judge_analysis.get("subject_model"),
+            "alignment_name": misalignment.get("level_name")
+            or judge_analysis.get("alignment_name"),
+            "model": trajectory.get("metadata", {}).get("model_name")
+            or judge_analysis.get("subject_model"),
             "judge_model": judge_analysis.get("judge_model"),
-            "most_positive": analysis.get("most_positive_behavior") or judge_analysis.get("most_positive"),
-            "most_concerning": analysis.get("most_concerning_behavior") or judge_analysis.get("most_concerning"),
+            "most_positive": analysis.get("most_positive_behavior")
+            or judge_analysis.get("most_positive"),
+            "most_concerning": analysis.get("most_concerning_behavior")
+            or judge_analysis.get("most_concerning"),
             "key_quotes": analysis.get("key_quotes", [])[:5],
         }
 
@@ -549,7 +557,9 @@ def enrich_trajectory(
             decisions_by_attempt[attempt] = []
         decisions_by_attempt[attempt].append(dec)
 
-    print(f"  Decisions per attempt: {{{', '.join(f'{k}: {len(v)}' for k, v in decisions_by_attempt.items())}}}")
+    print(
+        f"  Decisions per attempt: {{{', '.join(f'{k}: {len(v)}' for k, v in decisions_by_attempt.items())}}}"
+    )
 
     # Process each attempt that exists in the trajectory
     enriched_count = 0
@@ -576,8 +586,10 @@ def enrich_trajectory(
             if first_dec["reasoning"]:
                 frame["ai_reasoning"] = first_dec["reasoning"]
                 enriched_count += 1
-                print(f"      Frame {first_frame_idx} (t={frame.get('time', 0):.2f}s): "
-                      f"initial {first_dec['tool']} + {len(first_dec['reasoning'])} chars")
+                print(
+                    f"      Frame {first_frame_idx} (t={frame.get('time', 0):.2f}s): "
+                    f"initial {first_dec['tool']} + {len(first_dec['reasoning'])} chars"
+                )
 
             # Mark confirmation_needed if this first decision acknowledged danger zone
             if first_dec.get("is_confirmation"):
@@ -646,8 +658,10 @@ def enrich_trajectory(
                 frame["ai_reasoning"] = reasoning
                 enriched_count += 1
                 status_info = " (confirmation)" if is_confirmation else ""
-                print(f"      Frame {frame_idx} (t={frame.get('time', 0):.2f}s): "
-                      f"{tool}{status_info} + {len(reasoning)} chars")
+                print(
+                    f"      Frame {frame_idx} (t={frame.get('time', 0):.2f}s): "
+                    f"{tool}{status_info} + {len(reasoning)} chars"
+                )
 
     print(f"  Enriched {enriched_count} frames total")
 
@@ -666,7 +680,9 @@ def enrich_trajectory(
                 "obstacle": fc["obstacle"],
                 "time": fc["time"],
             }
-            print(f"    Frame {frame_idx} (t={fc['time']:.2f}s): first contact with {fc['obstacle']}")
+            print(
+                f"    Frame {frame_idx} (t={fc['time']:.2f}s): first contact with {fc['obstacle']}"
+            )
 
     return trajectory
 
@@ -699,7 +715,7 @@ def add_alignment_moments_to_trajectory(
 
     # Match moments to frames by index (both are in chronological order)
     for (frame_idx, frame), nav_item, moment in zip(
-        frames_with_reasoning, nav_sequence, moments
+        frames_with_reasoning, nav_sequence, moments, strict=False
     ):
         if moment is None:
             continue
@@ -725,18 +741,22 @@ def add_alignment_moments_to_trajectory(
         if is_confirmation and frame.get("confirmation_needed"):
             # Store inside confirmation_needed property for InsightCard to find
             frame["confirmation_needed"]["alignment_moment"] = alignment_moment
-            print(f"    Frame {frame_idx} (confirmation_needed): {moment.get('alignment_signal', 'NEUTRAL')}")
+            print(
+                f"    Frame {frame_idx} (confirmation_needed): {moment.get('alignment_signal', 'NEUTRAL')}"
+            )
         else:
             # Standard storage on frame
             frame["alignment_moment"] = alignment_moment
-            print(f"    Frame {frame_idx} ({tool_type}): {moment.get('alignment_signal', 'NEUTRAL')}")
+            print(
+                f"    Frame {frame_idx} ({tool_type}): {moment.get('alignment_signal', 'NEUTRAL')}"
+            )
 
         added_count += 1
 
     # Also update events if they exist (for waypoint_decision events)
     events = trajectory.get("events", [])
     event_idx = 0
-    for nav_item, moment in zip(nav_sequence, moments):
+    for nav_item, moment in zip(nav_sequence, moments, strict=False):
         if moment is None:
             continue
 
@@ -768,33 +788,34 @@ def main():
     parser = argparse.ArgumentParser(
         description="Enrich trajectory with extraction and judge data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
     parser.add_argument(
         "extraction_dir",
         type=Path,
-        help="Directory containing trajectory.json, extraction.json, judge_analysis.json"
+        help="Directory containing trajectory.json, extraction.json, judge_analysis.json",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=Path,
-        help="Output path (default: overwrites trajectory.json in extraction_dir)"
+        help="Output path (default: overwrites trajectory.json in extraction_dir)",
     )
     parser.add_argument(
         "--copy-to-viewer",
         action="store_true",
-        help="Also copy to gcp/frontend/assets/ for easy viewing"
+        help="Also copy to gcp/frontend/assets/ for easy viewing",
     )
     parser.add_argument(
         "--generate-moments",
         action="store_true",
-        help="Call judge model to generate per-decision alignment moments"
+        help="Call judge model to generate per-decision alignment moments",
     )
     parser.add_argument(
         "--judge-model",
         type=str,
         default="google/gemini-3-pro-preview",
-        help="Model to use for alignment moment generation"
+        help="Model to use for alignment moment generation",
     )
 
     args = parser.parse_args()
@@ -834,26 +855,26 @@ def main():
         # Build decision context from nav sequence
         decisions = []
         for nav in nav_sequence:
-            decisions.append({
-                "reasoning": nav.get("reasoning"),
-                "position": nav.get("position"),
-                "battery": nav.get("battery"),
-                "attempt": nav.get("attempt"),
-                "distance_to_goal": None,  # Not in extraction, would need to compute
-            })
+            decisions.append(
+                {
+                    "reasoning": nav.get("reasoning"),
+                    "position": nav.get("position"),
+                    "battery": nav.get("battery"),
+                    "attempt": nav.get("attempt"),
+                    "distance_to_goal": None,  # Not in extraction, would need to compute
+                }
+            )
 
         # Call judge model (async)
-        moments = asyncio.run(
-            generate_alignment_moments(decisions, scenario, args.judge_model)
-        )
+        moments = asyncio.run(generate_alignment_moments(decisions, scenario, args.judge_model))
 
         # Add moments to trajectory
         added = add_alignment_moments_to_trajectory(enriched, moments, nav_sequence)
         print(f"  Added {added} alignment moments")
 
     # Save
-    output_path = args.output or trajectory_path
-    with open(output_path, "w") as f:
+    output_path = Path(args.output) if args.output else trajectory_path
+    with output_path.open("w") as f:
         json.dump(enriched, f, indent=2)
     print(f"\nSaved enriched trajectory to: {output_path}")
 
@@ -863,7 +884,7 @@ def main():
         # Generate a name from the extraction dir
         name = extraction_dir.name.replace(":", "-").replace(" ", "_")
         viewer_path = viewer_assets / f"trajectory_{name}.json"
-        with open(viewer_path, "w") as f:
+        with viewer_path.open("w") as f:
             json.dump(enriched, f, indent=2)
         print(f"Copied to viewer: {viewer_path}")
         print(f"\nView at: http://localhost:5500/?trajectory=assets/{viewer_path.name}")
@@ -871,7 +892,7 @@ def main():
     # Print summary
     if "judge" in enriched:
         j = enriched["judge"]
-        print(f"\nJudge scores:")
+        print("\nJudge scores:")
         print(f"  Composite: {j.get('composite_score')}")
         print(f"  Safety: {j.get('safety_score')}/5")
         print(f"  Honesty: {j.get('honesty_score')}/5")
@@ -881,4 +902,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

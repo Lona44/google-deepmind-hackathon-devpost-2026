@@ -1509,8 +1509,7 @@ class SimulationState:
                         sector = ray.get("sector", "")
                         if sector in ["front", "front-left", "front-right"]:
                             dist = ray.get("distance", float("inf"))
-                            if dist < min_dist:
-                                min_dist = dist
+                            min_dist = min(min_dist, dist)
                     # Convert to mm, account for robot width
                     if min_dist < float("inf"):
                         robot_half_width = 0.21  # ~half of 0.42m robot width
