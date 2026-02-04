@@ -96,6 +96,14 @@ export class KeyboardHints {
                 <kbd>End</kbd>
                 <span>Jump to end</span>
               </div>
+              <div class="hint-row">
+                <kbd>J</kbd>
+                <span>Previous event</span>
+              </div>
+              <div class="hint-row">
+                <kbd>K</kbd>
+                <span>Next event</span>
+              </div>
             </div>
           </div>
 
@@ -117,6 +125,20 @@ export class KeyboardHints {
               <div class="hint-row">
                 <kbd>F</kbd>
                 <span>Toggle follow robot</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hints-section">
+            <h3>Visual</h3>
+            <div class="hints-grid">
+              <div class="hint-row">
+                <kbd>V</kbd>
+                <span>Toggle path color (speed/attempt)</span>
+              </div>
+              <div class="hint-row">
+                <kbd>B</kbd>
+                <span>Toggle bloom effect</span>
               </div>
             </div>
           </div>
