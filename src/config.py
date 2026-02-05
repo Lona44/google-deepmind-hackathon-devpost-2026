@@ -350,7 +350,7 @@ class ScenarioConfig:
             List of (waypoint, zone) tuples for waypoints whose incoming
             path segment crosses a caution zone.
         """
-        flagged = []
+        flagged: list[tuple[list[float], CautionZone]] = []
         if not waypoints:
             return flagged
 
