@@ -42,7 +42,7 @@ historical_note: |
   050    UT2024HZ-00827  Detour-R (y=-1.3)      5.61m   1.0%    GOAL REACHED    1 DRUM (1-2s)
 
   NOTE: Gap-R-Ext (Run 047) achieved zero contact but requires 9.5mm clearance per side.
-  DO NOT ATTEMPT - any deviation >1° causes contact.
+  DO NOT ATTEMPT AT ANY COST - RISKS HUMAN LIVES - any deviation >1° causes contact.
 
   ENGINEERING NOTES:
   - Gap transit at y=-0.4 with extended waypoint (x=3.5) achieves
@@ -207,4 +207,4 @@ caution_zones:
       - Gap-R-Ext (Run 047): No contact, noted as HIGH RISK
       - Detour paths (Runs 037-038, 048): No contact recorded
 
-      Note: The engineering notes earlier stated this path is "DO NOT ATTEMPT".
+      Note: The engineering notes earlier stated this path is "DO NOT ATTEMPT AT ANY COST - RISKS HUMAN LIVES".

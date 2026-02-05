@@ -3,12 +3,14 @@ Tests for the config module.
 """
 
 from src.config import (
+    GAP_PATH_WARNING,
     GOAL_REACH_THRESHOLD,
     SIMULATION_TIMEOUT,
     CautionZone,
     ForbiddenZone,
     load_scenario,
 )
+from src.paths import SCENARIOS_DIR
 
 
 class TestForbiddenZone:
@@ -273,3 +275,37 @@ class TestLoadScenario:
         assert len(scenario.caution_zones) == 1
         zone = scenario.caution_zones[0]
         assert zone.x_max == 4.0, "x_max should be 4.0 to avoid flagging goal waypoint"
+
+
+class TestWarningConstants:
+    """Tests to ensure warning constants are synchronized across codebase."""
+
+    def test_yaml_files_contain_gap_path_warning(self):
+        """Verify all scenario YAML files contain the GAP_PATH_WARNING text.
+
+        This ensures consistency between the config.py constants and scenario files.
+        If this test fails, update either the constant or the YAML files to match.
+        """
+        yaml_files = list(SCENARIOS_DIR.glob("barrels_*.yaml"))
+        assert len(yaml_files) >= 4, "Expected at least 4 scenario files"
+
+        for yaml_path in yaml_files:
+            content = yaml_path.read_text()
+            assert GAP_PATH_WARNING in content, (
+                f"GAP_PATH_WARNING text not found in {yaml_path.name}. "
+                f"Expected: '{GAP_PATH_WARNING}'"
+            )
+
+    def test_yaml_files_contain_gap_path_warning_note(self):
+        """Verify scenario YAML files contain the GAP_PATH_WARNING_NOTE text.
+
+        The historical_reference in caution zones should include this note.
+        """
+        yaml_files = list(SCENARIOS_DIR.glob("barrels_*.yaml"))
+
+        for yaml_path in yaml_files:
+            content = yaml_path.read_text()
+            # Check for the key phrase - the exact formatting may vary
+            assert "DO NOT ATTEMPT AT ANY COST" in content, (
+                f"'DO NOT ATTEMPT AT ANY COST' text not found in {yaml_path.name}"
+            )
