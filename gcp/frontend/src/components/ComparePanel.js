@@ -49,7 +49,7 @@ export class ComparePanel {
 
     this.container.innerHTML = `
       <div class="compare-header">
-        <h3>Trajectory Density</h3>
+        <h3>Scenario Comparison</h3>
         <button id="exit-compare-btn" class="icon-btn" title="Exit compare mode">✕</button>
       </div>
 
@@ -57,6 +57,13 @@ export class ComparePanel {
         <h4>Filter by Model</h4>
         <div id="model-toggles" class="model-toggles">
           <!-- Checkboxes generated dynamically -->
+        </div>
+      </div>
+
+      <div class="compare-section">
+        <h4>Model Statistics</h4>
+        <div id="model-stats" class="model-stats">
+          <!-- Stats cards generated dynamically -->
         </div>
       </div>
 
@@ -75,13 +82,6 @@ export class ComparePanel {
           <input type="checkbox" id="terrain-wireframe"> Wireframe
         </label>
       </div>
-
-      <div class="compare-section">
-        <h4>Legend</h4>
-        <div id="model-legend" class="model-legend">
-          <!-- Legend items generated dynamically -->
-        </div>
-      </div>
     `;
 
     // Add styles
@@ -92,7 +92,7 @@ export class ComparePanel {
 
     // Populate dynamic content
     this.populateModelToggles();
-    this.populateLegend();
+    this.populateModelStats();
 
     // Add to DOM (hidden by default)
     document.body.appendChild(this.container);
@@ -249,39 +249,113 @@ export class ComparePanel {
   }
 
   /**
-   * Populate the model legend from the trajectory store.
+   * Populate the model statistics from the trajectory store.
    */
-  populateLegend() {
-    const legendContainer = this.container?.querySelector('#model-legend');
-    if (!legendContainer || !this.trajectoryStore) return;
+  populateModelStats() {
+    const statsContainer = this.container?.querySelector('#model-stats');
+    if (!statsContainer || !this.trajectoryStore) return;
 
-    legendContainer.innerHTML = '';
+    statsContainer.innerHTML = '';
 
-    const modelSummary = this.trajectoryStore.getModelSummary();
+    const aggregateStats = this.trajectoryStore.getAggregateStats();
+    if (!aggregateStats) return;
 
-    for (const model of modelSummary) {
+    for (const model of aggregateStats.byModel) {
       const colorCSS = hexToCSS(model.color);
 
-      const item = document.createElement('div');
-      item.className = 'legend-item';
+      const card = document.createElement('div');
+      card.className = 'model-stat-card';
 
-      const swatch = document.createElement('span');
-      swatch.className = 'legend-swatch';
-      swatch.style.backgroundColor = colorCSS;
+      // Header with model name and color
+      const header = document.createElement('div');
+      header.className = 'stat-card-header';
+      header.innerHTML = `
+        <span class="stat-swatch" style="background-color: ${colorCSS}"></span>
+        <span class="stat-model-name">${model.modelName}</span>
+        <span class="stat-run-count">${model.totalRuns} run${model.totalRuns !== 1 ? 's' : ''}</span>
+      `;
+      card.appendChild(header);
 
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'legend-name';
-      nameSpan.textContent = model.modelName;
+      // Scores row
+      const scoresRow = document.createElement('div');
+      scoresRow.className = 'stat-scores-row';
+      scoresRow.innerHTML = `
+        <div class="stat-score">
+          <span class="stat-value">${model.avgSafety != null ? model.avgSafety.toFixed(1) : '—'}</span>
+          <span class="stat-label">Safety</span>
+        </div>
+        <div class="stat-score">
+          <span class="stat-value">${model.avgHonesty != null ? model.avgHonesty.toFixed(1) : '—'}</span>
+          <span class="stat-label">Honesty</span>
+        </div>
+        <div class="stat-score">
+          <span class="stat-value">${model.avgAttempts != null ? model.avgAttempts.toFixed(1) : '—'}</span>
+          <span class="stat-label">Attempts</span>
+        </div>
+      `;
+      card.appendChild(scoresRow);
 
-      const countSpan = document.createElement('span');
-      countSpan.className = 'legend-count';
-      countSpan.textContent = `${model.count} run${model.count !== 1 ? 's' : ''}`;
+      // Aborted runs indicator (if any)
+      if (model.abortedRuns > 0) {
+        const abortedRow = document.createElement('div');
+        abortedRow.className = 'stat-aborted-row';
+        abortedRow.innerHTML = `<span class="abort-badge">${model.abortedRuns} aborted</span>`;
+        card.appendChild(abortedRow);
+      }
 
-      item.appendChild(swatch);
-      item.appendChild(nameSpan);
-      item.appendChild(countSpan);
+      // Alignment breakdown
+      const alignmentRow = document.createElement('div');
+      alignmentRow.className = 'stat-alignment-row';
+      const alignmentBadges = [];
+      for (const [name, count] of Object.entries(model.alignmentNames)) {
+        if (count > 0) {
+          const badgeClass = this._getAlignmentBadgeClass(name);
+          alignmentBadges.push(`<span class="alignment-badge ${badgeClass}">${this._formatAlignmentName(name)} (${count})</span>`);
+        }
+      }
+      alignmentRow.innerHTML = alignmentBadges.join('');
+      card.appendChild(alignmentRow);
 
-      legendContainer.appendChild(item);
+      // Deployment status breakdown
+      const deploymentRow = document.createElement('div');
+      deploymentRow.className = 'stat-deployment-row';
+      const deploymentBadges = [];
+      for (const [status, count] of Object.entries(model.deploymentStatuses)) {
+        if (count > 0) {
+          const statusClass = status.toLowerCase();
+          deploymentBadges.push(`<span class="deployment-badge ${statusClass}">${status} (${count})</span>`);
+        }
+      }
+      deploymentRow.innerHTML = deploymentBadges.join('');
+      card.appendChild(deploymentRow);
+
+      statsContainer.appendChild(card);
+    }
+  }
+
+  /**
+   * Get CSS class for alignment badge.
+   * @private
+   */
+  _getAlignmentBadgeClass(alignmentName) {
+    switch (alignmentName) {
+      case 'transparent_shortcut': return 'align-transparent';
+      case 'rationalization': return 'align-rationalization';
+      case 'strategic_concealment': return 'align-concealment';
+      default: return '';
+    }
+  }
+
+  /**
+   * Format alignment name for display.
+   * @private
+   */
+  _formatAlignmentName(name) {
+    switch (name) {
+      case 'transparent_shortcut': return 'Transparent';
+      case 'rationalization': return 'Rationalization';
+      case 'strategic_concealment': return 'Concealment';
+      default: return name;
     }
   }
 
@@ -309,7 +383,7 @@ export class ComparePanel {
         position: fixed;
         top: calc(var(--header-height, 50px) + var(--space-4, 16px));
         right: var(--space-4, 16px);
-        width: 280px;
+        width: 320px;
         max-height: calc(100vh - var(--header-height, 50px) - var(--playback-bar-height, 64px) - var(--space-8, 32px));
         overflow-y: auto;
         background: rgba(24, 24, 28, 0.95);
@@ -492,37 +566,145 @@ export class ComparePanel {
         border: none;
       }
 
-      /* Legend */
-      .model-legend {
+      /* Model Statistics */
+      .model-stats {
         display: flex;
         flex-direction: column;
-        gap: var(--space-2, 8px);
+        gap: var(--space-3, 12px);
       }
 
-      .legend-item {
+      .model-stat-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-md, 8px);
+        padding: var(--space-3, 12px);
+      }
+
+      .stat-card-header {
         display: flex;
         align-items: center;
         gap: var(--space-2, 8px);
+        margin-bottom: var(--space-2, 8px);
       }
 
-      .legend-swatch {
-        width: 16px;
-        height: 16px;
+      .stat-swatch {
+        width: 12px;
+        height: 12px;
         border-radius: var(--radius-sm, 4px);
         flex-shrink: 0;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       }
 
-      .legend-name {
-        font-size: var(--font-size-sm, 12px);
-        font-weight: var(--font-weight-medium, 500);
+      .stat-model-name {
+        font-size: var(--font-size-sm, 13px);
+        font-weight: var(--font-weight-semibold, 600);
         color: var(--color-text-primary, #fff);
         flex: 1;
       }
 
-      .legend-count {
+      .stat-run-count {
+        font-size: var(--font-size-xs, 11px);
+        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
+      }
+
+      .stat-scores-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: var(--space-2, 8px);
+        padding-bottom: var(--space-2, 8px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .stat-score {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+      }
+
+      .stat-value {
+        font-size: var(--font-size-lg, 18px);
+        font-weight: var(--font-weight-bold, 700);
+        color: var(--color-text-primary, #fff);
+      }
+
+      .stat-label {
         font-size: var(--font-size-xs, 10px);
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .stat-aborted-row {
+        margin-bottom: var(--space-2, 8px);
+      }
+
+      .abort-badge {
+        display: inline-block;
+        font-size: var(--font-size-xs, 10px);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm, 4px);
+        background: rgba(156, 163, 175, 0.2);
+        color: #9CA3AF;
+      }
+
+      .stat-alignment-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-bottom: var(--space-2, 8px);
+      }
+
+      .alignment-badge {
+        display: inline-block;
+        font-size: var(--font-size-xs, 10px);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm, 4px);
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .alignment-badge.align-transparent {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22C55E;
+      }
+
+      .alignment-badge.align-rationalization {
+        background: rgba(251, 191, 36, 0.2);
+        color: #FBBF24;
+      }
+
+      .alignment-badge.align-concealment {
+        background: rgba(239, 68, 68, 0.2);
+        color: #EF4444;
+      }
+
+      .stat-deployment-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .deployment-badge {
+        display: inline-block;
+        font-size: var(--font-size-xs, 10px);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm, 4px);
+        font-weight: var(--font-weight-medium, 500);
+      }
+
+      .deployment-badge.allow {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22C55E;
+      }
+
+      .deployment-badge.conditional {
+        background: rgba(251, 191, 36, 0.2);
+        color: #FBBF24;
+      }
+
+      .deployment-badge.prohibit {
+        background: rgba(239, 68, 68, 0.2);
+        color: #EF4444;
       }
 
       /* Scrollbar styling */

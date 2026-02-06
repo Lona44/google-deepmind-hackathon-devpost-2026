@@ -31,10 +31,12 @@ const FALLBACK_COLORS = [
 export class TrajectoryStore {
   constructor() {
     this.trajectories = new Map();  // id → { data, metadata }
+    this.allRuns = [];              // All runs including aborted (no trajectory)
     this.scenario = null;
     this.manifest = null;
     this.maxDuration = 0;
     this.colorIndex = 0;
+    this.aggregateStats = null;     // Computed aggregate stats per model
   }
 
   /**
@@ -66,10 +68,34 @@ export class TrajectoryStore {
 
     this.scenario = scenarioId;
     this.trajectories.clear();
+    this.allRuns = [];
     this.maxDuration = 0;
     this.colorIndex = 0;
+    this.aggregateStats = null;
 
-    // Filter to runs with trajectories only
+    // Store ALL runs (including aborted ones without trajectories)
+    for (const run of scenario.runs) {
+      const color = this._getColorForModel(run.model);
+      this.allRuns.push({
+        id: run.id,
+        modelName: run.model,
+        color,
+        hasTrajectory: run.has_trajectory,
+        compositeScore: run.composite_score,
+        safetyScore: run.safety_score,
+        honestyScore: run.honesty_score,
+        alignmentLevel: run.alignment_level,
+        alignmentName: run.alignment_name,
+        riskClass: run.risk_class,
+        deploymentStatus: run.deployment_status,
+        attempts: run.attempts,
+        frames: run.frames,
+        duration: run.duration,
+        judgeData: run.judge_data,
+      });
+    }
+
+    // Filter to runs with trajectories only for 3D visualization
     const runsWithTrajectory = scenario.runs.filter(run => run.has_trajectory && run.trajectory_file);
 
     // Load all trajectories in parallel
@@ -124,6 +150,9 @@ export class TrajectoryStore {
     });
 
     await Promise.all(loadPromises);
+
+    // Compute aggregate stats
+    this.aggregateStats = this._computeAggregateStats();
 
     console.log(`TrajectoryStore: Loaded ${this.trajectories.size} trajectories for ${scenarioId}`);
     return this.trajectories.size;
@@ -300,13 +329,143 @@ export class TrajectoryStore {
   }
 
   /**
+   * Get aggregate statistics per model.
+   * @returns {Object|null} Aggregate stats object
+   */
+  getAggregateStats() {
+    return this.aggregateStats;
+  }
+
+  /**
+   * Compute aggregate statistics per model from all runs.
+   * @private
+   * @returns {Object} Aggregate stats object
+   */
+  _computeAggregateStats() {
+    const byModel = new Map();
+
+    // Group runs by model
+    for (const run of this.allRuns) {
+      const modelName = run.modelName;
+      if (!byModel.has(modelName)) {
+        byModel.set(modelName, {
+          modelName,
+          color: run.color,
+          runs: [],
+        });
+      }
+      byModel.get(modelName).runs.push(run);
+    }
+
+    // Compute stats for each model
+    const modelStats = [];
+    for (const [modelName, data] of byModel) {
+      const runs = data.runs;
+      const totalRuns = runs.length;
+      const abortedRuns = runs.filter(r => !r.hasTrajectory).length;
+      const completedRuns = totalRuns - abortedRuns;
+
+      // Scores (average over all runs)
+      const safetyScores = runs.map(r => r.safetyScore).filter(s => s != null);
+      const honestyScores = runs.map(r => r.honestyScore).filter(s => s != null);
+      const compositeScores = runs.map(r => r.compositeScore).filter(s => s != null);
+
+      const avgSafety = safetyScores.length > 0
+        ? safetyScores.reduce((a, b) => a + b, 0) / safetyScores.length
+        : null;
+      const avgHonesty = honestyScores.length > 0
+        ? honestyScores.reduce((a, b) => a + b, 0) / honestyScores.length
+        : null;
+      const avgComposite = compositeScores.length > 0
+        ? compositeScores.reduce((a, b) => a + b, 0) / compositeScores.length
+        : null;
+
+      // Attempts (average over completed runs)
+      const attemptCounts = runs.filter(r => r.attempts != null).map(r => r.attempts);
+      const avgAttempts = attemptCounts.length > 0
+        ? attemptCounts.reduce((a, b) => a + b, 0) / attemptCounts.length
+        : null;
+      const totalAttempts = attemptCounts.reduce((a, b) => a + b, 0);
+
+      // Duration (average over completed runs)
+      const durations = runs.filter(r => r.duration != null).map(r => r.duration);
+      const avgDuration = durations.length > 0
+        ? durations.reduce((a, b) => a + b, 0) / durations.length
+        : null;
+
+      // Alignment level distribution
+      const alignmentLevels = { 1: 0, 2: 0, 3: 0 };
+      const alignmentNames = {};
+      for (const run of runs) {
+        if (run.alignmentLevel != null) {
+          alignmentLevels[run.alignmentLevel] = (alignmentLevels[run.alignmentLevel] || 0) + 1;
+        }
+        if (run.alignmentName) {
+          alignmentNames[run.alignmentName] = (alignmentNames[run.alignmentName] || 0) + 1;
+        }
+      }
+
+      // Deployment status distribution
+      const deploymentStatuses = { ALLOW: 0, CONDITIONAL: 0, PROHIBIT: 0 };
+      for (const run of runs) {
+        if (run.deploymentStatus) {
+          deploymentStatuses[run.deploymentStatus] = (deploymentStatuses[run.deploymentStatus] || 0) + 1;
+        }
+      }
+
+      // Risk class distribution
+      const riskClasses = {};
+      for (const run of runs) {
+        if (run.riskClass) {
+          riskClasses[run.riskClass] = (riskClasses[run.riskClass] || 0) + 1;
+        }
+      }
+
+      modelStats.push({
+        modelName,
+        color: data.color,
+        totalRuns,
+        completedRuns,
+        abortedRuns,
+        avgSafety,
+        avgHonesty,
+        avgComposite,
+        avgAttempts,
+        totalAttempts,
+        avgDuration,
+        alignmentLevels,
+        alignmentNames,
+        deploymentStatuses,
+        riskClasses,
+      });
+    }
+
+    // Sort by model name
+    modelStats.sort((a, b) => a.modelName.localeCompare(b.modelName));
+
+    // Compute totals across all models
+    const totals = {
+      totalRuns: this.allRuns.length,
+      totalAborted: this.allRuns.filter(r => !r.hasTrajectory).length,
+      totalCompleted: this.allRuns.filter(r => r.hasTrajectory).length,
+    };
+
+    return {
+      byModel: modelStats,
+      totals,
+    };
+  }
+
+  /**
    * Clear all loaded data.
    */
   clear() {
     this.trajectories.clear();
+    this.allRuns = [];
     this.scenario = null;
     this.maxDuration = 0;
     this.colorIndex = 0;
+    this.aggregateStats = null;
   }
 
   /**
