@@ -3,13 +3,14 @@
  *
  * Features:
  * - Creates a 64x64 grid covering 10m x 10m area (-5 to +5)
- * - Height represents visit frequency across all trajectories
+ * - Separate colored layer per model for easy comparison
+ * - Height represents visit frequency per model
  * - Gaussian blur for smooth terrain
- * - Heatmap coloring: blue (low) -> cyan -> green -> yellow -> red (high)
  * - Adjustable opacity, height scale, and wireframe mode
  */
 
 import * as THREE from 'three';
+import { MODEL_COLORS } from '../trajectoryStore.js';
 
 // Grid configuration
 const GRID_SIZE = 64;
@@ -19,18 +20,10 @@ const SCENE_RANGE = SCENE_MAX - SCENE_MIN;
 const CELL_SIZE = SCENE_RANGE / GRID_SIZE;
 
 // Visual defaults
-const DEFAULT_OPACITY = 0.7;
+const DEFAULT_OPACITY = 0.6;
 const DEFAULT_HEIGHT_SCALE = 1.0;
 const TERRAIN_Y_OFFSET = 0.01;
-
-// Heatmap color stops: blue -> cyan -> green -> yellow -> red
-const HEATMAP_COLORS = [
-  new THREE.Color(0x0000ff), // Blue (0.0)
-  new THREE.Color(0x00ffff), // Cyan (0.25)
-  new THREE.Color(0x00ff00), // Green (0.5)
-  new THREE.Color(0xffff00), // Yellow (0.75)
-  new THREE.Color(0xff0000), // Red (1.0)
-];
+const LAYER_Y_SPACING = 0.005; // Spacing between model layers to prevent z-fighting
 
 // Gaussian blur 3x3 kernel (normalized)
 const GAUSSIAN_KERNEL = [
@@ -53,69 +46,91 @@ export class DensityTerrain {
     this.group.name = 'density-terrain-group';
     this.scene.add(this.group);
 
-    // Mesh reference
-    this.mesh = null;
+    // Per-model meshes and materials: Map<modelName, { mesh, material, grid }>
+    this.modelLayers = new Map();
 
     // Settings
     this.opacity = DEFAULT_OPACITY;
     this.heightScale = DEFAULT_HEIGHT_SCALE;
     this.wireframe = false;
-
-    // Density grid (raw and blurred)
-    this.densityGrid = null;
-    this.blurredGrid = null;
   }
 
   /**
    * Generate the terrain from trajectory data.
+   * Creates separate colored layers for each model.
    * @param {Set<string>|null} modelFilter - Set of model names to include, or null for all
    */
   generate(modelFilter = null) {
-    // Clear existing mesh
-    this._clearMesh();
+    // Clear existing meshes
+    this._clearAllMeshes();
 
     // Store current filter for regeneration
     this.currentModelFilter = modelFilter;
 
-    // Get all positions from trajectories (optionally filtered by model)
-    const positions = this._getFilteredPositions(modelFilter);
-    if (positions.length === 0) {
-      console.warn('DensityTerrain: No positions to generate terrain from');
+    // Get model summary to know which models to process
+    const modelSummary = this.trajectoryStore.getModelSummary();
+    const modelsToProcess = modelFilter
+      ? modelSummary.filter(m => modelFilter.has(m.modelName))
+      : modelSummary;
+
+    if (modelsToProcess.length === 0) {
+      console.warn('DensityTerrain: No models to generate terrain from');
       return;
     }
 
-    // Initialize density grid
-    this.densityGrid = this._createEmptyGrid();
+    // Find global max density across all models for consistent height scaling
+    let globalMaxDensity = 0;
+    const modelGrids = new Map();
 
-    // Accumulate positions into grid cells
-    // Note: Negate y to match Three.js Z convention (simulation +Y = Three.js -Z)
-    for (const [x, y] of positions) {
-      const gridX = this._worldToGridX(x);
-      const gridZ = this._worldToGridZ(-y); // Negate y to match Three.js Z axis
-      if (gridX >= 0 && gridX < GRID_SIZE && gridZ >= 0 && gridZ < GRID_SIZE) {
-        this.densityGrid[gridZ][gridX]++;
-      }
-    }
+    // First pass: compute density grids for each model
+    for (const model of modelsToProcess) {
+      const grid = this._createEmptyGrid();
+      const positions = this._getPositionsForModel(model.modelName);
 
-    // Normalize density values (0-1 range)
-    const maxDensity = this._findMaxDensity();
-    if (maxDensity > 0) {
-      for (let z = 0; z < GRID_SIZE; z++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
-          this.densityGrid[z][x] /= maxDensity;
+      // Accumulate positions into grid cells
+      for (const [x, y] of positions) {
+        const gridX = this._worldToGridX(x);
+        const gridZ = this._worldToGridZ(-y); // Negate y to match Three.js Z axis
+        if (gridX >= 0 && gridX < GRID_SIZE && gridZ >= 0 && gridZ < GRID_SIZE) {
+          grid[gridZ][gridX]++;
         }
       }
+
+      // Track max density
+      const maxDensity = this._findMaxDensityInGrid(grid);
+      if (maxDensity > globalMaxDensity) {
+        globalMaxDensity = maxDensity;
+      }
+
+      modelGrids.set(model.modelName, { grid, color: model.color, positions: positions.length });
     }
 
-    // Apply Gaussian blur for smoothness
-    this.blurredGrid = this._applyGaussianBlur(this.densityGrid);
+    // Second pass: normalize, blur, and create meshes
+    let layerIndex = 0;
+    for (const [modelName, data] of modelGrids) {
+      const { grid, color, positions } = data;
 
-    // Create mesh
-    this._createMesh();
+      // Normalize using global max (so heights are comparable across models)
+      if (globalMaxDensity > 0) {
+        for (let z = 0; z < GRID_SIZE; z++) {
+          for (let x = 0; x < GRID_SIZE; x++) {
+            grid[z][x] /= globalMaxDensity;
+          }
+        }
+      }
 
-    console.log(
-      `DensityTerrain: Generated from ${positions.length} positions, max density: ${maxDensity}`
-    );
+      // Apply Gaussian blur
+      const blurredGrid = this._applyGaussianBlur(grid);
+
+      // Create mesh for this model
+      const yOffset = TERRAIN_Y_OFFSET + (layerIndex * LAYER_Y_SPACING);
+      this._createModelMesh(modelName, blurredGrid, color, yOffset);
+
+      console.log(`DensityTerrain: ${modelName} layer from ${positions} positions`);
+      layerIndex++;
+    }
+
+    console.log(`DensityTerrain: Generated ${modelsToProcess.length} model layers`);
   }
 
   /**
@@ -124,8 +139,10 @@ export class DensityTerrain {
    */
   setOpacity(value) {
     this.opacity = Math.max(0, Math.min(1, value));
-    if (this.mesh) {
-      this.mesh.material.opacity = this.opacity;
+    for (const layer of this.modelLayers.values()) {
+      if (layer.material) {
+        layer.material.opacity = this.opacity;
+      }
     }
   }
 
@@ -135,10 +152,9 @@ export class DensityTerrain {
    */
   setHeightScale(value) {
     this.heightScale = Math.max(0, value);
-    // Regenerate mesh with new height scale
-    if (this.blurredGrid) {
-      this._clearMesh();
-      this._createMesh();
+    // Regenerate with new height scale
+    if (this.modelLayers.size > 0) {
+      this.generate(this.currentModelFilter);
     }
   }
 
@@ -148,8 +164,10 @@ export class DensityTerrain {
    */
   setWireframe(enabled) {
     this.wireframe = enabled;
-    if (this.mesh) {
-      this.mesh.material.wireframe = this.wireframe;
+    for (const layer of this.modelLayers.values()) {
+      if (layer.material) {
+        layer.material.wireframe = this.wireframe;
+      }
     }
   }
 
@@ -165,30 +183,22 @@ export class DensityTerrain {
    * Dispose of all Three.js objects.
    */
   dispose() {
-    this._clearMesh();
+    this._clearAllMeshes();
     this.scene.remove(this.group);
-    this.densityGrid = null;
-    this.blurredGrid = null;
   }
 
   /**
-   * Get positions filtered by model names.
+   * Get positions for a specific model.
    * @private
-   * @param {Set<string>|null} modelFilter - Set of model names to include, or null for all
+   * @param {string} modelName - Model name to get positions for
    * @returns {Array} Array of [x, y] positions
    */
-  _getFilteredPositions(modelFilter) {
-    if (!modelFilter) {
-      // No filter - return all positions
-      return this.trajectoryStore.getAllPositionsAggregate();
-    }
-
-    // Filter by model
+  _getPositionsForModel(modelName) {
     const positions = [];
     const trajectories = this.trajectoryStore.getAll();
 
     for (const traj of trajectories) {
-      if (modelFilter.has(traj.modelName)) {
+      if (traj.modelName === modelName) {
         const trajPositions = this.trajectoryStore.getAllPositions(traj.id);
         positions.push(...trajPositions);
       }
@@ -231,16 +241,17 @@ export class DensityTerrain {
   }
 
   /**
-   * Find maximum density value in grid.
+   * Find maximum density value in a grid.
    * @private
+   * @param {Array<Array<number>>} grid - The density grid
    * @returns {number}
    */
-  _findMaxDensity() {
+  _findMaxDensityInGrid(grid) {
     let max = 0;
     for (let z = 0; z < GRID_SIZE; z++) {
       for (let x = 0; x < GRID_SIZE; x++) {
-        if (this.densityGrid[z][x] > max) {
-          max = this.densityGrid[z][x];
+        if (grid[z][x] > max) {
+          max = grid[z][x];
         }
       }
     }
@@ -283,41 +294,14 @@ export class DensityTerrain {
   }
 
   /**
-   * Get heatmap color for a density value.
+   * Create a mesh for a specific model from its density grid.
    * @private
-   * @param {number} t - Normalized density (0-1)
-   * @returns {THREE.Color}
+   * @param {string} modelName - Model name
+   * @param {Array<Array<number>>} blurredGrid - Blurred density grid
+   * @param {number} modelColor - Color as hex number (e.g., 0x4285F4)
+   * @param {number} yOffset - Y position offset
    */
-  _densityToColor(t) {
-    // Clamp t to 0-1
-    t = Math.max(0, Math.min(1, t));
-
-    // Map t to color stops
-    // 0.0 -> blue, 0.25 -> cyan, 0.5 -> green, 0.75 -> yellow, 1.0 -> red
-    const stops = HEATMAP_COLORS.length - 1;
-    const scaledT = t * stops;
-    const index = Math.floor(scaledT);
-    const fraction = scaledT - index;
-
-    // Handle edge case
-    if (index >= stops) {
-      return HEATMAP_COLORS[stops].clone();
-    }
-
-    // Lerp between adjacent colors
-    const color1 = HEATMAP_COLORS[index];
-    const color2 = HEATMAP_COLORS[index + 1];
-
-    return new THREE.Color().lerpColors(color1, color2, fraction);
-  }
-
-  /**
-   * Create the mesh from blurred density grid.
-   * @private
-   */
-  _createMesh() {
-    if (!this.blurredGrid) return;
-
+  _createModelMesh(modelName, blurredGrid, modelColor, yOffset) {
     // Create plane geometry
     const geometry = new THREE.PlaneGeometry(
       SCENE_RANGE,
@@ -326,32 +310,32 @@ export class DensityTerrain {
       GRID_SIZE - 1
     );
 
-    // Get position and color attributes
+    // Get position attribute
     const positions = geometry.attributes.position;
     const colors = new Float32Array(positions.count * 3);
 
+    // Base color for this model
+    const baseColor = new THREE.Color(modelColor);
+
     // Modify vertex heights and colors based on density
     for (let i = 0; i < positions.count; i++) {
-      // Get vertex grid coordinates
-      // Plane geometry vertices are ordered row by row from -halfSize to +halfSize
       const verticesPerRow = GRID_SIZE;
       const gridZ = Math.floor(i / verticesPerRow);
       const gridX = i % verticesPerRow;
 
       // Get density value
-      const density = this.blurredGrid[gridZ][gridX];
+      const density = blurredGrid[gridZ][gridX];
 
-      // Set height (y-axis for plane after rotation)
-      // The plane is in X-Y initially, we'll rotate it
-      // Directly modify the z-component which will become y after rotation
+      // Set height
       const height = density * this.heightScale;
       positions.setZ(i, height);
 
-      // Set color based on density
-      const color = this._densityToColor(density);
-      colors[i * 3] = color.r;
-      colors[i * 3 + 1] = color.g;
-      colors[i * 3 + 2] = color.b;
+      // Color: model color with intensity based on density
+      // Low density = darker, high density = brighter
+      const intensity = 0.3 + (density * 0.7); // Range from 0.3 to 1.0
+      colors[i * 3] = baseColor.r * intensity;
+      colors[i * 3 + 1] = baseColor.g * intensity;
+      colors[i * 3 + 2] = baseColor.b * intensity;
     }
 
     // Add color attribute
@@ -360,7 +344,7 @@ export class DensityTerrain {
     // Mark position as needing update
     positions.needsUpdate = true;
 
-    // Recompute normals for proper lighting
+    // Recompute normals
     geometry.computeVertexNormals();
 
     // Create material
@@ -370,42 +354,56 @@ export class DensityTerrain {
       opacity: this.opacity,
       wireframe: this.wireframe,
       side: THREE.DoubleSide,
+      depthWrite: false, // Allow overlapping transparent layers
     });
 
     // Create mesh
-    this.mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, material);
 
     // Rotate to lie flat (plane is X-Y, rotate to X-Z)
-    this.mesh.rotation.x = -Math.PI / 2;
+    mesh.rotation.x = -Math.PI / 2;
 
-    // Position at scene center, slightly above floor
-    this.mesh.position.set(0, TERRAIN_Y_OFFSET, 0);
-    this.mesh.name = 'density-terrain';
+    // Position at scene center with Y offset
+    mesh.position.set(0, yOffset, 0);
+    mesh.name = `density-terrain-${modelName}`;
 
-    this.group.add(this.mesh);
+    // Store reference
+    this.modelLayers.set(modelName, {
+      mesh,
+      material,
+      grid: blurredGrid,
+    });
+
+    this.group.add(mesh);
   }
 
   /**
-   * Clear existing mesh.
+   * Clear all model meshes.
    * @private
    */
-  _clearMesh() {
-    if (this.mesh) {
-      this.group.remove(this.mesh);
-      this.mesh.geometry.dispose();
-      this.mesh.material.dispose();
-      this.mesh = null;
+  _clearAllMeshes() {
+    for (const layer of this.modelLayers.values()) {
+      if (layer.mesh) {
+        this.group.remove(layer.mesh);
+        layer.mesh.geometry.dispose();
+      }
+      if (layer.material) {
+        layer.material.dispose();
+      }
     }
+    this.modelLayers.clear();
   }
 
   /**
-   * Get the density value at a world position.
+   * Get the density value at a world position for a specific model.
    * @param {number} x - World X coordinate
    * @param {number} y - World Y coordinate (sim space)
-   * @returns {number|null} Density value (0-1) or null if out of bounds
+   * @param {string} modelName - Model name to query
+   * @returns {number|null} Density value (0-1) or null if out of bounds or model not found
    */
-  getDensityAt(x, y) {
-    if (!this.blurredGrid) return null;
+  getDensityAt(x, y, modelName) {
+    const layer = this.modelLayers.get(modelName);
+    if (!layer || !layer.grid) return null;
 
     const gridX = this._worldToGridX(x);
     const gridZ = this._worldToGridZ(-y); // Negate y to match Three.js Z axis
@@ -414,7 +412,7 @@ export class DensityTerrain {
       return null;
     }
 
-    return this.blurredGrid[gridZ][gridX];
+    return layer.grid[gridZ][gridX];
   }
 
   /**
@@ -422,7 +420,7 @@ export class DensityTerrain {
    * @returns {boolean}
    */
   isGenerated() {
-    return this.mesh !== null;
+    return this.modelLayers.size > 0;
   }
 
   /**
@@ -436,6 +434,15 @@ export class DensityTerrain {
       wireframe: this.wireframe,
       gridSize: GRID_SIZE,
       sceneRange: SCENE_RANGE,
+      modelCount: this.modelLayers.size,
     };
+  }
+
+  /**
+   * Get list of currently visible model names.
+   * @returns {Array<string>}
+   */
+  getVisibleModels() {
+    return Array.from(this.modelLayers.keys());
   }
 }
