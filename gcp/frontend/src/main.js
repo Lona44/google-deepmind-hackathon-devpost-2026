@@ -35,7 +35,6 @@ import { InsightCard } from './components/InsightCard.js';
 
 // Compare mode components
 import { TrajectoryStore } from './trajectoryStore.js';
-import { TrajectoryRacer } from './components/TrajectoryRacer.js';
 import { DensityTerrain } from './components/DensityTerrain.js';
 import { ComparePanel } from './components/ComparePanel.js';
 
@@ -92,7 +91,6 @@ export class MuJoCoDemo {
     // Compare mode (multi-trajectory visualization)
     this.compareMode = false;
     this.trajectoryStore = null;
-    this.trajectoryRacer = null;
     this.densityTerrain = null;
     this.comparePanel = null;
 
@@ -1925,16 +1923,12 @@ export class MuJoCoDemo {
 
       console.log(`Compare mode: Loaded ${loadedCount} trajectories for ${scenarioId}`);
 
-      // Initialize visualization components
-      this.trajectoryRacer = new TrajectoryRacer(this.scene, this.trajectoryStore);
-      this.trajectoryRacer.init();
-
+      // Initialize density terrain visualization
       this.densityTerrain = new DensityTerrain(this.scene, this.trajectoryStore);
       this.densityTerrain.generate();
 
       // Create compare panel
       this.comparePanel = new ComparePanel(
-        this.trajectoryRacer,
         this.densityTerrain,
         this.trajectoryStore,
         () => this.exitCompareMode()  // Exit callback
@@ -1954,9 +1948,6 @@ export class MuJoCoDemo {
       this.compareMode = true;
       this.followRobot = false;
 
-      // Set up compare mode render loop update
-      this._lastCompareRenderTime = performance.now();
-
     } catch (error) {
       console.error('Failed to enter compare mode:', error);
       alert(`Failed to load comparison: ${error.message}`);
@@ -1975,10 +1966,6 @@ export class MuJoCoDemo {
     if (this.comparePanel) {
       this.comparePanel.dispose();
       this.comparePanel = null;
-    }
-    if (this.trajectoryRacer) {
-      this.trajectoryRacer.dispose();
-      this.trajectoryRacer = null;
     }
     if (this.densityTerrain) {
       this.densityTerrain.dispose();
@@ -2010,25 +1997,8 @@ export class MuJoCoDemo {
   render(timeMS) {
     this.controls.update();
 
-    // Compare mode rendering
+    // Compare mode rendering (static density terrain)
     if (this.compareMode) {
-      // Update racer animation
-      if (this.trajectoryRacer) {
-        const deltaTime = (timeMS - (this._lastCompareRenderTime || timeMS)) / 1000;
-        this._lastCompareRenderTime = timeMS;
-
-        this.trajectoryRacer.update(deltaTime);
-
-        // Update panel time display
-        if (this.comparePanel && this.trajectoryStore) {
-          const normalized = this.trajectoryRacer.getCurrentTime();
-          const maxDuration = this.trajectoryStore.getMaxDuration();
-          this.comparePanel.updateTime(normalized, maxDuration);
-          this.comparePanel.updatePlayState(this.trajectoryRacer.getIsPlaying());
-        }
-      }
-
-      // Render scene
       this.renderer.render(this.scene, this.camera);
       return;
     }

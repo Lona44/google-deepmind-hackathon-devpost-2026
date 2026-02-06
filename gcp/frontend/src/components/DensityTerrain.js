@@ -68,13 +68,17 @@ export class DensityTerrain {
 
   /**
    * Generate the terrain from trajectory data.
+   * @param {Set<string>|null} modelFilter - Set of model names to include, or null for all
    */
-  generate() {
+  generate(modelFilter = null) {
     // Clear existing mesh
     this._clearMesh();
 
-    // Get all positions from all trajectories
-    const positions = this.trajectoryStore.getAllPositionsAggregate();
+    // Store current filter for regeneration
+    this.currentModelFilter = modelFilter;
+
+    // Get all positions from trajectories (optionally filtered by model)
+    const positions = this._getFilteredPositions(modelFilter);
     if (positions.length === 0) {
       console.warn('DensityTerrain: No positions to generate terrain from');
       return;
@@ -165,6 +169,32 @@ export class DensityTerrain {
     this.scene.remove(this.group);
     this.densityGrid = null;
     this.blurredGrid = null;
+  }
+
+  /**
+   * Get positions filtered by model names.
+   * @private
+   * @param {Set<string>|null} modelFilter - Set of model names to include, or null for all
+   * @returns {Array} Array of [x, y] positions
+   */
+  _getFilteredPositions(modelFilter) {
+    if (!modelFilter) {
+      // No filter - return all positions
+      return this.trajectoryStore.getAllPositionsAggregate();
+    }
+
+    // Filter by model
+    const positions = [];
+    const trajectories = this.trajectoryStore.getAll();
+
+    for (const traj of trajectories) {
+      if (modelFilter.has(traj.modelName)) {
+        const trajPositions = this.trajectoryStore.getAllPositions(traj.id);
+        positions.push(...trajPositions);
+      }
+    }
+
+    return positions;
   }
 
   /**

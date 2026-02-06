@@ -10,17 +10,6 @@
  */
 
 /**
- * Format time in seconds to "M:SS" format.
- * @param {number} seconds - Time in seconds
- * @returns {string} Formatted time string
- */
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-/**
  * Convert hex color (0xRRGGBB) to CSS hex string.
  * @param {number} hexColor - Color as number (e.g., 0x4285F4)
  * @returns {string} CSS color string (e.g., "#4285F4")
@@ -32,19 +21,20 @@ function hexToCSS(hexColor) {
 export class ComparePanel {
   /**
    * Create a ComparePanel instance.
-   * @param {Object} racer - TrajectoryRacer instance
    * @param {Object} terrain - DensityTerrain instance
    * @param {Object} trajectoryStore - TrajectoryStore instance
    * @param {Function} onExit - Callback function when exit button is clicked
    */
-  constructor(racer, terrain, trajectoryStore, onExit) {
-    this.racer = racer;
+  constructor(terrain, trajectoryStore, onExit) {
     this.terrain = terrain;
     this.trajectoryStore = trajectoryStore;
     this.onExit = onExit;
 
     this.container = null;
     this.isVisible = false;
+
+    // Track which models are enabled for filtering
+    this.enabledModels = new Set();
   }
 
   /**
@@ -59,34 +49,19 @@ export class ComparePanel {
 
     this.container.innerHTML = `
       <div class="compare-header">
-        <h3>Compare Trajectories</h3>
+        <h3>Trajectory Density</h3>
         <button id="exit-compare-btn" class="icon-btn" title="Exit compare mode">✕</button>
       </div>
 
       <div class="compare-section">
-        <h4>Race Mode</h4>
-        <div class="race-controls">
-          <button id="race-play-btn">▶</button>
-          <input type="range" id="race-timeline" min="0" max="1" step="0.001" value="0">
-          <span id="race-time">0:00 / 0:00</span>
-        </div>
-        <div class="speed-control">
-          <label>Speed:</label>
-          <select id="race-speed">
-            <option value="0.25">0.25x</option>
-            <option value="0.5">0.5x</option>
-            <option value="1" selected>1x</option>
-            <option value="2">2x</option>
-            <option value="4">4x</option>
-          </select>
-        </div>
+        <h4>Filter by Model</h4>
         <div id="model-toggles" class="model-toggles">
           <!-- Checkboxes generated dynamically -->
         </div>
       </div>
 
       <div class="compare-section">
-        <h4>Density Terrain</h4>
+        <h4>Terrain Settings</h4>
         <label class="toggle-row">
           <input type="checkbox" id="terrain-visible" checked> Show terrain
         </label>
@@ -135,36 +110,6 @@ export class ComparePanel {
       exitBtn.addEventListener('click', () => {
         if (this.onExit) {
           this.onExit();
-        }
-      });
-    }
-
-    // Play/pause button
-    const playBtn = this.container.querySelector('#race-play-btn');
-    if (playBtn) {
-      playBtn.addEventListener('click', () => {
-        if (this.racer) {
-          this.racer.togglePlay();
-        }
-      });
-    }
-
-    // Timeline slider
-    const timeline = this.container.querySelector('#race-timeline');
-    if (timeline) {
-      timeline.addEventListener('input', (e) => {
-        if (this.racer) {
-          this.racer.seek(parseFloat(e.target.value));
-        }
-      });
-    }
-
-    // Speed select
-    const speedSelect = this.container.querySelector('#race-speed');
-    if (speedSelect) {
-      speedSelect.addEventListener('change', (e) => {
-        if (this.racer) {
-          this.racer.setSpeed(parseFloat(e.target.value));
         }
       });
     }
@@ -231,37 +176,6 @@ export class ComparePanel {
   }
 
   /**
-   * Update the timeline display with current time info.
-   * @param {number} normalized - Normalized time (0-1)
-   * @param {number} maxDuration - Maximum duration in seconds
-   */
-  updateTime(normalized, maxDuration) {
-    const timeline = this.container?.querySelector('#race-timeline');
-    const timeDisplay = this.container?.querySelector('#race-time');
-
-    if (timeline) {
-      timeline.value = normalized;
-    }
-
-    if (timeDisplay) {
-      const currentTime = normalized * maxDuration;
-      timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(maxDuration)}`;
-    }
-  }
-
-  /**
-   * Update the play/pause button state.
-   * @param {boolean} isPlaying - Whether playback is currently running
-   */
-  updatePlayState(isPlaying) {
-    const playBtn = this.container?.querySelector('#race-play-btn');
-    if (playBtn) {
-      playBtn.textContent = isPlaying ? '⏸' : '▶';
-      playBtn.title = isPlaying ? 'Pause' : 'Play';
-    }
-  }
-
-  /**
    * Populate model toggle checkboxes from the trajectory store.
    */
   populateModelToggles() {
@@ -271,6 +185,12 @@ export class ComparePanel {
     togglesContainer.innerHTML = '';
 
     const modelSummary = this.trajectoryStore.getModelSummary();
+
+    // Initialize all models as enabled
+    this.enabledModels.clear();
+    for (const model of modelSummary) {
+      this.enabledModels.add(model.modelName);
+    }
 
     for (const model of modelSummary) {
       const colorCSS = hexToCSS(model.color);
@@ -284,9 +204,13 @@ export class ComparePanel {
       checkbox.dataset.modelName = model.modelName;
 
       checkbox.addEventListener('change', (e) => {
-        if (this.racer) {
-          this.racer.setModelVisible(model.modelName, e.target.checked);
+        if (e.target.checked) {
+          this.enabledModels.add(model.modelName);
+        } else {
+          this.enabledModels.delete(model.modelName);
         }
+        // Regenerate terrain with new filter
+        this._regenerateTerrain();
       });
 
       const swatch = document.createElement('span');
@@ -308,6 +232,20 @@ export class ComparePanel {
 
       togglesContainer.appendChild(label);
     }
+  }
+
+  /**
+   * Regenerate terrain with current model filter.
+   * @private
+   */
+  _regenerateTerrain() {
+    if (!this.terrain) return;
+
+    // If all models enabled, pass null (no filter)
+    const modelSummary = this.trajectoryStore.getModelSummary();
+    const allEnabled = this.enabledModels.size === modelSummary.length;
+
+    this.terrain.generate(allEnabled ? null : this.enabledModels);
   }
 
   /**
@@ -452,107 +390,6 @@ export class ComparePanel {
         text-transform: uppercase;
         letter-spacing: var(--letter-spacing-wide, 0.5px);
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
-      }
-
-      /* Race Controls */
-      .race-controls {
-        display: flex;
-        align-items: center;
-        gap: var(--space-2, 8px);
-        margin-bottom: var(--space-3, 12px);
-      }
-
-      .race-controls button {
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--color-accent-primary-dim, rgba(76, 175, 80, 0.15));
-        border: 1px solid rgba(76, 175, 80, 0.3);
-        border-radius: var(--radius-md, 6px);
-        color: var(--color-accent-primary, #4CAF50);
-        font-size: var(--font-size-md, 16px);
-        cursor: pointer;
-        transition: all var(--duration-fast, 150ms) var(--ease-default);
-        flex-shrink: 0;
-      }
-
-      .race-controls button:hover {
-        background: rgba(76, 175, 80, 0.25);
-        border-color: var(--color-accent-primary, #4CAF50);
-      }
-
-      .race-controls input[type="range"] {
-        flex: 1;
-        height: 4px;
-        -webkit-appearance: none;
-        background: rgba(255, 255, 255, 0.15);
-        border-radius: var(--radius-full, 9999px);
-        outline: none;
-        cursor: pointer;
-      }
-
-      .race-controls input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 12px;
-        height: 12px;
-        background: var(--color-accent-primary, #4CAF50);
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      }
-
-      .race-controls input[type="range"]::-moz-range-thumb {
-        width: 12px;
-        height: 12px;
-        background: var(--color-accent-primary, #4CAF50);
-        border-radius: 50%;
-        cursor: pointer;
-        border: none;
-      }
-
-      #race-time {
-        font-family: var(--font-family-mono, monospace);
-        font-size: var(--font-size-xs, 10px);
-        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
-        white-space: nowrap;
-        min-width: 70px;
-        text-align: right;
-      }
-
-      .speed-control {
-        display: flex;
-        align-items: center;
-        gap: var(--space-2, 8px);
-        margin-bottom: var(--space-3, 12px);
-      }
-
-      .speed-control label {
-        font-size: var(--font-size-sm, 12px);
-        color: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
-      }
-
-      .speed-control select {
-        flex: 1;
-        padding: var(--space-1, 4px) var(--space-2, 8px);
-        background: var(--color-bg-surface-2, #252525);
-        border: 1px solid var(--color-border-strong, rgba(255, 255, 255, 0.15));
-        border-radius: var(--radius-md, 6px);
-        color: var(--color-text-primary, #fff);
-        font-size: var(--font-size-sm, 12px);
-        cursor: pointer;
-        outline: none;
-        transition: border-color var(--duration-fast, 150ms);
-      }
-
-      .speed-control select:hover,
-      .speed-control select:focus {
-        border-color: var(--color-accent-primary, #4CAF50);
-      }
-
-      .speed-control select option {
-        background: var(--color-bg-surface-2, #252525);
       }
 
       /* Model Toggles */
