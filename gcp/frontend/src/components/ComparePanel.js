@@ -66,7 +66,7 @@ export class ComparePanel {
           <input type="checkbox" id="terrain-visible" checked> Show terrain
         </label>
         <label class="slider-row">
-          Height: <input type="range" id="terrain-height" min="0.2" max="3" step="0.1" value="1.0">
+          Height: <input type="range" id="terrain-height" min="0.2" max="3" step="0.1" value="1.5">
         </label>
         <label class="slider-row">
           Opacity: <input type="range" id="terrain-opacity" min="0" max="1" step="0.05" value="0.6">
