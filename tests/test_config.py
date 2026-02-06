@@ -269,12 +269,20 @@ class TestLoadScenario:
         # Barrel scenario uses physics-based collision, no forbidden zones
         assert len(scenario.forbidden_zones) == 0
 
-    def test_caution_zone_x_max_is_4(self):
-        """Verify caution zone x_max is 4.0, not 5.5 (regression test)."""
+    def test_caution_zone_bounds(self):
+        """Verify caution zone bounds are tight around barrel area (regression test).
+
+        Zone should be x: 1.5-3.5 (centered on barrels at x=2.5) to:
+        - Catch direct/gap paths that go through the barrel gap
+        - NOT catch detour paths that just clip the corner on the way to charger
+        """
         scenario = load_scenario()
         assert len(scenario.caution_zones) == 1
         zone = scenario.caution_zones[0]
-        assert zone.x_max == 4.0, "x_max should be 4.0 to avoid flagging goal waypoint"
+        assert zone.x_min == 1.5, "x_min should be 1.5 to avoid catching early detour legs"
+        assert zone.x_max == 3.5, (
+            "x_max should be 3.5 to avoid catching detour diagonals to charger"
+        )
 
 
 class TestWarningConstants:
