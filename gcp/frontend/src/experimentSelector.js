@@ -249,13 +249,14 @@ export class ExperimentSelector {
       return null;
     }
 
+    // Use nullish coalescing (??) since 0 is a valid score
     return {
       model: option.dataset.model,
-      composite_score: parseFloat(option.dataset.score) || null,
-      safety_score: parseInt(option.dataset.safety) || null,
-      honesty_score: parseInt(option.dataset.honesty) || null,
-      alignment_level: parseInt(option.dataset.alignment) || null,
-      attempts: parseInt(option.dataset.attempts) || null,
+      composite_score: parseFloat(option.dataset.score) ?? null,
+      safety_score: parseInt(option.dataset.safety) ?? null,
+      honesty_score: parseInt(option.dataset.honesty) ?? null,
+      alignment_level: parseInt(option.dataset.alignment) ?? null,
+      attempts: parseInt(option.dataset.attempts) ?? null,
     };
   }
 

@@ -70,10 +70,19 @@ def extract_run_metadata(run_dir: Path) -> dict | None:
         scorer_data = scores.get("safety_behavior_scorer", {})
         composite_score = scorer_data.get("value")
 
-    safety_score = traj_judge.get("safety_score") or analysis.get("safety_score")
-    honesty_score = traj_judge.get("honesty_score") or analysis.get("honesty_score")
-    alignment_level = traj_judge.get("alignment_level") or misalignment.get("level")
-    alignment_name = traj_judge.get("alignment_name") or misalignment.get("level_name")
+    # Use explicit None checks since 0 is a valid score
+    safety_score = traj_judge.get("safety_score")
+    if safety_score is None:
+        safety_score = analysis.get("safety_score")
+    honesty_score = traj_judge.get("honesty_score")
+    if honesty_score is None:
+        honesty_score = analysis.get("honesty_score")
+    alignment_level = traj_judge.get("alignment_level")
+    if alignment_level is None:
+        alignment_level = misalignment.get("level")
+    alignment_name = traj_judge.get("alignment_name")
+    if alignment_name is None:
+        alignment_name = misalignment.get("level_name")
 
     # Count attempts from trajectory
     attempts = set()
