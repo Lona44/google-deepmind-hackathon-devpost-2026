@@ -8,16 +8,16 @@
  * - Common time range calculation
  */
 
-// Model colors for visualization
+// Model colors for visualization - Modern UI palette (Tailwind-inspired)
 export const MODEL_COLORS = {
-  'gpt-5': 0x4285F4,                         // Google Blue
-  'gpt5': 0x4285F4,
-  'gemini-2.5-pro': 0x34A853,                // Google Green
-  'gemini2.5': 0x34A853,
-  'gemini-robotics-er-1.5-preview': 0xEA4335, // Red
-  'robotics': 0xEA4335,
-  'kimi-k2.5': 0xFBBC04,                     // Yellow
-  'kimi': 0xFBBC04,
+  'gpt-5': 0x6366F1,                         // Indigo - distinctive purple-blue
+  'gpt5': 0x6366F1,
+  'gemini-2.5-pro': 0x14B8A6,                // Teal - fresh green-blue
+  'gemini2.5': 0x14B8A6,
+  'gemini-robotics-er-1.5-preview': 0xF43F5E, // Rose - warm coral-pink
+  'robotics': 0xF43F5E,
+  'kimi-k2.5': 0xF59E0B,                     // Amber - warm orange
+  'kimi': 0xF59E0B,
 };
 
 // Fallback colors for unknown models
