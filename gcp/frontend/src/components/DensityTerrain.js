@@ -19,7 +19,7 @@ const SCENE_RANGE = SCENE_MAX - SCENE_MIN;
 const CELL_SIZE = SCENE_RANGE / GRID_SIZE;
 
 // Visual defaults
-const DEFAULT_OPACITY = 0.6;
+const DEFAULT_OPACITY = 1.0;
 const DEFAULT_HEIGHT_SCALE = 1.5;  // 50% of max height
 const TERRAIN_Y_OFFSET = 0.01;
 

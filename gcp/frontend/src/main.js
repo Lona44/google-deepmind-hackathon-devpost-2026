@@ -1939,8 +1939,8 @@ export class MuJoCoDemo {
       // Update header to show compare mode
       document.getElementById('experiment-id').textContent = `Compare: ${scenarioId} (${loadedCount} runs)`;
 
-      // Set camera to overview position
-      this.camera.position.set(0, 8, 8);
+      // Set camera to elevated isometric view for terrain overview
+      this.camera.position.set(6, 10, 8);
       this.controls.target.set(0, 0, 0);
       this.controls.update();
 

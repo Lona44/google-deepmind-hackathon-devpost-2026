@@ -69,7 +69,7 @@ export class ComparePanel {
           Height: <input type="range" id="terrain-height" min="0.2" max="3" step="0.1" value="1.5">
         </label>
         <label class="slider-row">
-          Opacity: <input type="range" id="terrain-opacity" min="0" max="1" step="0.05" value="0.6">
+          Opacity: <input type="range" id="terrain-opacity" min="0" max="1" step="0.05" value="1">
         </label>
         <label class="toggle-row">
           <input type="checkbox" id="terrain-wireframe"> Wireframe
