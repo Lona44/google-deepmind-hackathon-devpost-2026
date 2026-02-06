@@ -332,6 +332,17 @@ export class MuJoCoDemo {
     if (loadingTextEl) loadingTextEl.textContent = 'Loading trajectory...';
     if (loadingScreen) loadingScreen.classList.remove('hidden');
 
+    // Clean up metadata-only mode if switching from aborted run
+    if (this.metadataOnlyMode) {
+      this.metadataOnlyMode = false;
+      const overlay = document.getElementById('aborted-overlay');
+      if (overlay) overlay.remove();
+      const playbackUI = document.getElementById('playback-controls');
+      if (playbackUI) playbackUI.style.display = '';
+      const timeline = document.getElementById('timeline-container');
+      if (timeline) timeline.style.display = '';
+    }
+
     try {
       await this.playbackController.loadTrajectory(urlOrData);
 
@@ -580,6 +591,155 @@ export class MuJoCoDemo {
       const loadingScreenEl = document.getElementById('loading-screen');
       if (loadingScreenEl) loadingScreenEl.classList.add('hidden');
     }
+  }
+
+  /**
+   * Load metadata-only view for aborted runs without trajectory.json.
+   * Shows judge analysis and scores without 3D playback.
+   */
+  async loadMetadataOnly(runId) {
+    const loadingTextEl = document.querySelector('.loading-text');
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingTextEl) loadingTextEl.textContent = 'Loading analysis...';
+    if (loadingScreen) loadingScreen.classList.remove('hidden');
+
+    try {
+      // Find the run data in manifest (all data is embedded for aborted runs)
+      const manifest = this.selector?.manifest;
+      let runData = null;
+      if (manifest?.scenarios) {
+        for (const scenario of Object.values(manifest.scenarios)) {
+          const found = scenario.runs?.find(r => r.id === runId);
+          if (found) {
+            runData = found;
+            break;
+          }
+        }
+      }
+
+      if (!runData) {
+        throw new Error(`Could not find run ${runId} in manifest`);
+      }
+
+      // Use data directly from manifest (no separate fetch needed)
+      const extraJudgeData = runData.judge_data || {};
+      const judgeData = {
+        composite_score: runData.composite_score,
+        safety_score: runData.safety_score,
+        honesty_score: runData.honesty_score,
+        alignment_level: runData.alignment_level,
+        alignment_name: runData.alignment_name,
+        risk_class: runData.risk_class,
+        deployment_status: runData.deployment_status,
+        alignment_flags: extraJudgeData.alignment_flags,
+        most_positive: extraJudgeData.most_positive,
+        most_concerning: extraJudgeData.most_concerning,
+        key_quotes: extraJudgeData.key_quotes || [],
+        model: runData.model,
+        judge_model: extraJudgeData.judge_model,
+      };
+
+      // Update experiment ID display
+      document.getElementById('experiment-id').textContent = `${runId} [ABORTED]`;
+
+      // Enter metadata-only mode
+      this.metadataOnlyMode = true;
+      this.playbackMode = false;
+
+      // Hide playback controls
+      const playbackUI = document.getElementById('playback-controls');
+      if (playbackUI) playbackUI.style.display = 'none';
+
+      // Hide timeline
+      const timeline = document.getElementById('timeline-container');
+      if (timeline) timeline.style.display = 'none';
+
+      // Show aborted run overlay on 3D view
+      this._showAbortedOverlay(judgeData);
+
+      // Update score pill and details panel
+      if (this.scorePill) {
+        this.scorePill.update(judgeData, judgeData.model);
+      }
+      if (this.detailsPanel) {
+        this.detailsPanel.updateJudge(judgeData, judgeData.model);
+      }
+
+      console.log('Metadata loaded for aborted run:', {
+        runId,
+        safety: judgeData.safety_score,
+        honesty: judgeData.honesty_score,
+        risk_class: judgeData.risk_class,
+        deployment_status: judgeData.deployment_status
+      });
+
+    } finally {
+      const loadingScreenEl = document.getElementById('loading-screen');
+      if (loadingScreenEl) loadingScreenEl.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Show overlay on 3D view for aborted runs.
+   */
+  _showAbortedOverlay(judgeData) {
+    // Remove existing overlay if present
+    const existing = document.getElementById('aborted-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'aborted-overlay';
+    overlay.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 40px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 500px;
+      z-index: 100;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    const statusColor = judgeData.deployment_status === 'ALLOW' ? '#4CAF50' :
+                        judgeData.deployment_status === 'CONDITIONAL' ? '#FF9800' : '#f44336';
+
+    overlay.innerHTML = `
+      <div style="font-size: 48px; margin-bottom: 16px;">⊘</div>
+      <h2 style="margin: 0 0 16px 0; font-size: 24px;">Mission Aborted</h2>
+      <p style="margin: 0 0 24px 0; color: #aaa; font-size: 14px;">
+        Robot correctly identified no safe path and aborted before movement.<br>
+        No 3D playback available.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 24px; margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 32px; font-weight: bold;">${judgeData.safety_score ?? '?'}/5</div>
+          <div style="font-size: 12px; color: #aaa;">Safety</div>
+        </div>
+        <div>
+          <div style="font-size: 32px; font-weight: bold;">${judgeData.honesty_score ?? '?'}/5</div>
+          <div style="font-size: 12px; color: #aaa;">Honesty</div>
+        </div>
+      </div>
+      <div style="
+        display: inline-block;
+        padding: 8px 16px;
+        background: ${statusColor};
+        border-radius: 4px;
+        font-weight: bold;
+      ">${judgeData.deployment_status || 'UNKNOWN'}</div>
+      <div style="margin-top: 8px; font-size: 12px; color: #aaa;">
+        ${judgeData.risk_class || ''}
+      </div>
+    `;
+
+    // Add to the mujoco container
+    const container = document.getElementById('mujoco-container') || document.body;
+    container.style.position = 'relative';
+    container.appendChild(overlay);
   }
 
   async loadModel(modelPath) {

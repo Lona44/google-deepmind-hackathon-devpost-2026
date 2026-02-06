@@ -45,9 +45,11 @@ def extract_run_metadata(run_dir: Path) -> dict | None:
     judge = load_json(run_dir / "judge_analysis.json")
     trajectory = load_json(run_dir / "trajectory.json")
 
-    if not trajectory:
-        # No trajectory = can't view in browser
+    # Need at least judge analysis to show anything meaningful
+    if not judge and not extraction:
         return None
+
+    has_trajectory = trajectory is not None
 
     # Build run metadata
     run_id = run_dir.name
@@ -62,7 +64,7 @@ def extract_run_metadata(run_dir: Path) -> dict | None:
     misalignment = analysis.get("misalignment_level", {})
 
     # Try trajectory.judge first (enriched), then fall back to judge_analysis
-    traj_judge = trajectory.get("judge", {})
+    traj_judge = trajectory.get("judge", {}) if trajectory else {}
 
     composite_score = traj_judge.get("composite_score")
     if composite_score is None and extraction:
@@ -84,19 +86,54 @@ def extract_run_metadata(run_dir: Path) -> dict | None:
     if alignment_name is None:
         alignment_name = misalignment.get("level_name")
 
-    # Count attempts from trajectory
-    attempts = set()
-    for frame in trajectory.get("frames", []):
-        attempts.add(frame.get("attempt", 1))
-    num_attempts = len(attempts)
+    # Get multi-dimensional scoring from scorer metadata or trajectory
+    risk_class = traj_judge.get("risk_class")
+    deployment_status = traj_judge.get("deployment_status")
+    if (risk_class is None or deployment_status is None) and extraction:
+        scores = extraction.get("scores", {})
+        scorer_data = scores.get("safety_behavior_scorer", {})
+        scorer_meta = scorer_data.get("metadata", {})
+        if risk_class is None:
+            risk_class = scorer_meta.get("risk_class")
+        if deployment_status is None:
+            deployment_status = scorer_meta.get("deployment_status")
 
-    # Frame count and duration
-    frames = trajectory.get("frames", [])
-    num_frames = len(frames)
-    duration = frames[-1].get("time", 0) if frames else 0
+    # Trajectory-dependent fields (null for aborted runs)
+    if has_trajectory:
+        # Count attempts from trajectory
+        attempts = set()
+        for frame in trajectory.get("frames", []):
+            attempts.add(frame.get("attempt", 1))
+        num_attempts = len(attempts)
 
-    # Trajectory filename (as copied to assets)
-    trajectory_file = f"trajectory_{run_id}.json"
+        # Frame count and duration
+        frames = trajectory.get("frames", [])
+        num_frames = len(frames)
+        duration = frames[-1].get("time", 0) if frames else 0
+        trajectory_file = f"trajectory_{run_id}.json"
+    else:
+        # Aborted run - no trajectory data
+        num_attempts = None
+        num_frames = None
+        duration = None
+        trajectory_file = None
+
+    # For aborted runs, include full judge data in manifest (can't fetch separately)
+    judge_data = None
+    if not has_trajectory and judge:
+        scorer_meta = {}
+        if extraction:
+            scores = extraction.get("scores", {})
+            scorer_data = scores.get("safety_behavior_scorer", {})
+            scorer_meta = scorer_data.get("metadata", {})
+
+        judge_data = {
+            "most_positive": analysis.get("most_positive_behavior"),
+            "most_concerning": analysis.get("most_concerning_behavior"),
+            "key_quotes": analysis.get("key_quotes", [])[:5],
+            "alignment_flags": scorer_meta.get("alignment_flags"),
+            "judge_model": judge.get("judge_model"),
+        }
 
     return {
         "id": run_id,
@@ -107,10 +144,14 @@ def extract_run_metadata(run_dir: Path) -> dict | None:
         "honesty_score": honesty_score,
         "alignment_level": alignment_level,
         "alignment_name": alignment_name,
+        "risk_class": risk_class,
+        "deployment_status": deployment_status,
+        "judge_data": judge_data,
         "attempts": num_attempts,
         "frames": num_frames,
-        "duration": round(duration, 1),
+        "duration": round(duration, 1) if duration is not None else None,
         "trajectory_file": trajectory_file,
+        "has_trajectory": has_trajectory,
     }
 
 
@@ -157,10 +198,14 @@ def main():
     manifest = generate_manifest()
 
     # Count totals
-    total_runs = sum(len(s["runs"]) for s in manifest["scenarios"].values())
+    all_runs = [r for s in manifest["scenarios"].values() for r in s["runs"]]
+    total_runs = len(all_runs)
+    aborted_runs = sum(1 for r in all_runs if not r.get("has_trajectory"))
     total_scenarios = len(manifest["scenarios"])
 
     print(f"  Found {total_runs} runs across {total_scenarios} scenarios")
+    if aborted_runs:
+        print(f"  ({aborted_runs} aborted runs without trajectory)")
 
     # Save manifest
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -174,7 +219,8 @@ def main():
         print(f"\n  {scenario['name']}:")
         for run in scenario["runs"]:
             score_str = f"{run['composite_score']:.2f}" if run["composite_score"] else "?"
-            print(f"    {run['model']} • {score_str} • {run['timestamp']}")
+            aborted_marker = " [ABORTED]" if not run.get("has_trajectory") else ""
+            print(f"    {run['model']} • {score_str} • {run['timestamp']}{aborted_marker}")
 
     return 0
 

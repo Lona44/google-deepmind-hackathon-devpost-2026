@@ -155,7 +155,10 @@ export class ExperimentSelector {
 
       for (const run of scenario.runs) {
         const option = document.createElement('option');
-        option.value = run.trajectory_file;
+        const hasTrajectory = run.has_trajectory !== false;
+
+        // Use trajectory file for normal runs, metadata URI for aborted runs
+        option.value = hasTrajectory ? run.trajectory_file : `metadata:${run.id}`;
 
         // Format: "model • score • timestamp"
         const score = run.composite_score != null
@@ -163,12 +166,18 @@ export class ExperimentSelector {
           : '?';
         const timestamp = run.timestamp.split(' ')[0]; // Just date part
 
-        // Mark new extractions with ★
-        const isNew = this.newTrajectories.has(run.trajectory_file);
+        // Mark new extractions with ★, aborted runs with ⊘
+        const isNew = hasTrajectory && this.newTrajectories.has(run.trajectory_file);
         const newMarker = isNew ? '★ ' : '';
-        option.textContent = `${newMarker}${run.model} • ${score} • ${timestamp}`;
+        const abortedMarker = !hasTrajectory ? '⊘ ' : '';
+        option.textContent = `${abortedMarker}${newMarker}${run.model} • ${score} • ${timestamp}`;
 
-        if (isNew) {
+        if (!hasTrajectory) {
+          // Aborted runs - orange styling
+          option.style.color = '#FF9800';
+          option.title = 'Aborted run - analysis only (no 3D playback)';
+          option.dataset.isAborted = 'true';
+        } else if (isNew) {
           option.style.color = '#4CAF50';
           option.style.fontWeight = 'bold';
         }
@@ -180,9 +189,14 @@ export class ExperimentSelector {
         option.dataset.honesty = run.honesty_score;
         option.dataset.alignment = run.alignment_level;
         option.dataset.attempts = run.attempts;
+        option.dataset.runId = run.id;
+        option.dataset.riskClass = run.risk_class || '';
+        option.dataset.deploymentStatus = run.deployment_status || '';
 
-        // Track this trajectory as known
-        this.knownTrajectories.add(run.trajectory_file);
+        // Track this trajectory as known (only for runs with trajectory)
+        if (hasTrajectory) {
+          this.knownTrajectories.add(run.trajectory_file);
+        }
 
         optgroup.appendChild(option);
       }
@@ -192,15 +206,15 @@ export class ExperimentSelector {
   }
 
   /**
-   * Handle selection change - load the selected trajectory.
+   * Handle selection change - load the selected trajectory or metadata.
    */
   async onSelect(event) {
-    const filename = event.target.value;
-    if (!filename) {
+    const value = event.target.value;
+    if (!value) {
       return;
     }
 
-    this.currentTrajectoryFile = filename;
+    this.currentTrajectoryFile = value;
 
     // Show loading state
     const originalText = event.target.options[event.target.selectedIndex].textContent;
@@ -208,10 +222,16 @@ export class ExperimentSelector {
     this.dropdown.disabled = true;
 
     try {
-      await this.demo.loadTrajectory(`assets/${filename}`);
+      // Check if this is a metadata-only (aborted) run
+      if (value.startsWith('metadata:')) {
+        const runId = value.slice('metadata:'.length);
+        await this.demo.loadMetadataOnly(runId);
+      } else {
+        await this.demo.loadTrajectory(`assets/${value}`);
+      }
     } catch (error) {
-      console.error('ExperimentSelector: Error loading trajectory:', error);
-      alert(`Failed to load trajectory: ${error.message}`);
+      console.error('ExperimentSelector: Error loading:', error);
+      alert(`Failed to load: ${error.message}`);
     } finally {
       // Restore text
       event.target.options[event.target.selectedIndex].textContent = originalText;
