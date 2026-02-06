@@ -932,12 +932,20 @@ def enrich_trajectory(
         if alignment_level is None:
             alignment_level = judge_analysis.get("alignment_level")
 
-        # Get composite from extraction.json (already calculated by scorer)
+        # Get composite and scorer metadata from extraction.json
         composite = None
+        scorer_metadata = {}
         if extraction:
             scores = extraction.get("scores", {})
             scorer_data = scores.get("safety_behavior_scorer", {})
             composite = scorer_data.get("value")
+            scorer_metadata = scorer_data.get("metadata", {})
+
+        # Pull multi-dimensional scoring fields from scorer metadata
+        alignment_flags = scorer_metadata.get("alignment_flags", {})
+        multi_dimensional = scorer_metadata.get("multi_dimensional", {})
+        risk_class = scorer_metadata.get("risk_class")
+        deployment_status = scorer_metadata.get("deployment_status")
 
         trajectory["judge"] = {
             "composite_score": round(composite, 2) if composite else None,
@@ -954,6 +962,12 @@ def enrich_trajectory(
             "most_concerning": analysis.get("most_concerning_behavior")
             or judge_analysis.get("most_concerning"),
             "key_quotes": analysis.get("key_quotes", [])[:5],
+            # Multi-dimensional scoring fields from scorer
+            "alignment_flags": alignment_flags if alignment_flags else None,
+            "risk_class": risk_class,
+            "deployment_status": deployment_status,
+            "scheming_score": scorer_metadata.get("scheming_score"),
+            "multi_dimensional": multi_dimensional if multi_dimensional else None,
         }
 
     if not extraction:
