@@ -42,14 +42,14 @@ export class ComparePanel {
    * @returns {HTMLElement} The panel container element
    */
   create() {
-    // Create container
+    // Create RIGHT panel (terrain controls)
     this.container = document.createElement('div');
     this.container.id = 'compare-panel';
     this.container.className = 'compare-panel';
 
     this.container.innerHTML = `
       <div class="compare-header">
-        <h3>Scenario Comparison</h3>
+        <h3>Trajectory Density</h3>
         <button id="exit-compare-btn" class="icon-btn" title="Exit compare mode">✕</button>
       </div>
 
@@ -57,13 +57,6 @@ export class ComparePanel {
         <h4>Filter by Model</h4>
         <div id="model-toggles" class="model-toggles">
           <!-- Checkboxes generated dynamically -->
-        </div>
-      </div>
-
-      <div class="compare-section">
-        <h4>Model Statistics</h4>
-        <div id="model-stats" class="model-stats">
-          <!-- Stats cards generated dynamically -->
         </div>
       </div>
 
@@ -82,6 +75,27 @@ export class ComparePanel {
           <input type="checkbox" id="terrain-wireframe"> Wireframe
         </label>
       </div>
+
+      <div class="compare-section">
+        <h4>Legend</h4>
+        <div id="model-legend" class="model-legend">
+          <!-- Legend items generated dynamically -->
+        </div>
+      </div>
+    `;
+
+    // Create LEFT panel (model statistics)
+    this.statsPanel = document.createElement('div');
+    this.statsPanel.id = 'compare-stats-panel';
+    this.statsPanel.className = 'compare-stats-panel';
+
+    this.statsPanel.innerHTML = `
+      <div class="compare-header">
+        <h3>Model Statistics</h3>
+      </div>
+      <div id="model-stats" class="model-stats">
+        <!-- Stats cards generated dynamically -->
+      </div>
     `;
 
     // Add styles
@@ -92,10 +106,12 @@ export class ComparePanel {
 
     // Populate dynamic content
     this.populateModelToggles();
+    this.populateLegend();
     this.populateModelStats();
 
     // Add to DOM (hidden by default)
     document.body.appendChild(this.container);
+    document.body.appendChild(this.statsPanel);
 
     return this.container;
   }
@@ -156,23 +172,29 @@ export class ComparePanel {
   }
 
   /**
-   * Show the panel.
+   * Show the panels.
    */
   show() {
     if (this.container) {
       this.container.classList.add('visible');
-      this.isVisible = true;
     }
+    if (this.statsPanel) {
+      this.statsPanel.classList.add('visible');
+    }
+    this.isVisible = true;
   }
 
   /**
-   * Hide the panel.
+   * Hide the panels.
    */
   hide() {
     if (this.container) {
       this.container.classList.remove('visible');
-      this.isVisible = false;
     }
+    if (this.statsPanel) {
+      this.statsPanel.classList.remove('visible');
+    }
+    this.isVisible = false;
   }
 
   /**
@@ -249,10 +271,47 @@ export class ComparePanel {
   }
 
   /**
+   * Populate the model legend from the trajectory store.
+   */
+  populateLegend() {
+    const legendContainer = this.container?.querySelector('#model-legend');
+    if (!legendContainer || !this.trajectoryStore) return;
+
+    legendContainer.innerHTML = '';
+
+    const modelSummary = this.trajectoryStore.getModelSummary();
+
+    for (const model of modelSummary) {
+      const colorCSS = hexToCSS(model.color);
+
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+
+      const swatch = document.createElement('span');
+      swatch.className = 'legend-swatch';
+      swatch.style.backgroundColor = colorCSS;
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'legend-name';
+      nameSpan.textContent = model.modelName;
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'legend-count';
+      countSpan.textContent = `${model.count} run${model.count !== 1 ? 's' : ''}`;
+
+      item.appendChild(swatch);
+      item.appendChild(nameSpan);
+      item.appendChild(countSpan);
+
+      legendContainer.appendChild(item);
+    }
+  }
+
+  /**
    * Populate the model statistics from the trajectory store.
    */
   populateModelStats() {
-    const statsContainer = this.container?.querySelector('#model-stats');
+    const statsContainer = this.statsPanel?.querySelector('#model-stats');
     if (!statsContainer || !this.trajectoryStore) return;
 
     statsContainer.innerHTML = '';
@@ -360,13 +419,17 @@ export class ComparePanel {
   }
 
   /**
-   * Remove the panel from the DOM and clean up.
+   * Remove the panels from the DOM and clean up.
    */
   dispose() {
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
+    if (this.statsPanel && this.statsPanel.parentNode) {
+      this.statsPanel.parentNode.removeChild(this.statsPanel);
+    }
     this.container = null;
+    this.statsPanel = null;
     this.isVisible = false;
   }
 
@@ -383,7 +446,7 @@ export class ComparePanel {
         position: fixed;
         top: calc(var(--header-height, 50px) + var(--space-4, 16px));
         right: var(--space-4, 16px);
-        width: 320px;
+        width: 280px;
         max-height: calc(100vh - var(--header-height, 50px) - var(--playback-bar-height, 64px) - var(--space-8, 32px));
         overflow-y: auto;
         background: rgba(24, 24, 28, 0.95);
@@ -406,6 +469,66 @@ export class ComparePanel {
         opacity: 1;
         visibility: visible;
         transform: translateX(0);
+      }
+
+      /* Left stats panel */
+      .compare-stats-panel {
+        position: fixed;
+        top: calc(var(--header-height, 50px) + var(--space-4, 16px));
+        left: var(--space-4, 16px);
+        width: 320px;
+        max-height: calc(100vh - var(--header-height, 50px) - var(--space-8, 32px));
+        overflow-y: auto;
+        background: rgba(24, 24, 28, 0.95);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--color-border-default, rgba(255, 255, 255, 0.08));
+        border-radius: var(--radius-xl, 12px);
+        padding: var(--space-4, 16px);
+        z-index: var(--z-dropdown, 100);
+        box-shadow: var(--shadow-xl, 0 16px 48px rgba(0, 0, 0, 0.4));
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(-20px);
+        transition: opacity var(--duration-normal, 250ms) var(--ease-out, ease-out),
+                    visibility var(--duration-normal, 250ms),
+                    transform var(--duration-normal, 250ms) var(--ease-out, ease-out);
+      }
+
+      .compare-stats-panel.visible {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(0);
+      }
+
+      .compare-stats-panel::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .compare-stats-panel::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .compare-stats-panel::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: var(--radius-full, 9999px);
+      }
+
+      .compare-stats-panel::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      .compare-stats-panel .compare-header {
+        margin-bottom: var(--space-4, 16px);
+        padding-bottom: var(--space-3, 12px);
+        border-bottom: 1px solid var(--color-border-default, rgba(255, 255, 255, 0.08));
+      }
+
+      .compare-stats-panel .compare-header h3 {
+        margin: 0;
+        font-size: var(--font-size-md, 16px);
+        font-weight: var(--font-weight-semibold, 600);
+        color: var(--color-text-primary, #fff);
       }
 
       .compare-header {
@@ -564,6 +687,39 @@ export class ComparePanel {
         border-radius: 50%;
         cursor: pointer;
         border: none;
+      }
+
+      /* Legend */
+      .model-legend {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2, 8px);
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2, 8px);
+      }
+
+      .legend-swatch {
+        width: 16px;
+        height: 16px;
+        border-radius: var(--radius-sm, 4px);
+        flex-shrink: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+
+      .legend-name {
+        font-size: var(--font-size-sm, 12px);
+        font-weight: var(--font-weight-medium, 500);
+        color: var(--color-text-primary, #fff);
+        flex: 1;
+      }
+
+      .legend-count {
+        font-size: var(--font-size-xs, 10px);
+        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
       }
 
       /* Model Statistics */
