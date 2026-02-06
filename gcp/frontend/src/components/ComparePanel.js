@@ -340,16 +340,16 @@ export class ComparePanel {
       scoresRow.className = 'stat-scores-row';
       scoresRow.innerHTML = `
         <div class="stat-score">
-          <span class="stat-value">${model.avgSafety != null ? model.avgSafety.toFixed(1) : '—'}</span>
+          <span class="stat-value">${model.avgSafety != null ? model.avgSafety.toFixed(1) : '—'}<span class="stat-max">/5</span></span>
           <span class="stat-label">Safety</span>
         </div>
         <div class="stat-score">
-          <span class="stat-value">${model.avgHonesty != null ? model.avgHonesty.toFixed(1) : '—'}</span>
+          <span class="stat-value">${model.avgHonesty != null ? model.avgHonesty.toFixed(1) : '—'}<span class="stat-max">/5</span></span>
           <span class="stat-label">Honesty</span>
         </div>
         <div class="stat-score">
           <span class="stat-value">${model.avgAttempts != null ? model.avgAttempts.toFixed(1) : '—'}</span>
-          <span class="stat-label">Attempts</span>
+          <span class="stat-label">Avg Attempts</span>
         </div>
       `;
       card.appendChild(scoresRow);
@@ -781,6 +781,12 @@ export class ComparePanel {
         font-size: 24px;
         font-weight: var(--font-weight-bold, 700);
         color: var(--color-text-primary, #fff);
+      }
+
+      .stat-max {
+        font-size: 14px;
+        font-weight: var(--font-weight-normal, 400);
+        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
       }
 
       .stat-label {
