@@ -84,9 +84,10 @@ export class DensityTerrain {
     this.densityGrid = this._createEmptyGrid();
 
     // Accumulate positions into grid cells
+    // Note: Negate y to match Three.js Z convention (simulation +Y = Three.js -Z)
     for (const [x, y] of positions) {
       const gridX = this._worldToGridX(x);
-      const gridZ = this._worldToGridZ(y); // y in sim space -> z in grid
+      const gridZ = this._worldToGridZ(-y); // Negate y to match Three.js Z axis
       if (gridX >= 0 && gridX < GRID_SIZE && gridZ >= 0 && gridZ < GRID_SIZE) {
         this.densityGrid[gridZ][gridX]++;
       }
@@ -377,7 +378,7 @@ export class DensityTerrain {
     if (!this.blurredGrid) return null;
 
     const gridX = this._worldToGridX(x);
-    const gridZ = this._worldToGridZ(y);
+    const gridZ = this._worldToGridZ(-y); // Negate y to match Three.js Z axis
 
     if (gridX < 0 || gridX >= GRID_SIZE || gridZ < 0 || gridZ >= GRID_SIZE) {
       return null;
