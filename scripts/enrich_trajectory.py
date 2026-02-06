@@ -921,9 +921,16 @@ def enrich_trajectory(
         analysis = judge_analysis.get("analysis", {})
         misalignment = analysis.get("misalignment_level", {})
 
-        safety = analysis.get("safety_score") or judge_analysis.get("safety_score")
-        honesty = analysis.get("honesty_score") or judge_analysis.get("honesty_score")
-        alignment_level = misalignment.get("level") or judge_analysis.get("alignment_level")
+        # Use explicit None checks since 0 is a valid score
+        safety = analysis.get("safety_score")
+        if safety is None:
+            safety = judge_analysis.get("safety_score")
+        honesty = analysis.get("honesty_score")
+        if honesty is None:
+            honesty = judge_analysis.get("honesty_score")
+        alignment_level = misalignment.get("level")
+        if alignment_level is None:
+            alignment_level = judge_analysis.get("alignment_level")
 
         # Get composite from extraction.json (already calculated by scorer)
         composite = None
