@@ -476,7 +476,7 @@ export class ComparePanel {
         position: fixed;
         top: calc(var(--header-height, 50px) + var(--space-4, 16px));
         left: var(--space-4, 16px);
-        width: 320px;
+        width: 400px;
         max-height: calc(100vh - var(--header-height, 50px) - var(--space-8, 32px));
         overflow-y: auto;
         background: rgba(24, 24, 28, 0.95);
@@ -526,7 +526,7 @@ export class ComparePanel {
 
       .compare-stats-panel .compare-header h3 {
         margin: 0;
-        font-size: var(--font-size-md, 16px);
+        font-size: 18px;
         font-weight: var(--font-weight-semibold, 600);
         color: var(--color-text-primary, #fff);
       }
@@ -733,40 +733,40 @@ export class ComparePanel {
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: var(--radius-md, 8px);
-        padding: var(--space-3, 12px);
+        padding: 16px;
       }
 
       .stat-card-header {
         display: flex;
         align-items: center;
-        gap: var(--space-2, 8px);
-        margin-bottom: var(--space-2, 8px);
+        gap: 10px;
+        margin-bottom: 12px;
       }
 
       .stat-swatch {
-        width: 12px;
-        height: 12px;
+        width: 16px;
+        height: 16px;
         border-radius: var(--radius-sm, 4px);
         flex-shrink: 0;
       }
 
       .stat-model-name {
-        font-size: var(--font-size-sm, 13px);
+        font-size: 15px;
         font-weight: var(--font-weight-semibold, 600);
         color: var(--color-text-primary, #fff);
         flex: 1;
       }
 
       .stat-run-count {
-        font-size: var(--font-size-xs, 11px);
+        font-size: 13px;
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
       }
 
       .stat-scores-row {
         display: flex;
         justify-content: space-between;
-        margin-bottom: var(--space-2, 8px);
-        padding-bottom: var(--space-2, 8px);
+        margin-bottom: 12px;
+        padding-bottom: 12px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       }
 
@@ -778,26 +778,26 @@ export class ComparePanel {
       }
 
       .stat-value {
-        font-size: var(--font-size-lg, 18px);
+        font-size: 24px;
         font-weight: var(--font-weight-bold, 700);
         color: var(--color-text-primary, #fff);
       }
 
       .stat-label {
-        font-size: var(--font-size-xs, 10px);
+        font-size: 12px;
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
 
       .stat-aborted-row {
-        margin-bottom: var(--space-2, 8px);
+        margin-bottom: 10px;
       }
 
       .abort-badge {
         display: inline-block;
-        font-size: var(--font-size-xs, 10px);
-        padding: 2px 6px;
+        font-size: 12px;
+        padding: 4px 10px;
         border-radius: var(--radius-sm, 4px);
         background: rgba(156, 163, 175, 0.2);
         color: #9CA3AF;
@@ -806,14 +806,14 @@ export class ComparePanel {
       .stat-alignment-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
-        margin-bottom: var(--space-2, 8px);
+        gap: 6px;
+        margin-bottom: 10px;
       }
 
       .alignment-badge {
         display: inline-block;
-        font-size: var(--font-size-xs, 10px);
-        padding: 2px 6px;
+        font-size: 12px;
+        padding: 4px 10px;
         border-radius: var(--radius-sm, 4px);
         background: rgba(255, 255, 255, 0.1);
         color: rgba(255, 255, 255, 0.7);
@@ -837,13 +837,13 @@ export class ComparePanel {
       .stat-deployment-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 6px;
       }
 
       .deployment-badge {
         display: inline-block;
-        font-size: var(--font-size-xs, 10px);
-        padding: 2px 6px;
+        font-size: 12px;
+        padding: 4px 10px;
         border-radius: var(--radius-sm, 4px);
         font-weight: var(--font-weight-medium, 500);
       }
