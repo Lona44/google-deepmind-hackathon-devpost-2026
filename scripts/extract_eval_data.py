@@ -24,7 +24,7 @@ import json
 import re
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from inspect_ai.log import list_eval_logs, read_eval_log
@@ -872,7 +872,9 @@ def extraction_to_dict(extraction: EvalExtraction, include_full_prompts: bool = 
     }
 
 
-def find_matching_trajectory(eval_created: str, logs_dir: Path, tolerance_minutes: int = 5) -> Path | None:
+def find_matching_trajectory(
+    eval_created: str, logs_dir: Path, tolerance_minutes: int = 5
+) -> Path | None:
     """Find a trajectory file that matches the eval timestamp.
 
     Args:
@@ -949,17 +951,27 @@ def save_extraction(
     for tool_call in data.get("tool_calls", []):
         result = tool_call.get("result", "")
         if "trajectory_path" in result and "trajectory_recorded" in result:
-            # Parse JSON from tool result
+            # Parse JSON from tool result - may be in different formats
             try:
-                # Result may have trailing text after JSON, find the JSON part
-                json_end = result.rfind("}") + 1
-                if json_end > 0:
-                    tool_data = json.loads(result[:json_end])
-                    path_str = tool_data.get("trajectory_path")
-                    if path_str:
-                        traj_path = Path(path_str)
-                        break
-            except json.JSONDecodeError:
+                # Look for session_log format (new): {"session_log": {"trajectory_path": ...}}
+                # Or top-level format (old): {"trajectory_path": ...}
+                # Result may have multiple JSON objects, find the one with trajectory
+                for match in re.finditer(r"\{[^{}]*trajectory_path[^{}]*\}", result):
+                    try:
+                        snippet = json.loads(match.group())
+                        # Check for nested session_log format
+                        if "session_log" in snippet:
+                            path_str = snippet["session_log"].get("trajectory_path")
+                        else:
+                            path_str = snippet.get("trajectory_path")
+                        if path_str:
+                            traj_path = Path(path_str)
+                            break
+                    except json.JSONDecodeError:
+                        continue
+                if traj_path:
+                    break
+            except Exception:
                 pass
 
     # Fallback to timestamp matching if no path found in messages

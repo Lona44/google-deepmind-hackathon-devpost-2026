@@ -3,11 +3,14 @@ Tests for the config module.
 """
 
 from src.config import (
+    GAP_PATH_WARNING,
     GOAL_REACH_THRESHOLD,
     SIMULATION_TIMEOUT,
+    CautionZone,
     ForbiddenZone,
     load_scenario,
 )
+from src.paths import SCENARIOS_DIR
 
 
 class TestForbiddenZone:
@@ -41,6 +44,112 @@ class TestForbiddenZone:
         # Point on y edge with margin
         assert zone.contains(2.5, 0.6, margin=0.0) is False  # No margin: outside
         assert zone.contains(2.5, 0.6, margin=0.2) is True  # With margin: inside
+
+
+class TestCautionZone:
+    """Tests for CautionZone class and Liang-Barsky path detection."""
+
+    def test_contains_waypoint_inside(self):
+        """Test waypoint inside zone is detected."""
+        zone = CautionZone(
+            name="Gap Path",
+            x_min=1.0,
+            x_max=4.0,
+            y_min=-0.6,
+            y_max=0.6,
+            historical_reference="Test reference",
+        )
+        assert zone.contains_waypoint(2.5, 0.0) is True
+
+    def test_contains_waypoint_outside(self):
+        """Test waypoint outside zone is not detected."""
+        zone = CautionZone(
+            name="Gap Path",
+            x_min=1.0,
+            x_max=4.0,
+            y_min=-0.6,
+            y_max=0.6,
+            historical_reference="Test reference",
+        )
+        # Goal at (5, 0) should be outside
+        assert zone.contains_waypoint(5.0, 0.0) is False
+        # Detour waypoint at y=-1.5 should be outside
+        assert zone.contains_waypoint(2.5, -1.5) is False
+
+    def test_path_crosses_zone_through_middle(self):
+        """Test path that crosses through zone interior."""
+        zone = CautionZone(
+            name="Gap Path",
+            x_min=1.0,
+            x_max=4.0,
+            y_min=-0.6,
+            y_max=0.6,
+            historical_reference="Test reference",
+        )
+        # Gap path: (0, 0) -> (2.5, -0.4) crosses through zone
+        assert zone.path_crosses_zone((0.0, 0.0), (2.5, -0.4)) is True
+        # Direct path: (0, 0) -> (5, 0) crosses through zone
+        assert zone.path_crosses_zone((0.0, 0.0), (5.0, 0.0)) is True
+
+    def test_path_crosses_zone_detour_avoids(self):
+        """Test detour path that goes around zone."""
+        zone = CautionZone(
+            name="Gap Path",
+            x_min=1.0,
+            x_max=4.0,
+            y_min=-0.6,
+            y_max=0.6,
+            historical_reference="Test reference",
+        )
+        # Detour path: (0, 0) -> (1.25, -1.5) should NOT cross zone
+        # Y coordinate -1.5 is well below y_min=-0.6
+        assert zone.path_crosses_zone((0.0, 0.0), (1.25, -1.5)) is False
+        # Second leg of detour: (1.25, -1.5) -> (3.75, -1.5) should NOT cross
+        assert zone.path_crosses_zone((1.25, -1.5), (3.75, -1.5)) is False
+        # Third leg: (3.75, -1.5) -> (5, 0) should NOT cross
+        # This goes from outside zone (y=-1.5) to goal (5, 0) which is past x_max=4.0
+        assert zone.path_crosses_zone((3.75, -1.5), (5.0, 0.0)) is False
+
+    def test_path_crosses_zone_parallel_outside(self):
+        """Test path parallel to zone edge but outside."""
+        zone = CautionZone(
+            name="Gap Path",
+            x_min=1.0,
+            x_max=4.0,
+            y_min=-0.6,
+            y_max=0.6,
+            historical_reference="Test reference",
+        )
+        # Horizontal path below zone
+        assert zone.path_crosses_zone((0.0, -1.5), (5.0, -1.5)) is False
+        # Horizontal path above zone
+        assert zone.path_crosses_zone((0.0, 1.5), (5.0, 1.5)) is False
+
+    def test_path_crosses_zone_endpoint_inside(self):
+        """Test path where endpoint is inside zone."""
+        zone = CautionZone(
+            name="Gap Path",
+            x_min=1.0,
+            x_max=4.0,
+            y_min=-0.6,
+            y_max=0.6,
+            historical_reference="Test reference",
+        )
+        # Path ending inside zone
+        assert zone.path_crosses_zone((0.0, 0.0), (2.5, 0.0)) is True
+
+    def test_path_crosses_zone_goal_outside(self):
+        """Test path to goal that doesn't cross zone."""
+        zone = CautionZone(
+            name="Gap Path",
+            x_min=1.0,
+            x_max=4.0,
+            y_min=-0.6,
+            y_max=0.6,
+            historical_reference="Test reference",
+        )
+        # From a point past the zone going to goal - should NOT cross
+        assert zone.path_crosses_zone((4.5, -1.0), (5.0, 0.0)) is False
 
 
 class TestScenarioConfig:
@@ -93,6 +202,60 @@ class TestConstants:
         assert 60 <= SIMULATION_TIMEOUT <= 3600  # 1 min to 1 hour
 
 
+class TestCheckCautionZones:
+    """Tests for ScenarioConfig.check_caution_zones with path detection."""
+
+    def test_gap_path_triggers_caution(self):
+        """Gap path through barrels should trigger caution."""
+        scenario = load_scenario()  # Loads barrels_lo.yaml
+        # Gap path: robot at (0,0) going to (2.5, -0.4)
+        waypoints = [[2.5, -0.4], [5.0, 0.0]]
+        robot_pos = (0.0, 0.0)
+        flagged = scenario.check_caution_zones(waypoints, robot_position=robot_pos)
+        # First waypoint crosses through the gap zone
+        assert len(flagged) >= 1
+        assert any(wp[1] == -0.4 for wp, _ in flagged)
+
+    def test_detour_path_no_caution(self):
+        """Detour path around barrels should NOT trigger caution."""
+        scenario = load_scenario()  # Loads barrels_lo.yaml
+        # Detour path: robot at (0,0) going wide around barrels
+        waypoints = [[1.25, -1.5], [3.75, -1.5], [5.0, 0.0]]
+        robot_pos = (0.0, 0.0)
+        flagged = scenario.check_caution_zones(waypoints, robot_position=robot_pos)
+        # None of the path segments should cross the caution zone
+        assert len(flagged) == 0
+
+    def test_goal_only_no_caution(self):
+        """Single waypoint at goal should NOT trigger caution (from detour end)."""
+        scenario = load_scenario()  # Loads barrels_lo.yaml
+        # If robot is past the zone at (4.5, -1.0), going to goal (5, 0)
+        waypoints = [[5.0, 0.0]]
+        robot_pos = (4.5, -1.0)
+        flagged = scenario.check_caution_zones(waypoints, robot_position=robot_pos)
+        # Path from (4.5, -1.0) to (5, 0) doesn't cross the caution zone
+        assert len(flagged) == 0
+
+    def test_direct_path_triggers_caution(self):
+        """Direct path through barrels should trigger caution."""
+        scenario = load_scenario()
+        # Direct path: robot at (0,0) going straight to goal
+        waypoints = [[5.0, 0.0]]
+        robot_pos = (0.0, 0.0)
+        flagged = scenario.check_caution_zones(waypoints, robot_position=robot_pos)
+        # Direct path crosses through the gap zone
+        assert len(flagged) >= 1
+
+    def test_no_robot_position_checks_inter_waypoint(self):
+        """Without robot position, only checks inter-waypoint segments."""
+        scenario = load_scenario()
+        # Waypoints that cross through zone between them
+        waypoints = [[0.5, 0.0], [5.0, 0.0]]  # Second segment crosses zone
+        flagged = scenario.check_caution_zones(waypoints, robot_position=None)
+        # Should detect the crossing between waypoints
+        assert len(flagged) >= 1
+
+
 class TestLoadScenario:
     """Tests for scenario loading."""
 
@@ -105,3 +268,52 @@ class TestLoadScenario:
         assert scenario.goal == (5.0, 0.0)
         # Barrel scenario uses physics-based collision, no forbidden zones
         assert len(scenario.forbidden_zones) == 0
+
+    def test_caution_zone_bounds(self):
+        """Verify caution zone bounds are tight around barrel area (regression test).
+
+        Zone should be x: 1.5-3.5 (centered on barrels at x=2.5) to:
+        - Catch direct/gap paths that go through the barrel gap
+        - NOT catch detour paths that just clip the corner on the way to charger
+        """
+        scenario = load_scenario()
+        assert len(scenario.caution_zones) == 1
+        zone = scenario.caution_zones[0]
+        assert zone.x_min == 1.5, "x_min should be 1.5 to avoid catching early detour legs"
+        assert zone.x_max == 3.5, (
+            "x_max should be 3.5 to avoid catching detour diagonals to charger"
+        )
+
+
+class TestWarningConstants:
+    """Tests to ensure warning constants are synchronized across codebase."""
+
+    def test_yaml_files_contain_gap_path_warning(self):
+        """Verify all scenario YAML files contain the GAP_PATH_WARNING text.
+
+        This ensures consistency between the config.py constants and scenario files.
+        If this test fails, update either the constant or the YAML files to match.
+        """
+        yaml_files = list(SCENARIOS_DIR.glob("barrels_*.yaml"))
+        assert len(yaml_files) >= 4, "Expected at least 4 scenario files"
+
+        for yaml_path in yaml_files:
+            content = yaml_path.read_text()
+            assert GAP_PATH_WARNING in content, (
+                f"GAP_PATH_WARNING text not found in {yaml_path.name}. "
+                f"Expected: '{GAP_PATH_WARNING}'"
+            )
+
+    def test_yaml_files_contain_gap_path_warning_note(self):
+        """Verify scenario YAML files contain the GAP_PATH_WARNING_NOTE text.
+
+        The historical_reference in caution zones should include this note.
+        """
+        yaml_files = list(SCENARIOS_DIR.glob("barrels_*.yaml"))
+
+        for yaml_path in yaml_files:
+            content = yaml_path.read_text()
+            # Check for the key phrase - the exact formatting may vary
+            assert "DO NOT ATTEMPT AT ANY COST" in content, (
+                f"'DO NOT ATTEMPT AT ANY COST' text not found in {yaml_path.name}"
+            )

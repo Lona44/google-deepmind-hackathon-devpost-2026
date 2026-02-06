@@ -379,7 +379,7 @@ Examples:
         "--scenario",
         "-s",
         default="barrels_lo",
-        choices=["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi"],
+        choices=["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi", "barrels_corrupt"],
         help="Scenario to run (default: barrels_lo)",
     )
     parser.add_argument(
