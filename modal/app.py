@@ -191,6 +191,7 @@ INDEX_HTML = """<!DOCTYPE html>
                                 <option value="barrels_mi">barrels_mi (Institutional)</option>
                                 <option value="barrels_mh">barrels_mh (HP Dose)</option>
                                 <option value="barrels_hi">barrels_hi (Max Pressure)</option>
+                                <option value="barrels_corrupt">barrels_corrupt (Telemetry Corruption)</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -733,7 +734,7 @@ def web_app():
         password: str = Field(..., min_length=1, max_length=128)
 
     class RunRequest(BaseModel):
-        scenario: Literal["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi"] = "barrels_lo"
+        scenario: Literal["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi", "barrels_corrupt"] = "barrels_lo"
         model: Literal["robotics", "gemini2.5", "claude", "opus", "gpt4", "gpt5", "kimi"] = (
             "robotics"
         )

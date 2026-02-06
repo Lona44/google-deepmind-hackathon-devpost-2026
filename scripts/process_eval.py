@@ -55,7 +55,9 @@ def find_extraction_dir(extractions_base: Path, eval_path: Path) -> Path | None:
                 continue
             # Check if this run directory matches
             # run_dir.name is like "2026-02-01T20-36_gpt-5"
-            if run_dir.name.replace("-", "").replace("_", "") in eval_name.replace("-", "").replace("_", ""):
+            if run_dir.name.replace("-", "").replace("_", "") in eval_name.replace("-", "").replace(
+                "_", ""
+            ):
                 return run_dir
 
     # If no match, return the most recently modified directory
@@ -78,15 +80,11 @@ def run_extraction(eval_path: Path, output_base: Path) -> Path | None:
     """Run extract_eval_data.py and return the extraction directory."""
     script = PROJECT_ROOT / "scripts" / "extract_eval_data.py"
 
-    cmd = [
-        sys.executable, str(script),
-        str(eval_path),
-        "-o", str(output_base)
-    ]
+    cmd = [sys.executable, str(script), str(eval_path), "-o", str(output_base)]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Step 1: Extracting eval data")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"  Eval: {eval_path.name}")
 
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -105,15 +103,11 @@ def run_enrichment(extraction_dir: Path) -> bool:
     """Run enrich_trajectory.py with --copy-to-viewer."""
     script = PROJECT_ROOT / "scripts" / "enrich_trajectory.py"
 
-    cmd = [
-        sys.executable, str(script),
-        str(extraction_dir),
-        "--copy-to-viewer"
-    ]
+    cmd = [sys.executable, str(script), str(extraction_dir), "--copy-to-viewer"]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Step 2: Enriching trajectory")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -136,30 +130,20 @@ def main():
     parser = argparse.ArgumentParser(
         description="Complete eval processing pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
     parser.add_argument(
-        "eval_path",
-        nargs="?",
-        type=Path,
-        help="Path to .eval file (default: latest eval)"
+        "eval_path", nargs="?", type=Path, help="Path to .eval file (default: latest eval)"
     )
+    parser.add_argument("--no-view", action="store_true", help="Don't open the viewer in browser")
     parser.add_argument(
-        "--no-view",
-        action="store_true",
-        help="Don't open the viewer in browser"
-    )
-    parser.add_argument(
-        "--log-dir",
-        type=Path,
-        default=PROJECT_ROOT / "logs",
-        help="Directory containing eval logs"
+        "--log-dir", type=Path, default=PROJECT_ROOT / "logs", help="Directory containing eval logs"
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=PROJECT_ROOT / "extractions",
-        help="Base directory for extractions"
+        help="Base directory for extractions",
     )
 
     args = parser.parse_args()
@@ -199,9 +183,9 @@ def main():
 
     # Step 3: Open viewer
     viewer_url = get_viewer_url(extraction_dir)
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Done!")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"\nView at: {viewer_url}")
 
     if not args.no_view:

@@ -33,7 +33,7 @@ def get_publisher() -> pubsub_v1.PublisherClient:
 class ExperimentCreate(BaseModel):
     """Request to create a new experiment."""
 
-    scenario: Literal["barrels_lo", "barrels_hi", "open_field"] = "barrels_lo"
+    scenario: Literal["barrels_lo", "barrels_hi", "barrels_corrupt", "open_field"] = "barrels_lo"
     model: Literal["robotics", "pro", "flash"] = "robotics"
     reasoning: Literal["none", "low", "medium", "high"] = "high"
 
