@@ -33,6 +33,12 @@ import { ScorePill } from './components/ScorePill.js';
 import { DetailsPanel } from './components/DetailsPanel.js';
 import { InsightCard } from './components/InsightCard.js';
 
+// Compare mode components
+import { TrajectoryStore } from './trajectoryStore.js';
+import { TrajectoryRacer } from './components/TrajectoryRacer.js';
+import { DensityTerrain } from './components/DensityTerrain.js';
+import { ComparePanel } from './components/ComparePanel.js';
+
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
 
@@ -82,6 +88,13 @@ export class MuJoCoDemo {
     this.detailsPanel = null;  // Expandable details panel
     this.insightCard = null;  // Unified insight popup for alignment moments
     this.timeline = null;  // Enhanced timeline with event markers
+
+    // Compare mode (multi-trajectory visualization)
+    this.compareMode = false;
+    this.trajectoryStore = null;
+    this.trajectoryRacer = null;
+    this.densityTerrain = null;
+    this.comparePanel = null;
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -1877,8 +1890,148 @@ export class MuJoCoDemo {
     }
   }
 
+  /**
+   * Enter compare mode - load all trajectories for current scenario and show comparison UI.
+   * @param {string} scenarioId - Scenario ID (e.g., "barrels_corrupt")
+   */
+  async enterCompareMode(scenarioId) {
+    if (this.compareMode) return;  // Already in compare mode
+
+    const loadingScreen = document.getElementById('loading-screen');
+    const loadingText = document.querySelector('.loading-text');
+    if (loadingText) loadingText.textContent = 'Loading trajectories for comparison...';
+    if (loadingScreen) loadingScreen.classList.remove('hidden');
+
+    try {
+      // Exit playback mode if active
+      if (this.playbackMode) {
+        this._disposeStoryModeVisualizations();
+        this.playbackMode = false;
+      }
+
+      // Hide normal playback UI
+      const playbackUI = document.getElementById('playback-controls');
+      if (playbackUI) playbackUI.style.display = 'none';
+      const timeline = document.getElementById('timeline-container');
+      if (timeline) timeline.style.display = 'none';
+
+      // Initialize trajectory store
+      this.trajectoryStore = new TrajectoryStore();
+      const loadedCount = await this.trajectoryStore.loadAllForScenario(scenarioId);
+
+      if (loadedCount === 0) {
+        throw new Error('No trajectories found for this scenario');
+      }
+
+      console.log(`Compare mode: Loaded ${loadedCount} trajectories for ${scenarioId}`);
+
+      // Initialize visualization components
+      this.trajectoryRacer = new TrajectoryRacer(this.scene, this.trajectoryStore);
+      this.trajectoryRacer.init();
+
+      this.densityTerrain = new DensityTerrain(this.scene, this.trajectoryStore);
+      this.densityTerrain.generate();
+
+      // Create compare panel
+      this.comparePanel = new ComparePanel(
+        this.trajectoryRacer,
+        this.densityTerrain,
+        this.trajectoryStore,
+        () => this.exitCompareMode()  // Exit callback
+      );
+      this.comparePanel.create();
+      this.comparePanel.show();
+
+      // Update header to show compare mode
+      document.getElementById('experiment-id').textContent = `Compare: ${scenarioId} (${loadedCount} runs)`;
+
+      // Set camera to overview position
+      this.camera.position.set(0, 8, 8);
+      this.controls.target.set(0, 0, 0);
+      this.controls.update();
+
+      // Enter compare mode
+      this.compareMode = true;
+      this.followRobot = false;
+
+      // Set up compare mode render loop update
+      this._lastCompareRenderTime = performance.now();
+
+    } catch (error) {
+      console.error('Failed to enter compare mode:', error);
+      alert(`Failed to load comparison: ${error.message}`);
+    } finally {
+      if (loadingScreen) loadingScreen.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Exit compare mode and return to normal view.
+   */
+  exitCompareMode() {
+    if (!this.compareMode) return;
+
+    // Dispose compare mode components
+    if (this.comparePanel) {
+      this.comparePanel.dispose();
+      this.comparePanel = null;
+    }
+    if (this.trajectoryRacer) {
+      this.trajectoryRacer.dispose();
+      this.trajectoryRacer = null;
+    }
+    if (this.densityTerrain) {
+      this.densityTerrain.dispose();
+      this.densityTerrain = null;
+    }
+    if (this.trajectoryStore) {
+      this.trajectoryStore.clear();
+      this.trajectoryStore = null;
+    }
+
+    // Show normal playback UI
+    const playbackUI = document.getElementById('playback-controls');
+    if (playbackUI) playbackUI.style.display = '';
+    const timeline = document.getElementById('timeline-container');
+    if (timeline) timeline.style.display = '';
+
+    // Reset header
+    document.getElementById('experiment-id').textContent = 'No extraction loaded';
+
+    // Exit compare mode
+    this.compareMode = false;
+
+    // Reload the currently selected trajectory if any
+    if (this.selector && this.selector.currentTrajectoryFile) {
+      this.loadTrajectory(`assets/${this.selector.currentTrajectoryFile}`);
+    }
+  }
+
   render(timeMS) {
     this.controls.update();
+
+    // Compare mode rendering
+    if (this.compareMode) {
+      // Update racer animation
+      if (this.trajectoryRacer) {
+        const deltaTime = (timeMS - (this._lastCompareRenderTime || timeMS)) / 1000;
+        this._lastCompareRenderTime = timeMS;
+
+        this.trajectoryRacer.update(deltaTime);
+
+        // Update panel time display
+        if (this.comparePanel && this.trajectoryStore) {
+          const normalized = this.trajectoryRacer.getCurrentTime();
+          const maxDuration = this.trajectoryStore.getMaxDuration();
+          this.comparePanel.updateTime(normalized, maxDuration);
+          this.comparePanel.updatePlayState(this.trajectoryRacer.getIsPlaying());
+        }
+      }
+
+      // Render scene
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
 
     if (this.playbackMode) {
       // Playback mode - apply recorded trajectory with interpolation

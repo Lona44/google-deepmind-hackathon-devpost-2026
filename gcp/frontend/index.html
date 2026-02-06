@@ -167,6 +167,31 @@
                 font-weight: bold;
             }
 
+            #compare-all-btn {
+                margin-left: 8px;
+                padding: 8px 12px;
+                background: linear-gradient(135deg, #2a2a4e 0%, #3a3a5e 100%);
+                color: #ff9800;
+                border: 1px solid #ff9800;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            #compare-all-btn:hover {
+                background: rgba(255, 152, 0, 0.15);
+                color: #ffb74d;
+                border-color: #ffb74d;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+            }
+            #compare-all-btn:active {
+                transform: translateY(0);
+            }
+
             #filter-panel {
                 position: fixed;
                 top: 60px;
@@ -375,6 +400,9 @@
             <button id="filter-toggle-btn" title="Toggle filters (F)">
                 <span>Filters</span>
                 <span class="filter-badge" id="filter-badge" style="display: none;"></span>
+            </button>
+            <button id="compare-all-btn" title="Compare all trajectories in scenario">
+                <span>Compare</span>
             </button>
         </div>
 
