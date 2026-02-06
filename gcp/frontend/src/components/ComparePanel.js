@@ -446,7 +446,7 @@ export class ComparePanel {
         position: fixed;
         top: calc(var(--header-height, 50px) + var(--space-4, 16px));
         right: var(--space-4, 16px);
-        width: 280px;
+        width: 320px;
         max-height: calc(100vh - var(--header-height, 50px) - var(--playback-bar-height, 64px) - var(--space-8, 32px));
         overflow-y: auto;
         background: rgba(24, 24, 28, 0.95);
@@ -454,7 +454,7 @@ export class ComparePanel {
         -webkit-backdrop-filter: blur(16px);
         border: 1px solid var(--color-border-default, rgba(255, 255, 255, 0.08));
         border-radius: var(--radius-xl, 12px);
-        padding: var(--space-4, 16px);
+        padding: 20px;
         z-index: var(--z-dropdown, 100);
         box-shadow: var(--shadow-xl, 0 16px 48px rgba(0, 0, 0, 0.4));
         opacity: 0;
@@ -542,7 +542,7 @@ export class ComparePanel {
 
       .compare-header h3 {
         margin: 0;
-        font-size: var(--font-size-md, 16px);
+        font-size: 18px;
         font-weight: var(--font-weight-semibold, 600);
         color: var(--color-text-primary, #fff);
       }
@@ -581,11 +581,11 @@ export class ComparePanel {
       }
 
       .compare-section h4 {
-        margin: 0 0 var(--space-3, 12px) 0;
-        font-size: var(--font-size-sm, 12px);
+        margin: 0 0 12px 0;
+        font-size: 13px;
         font-weight: var(--font-weight-semibold, 600);
         text-transform: uppercase;
-        letter-spacing: var(--letter-spacing-wide, 0.5px);
+        letter-spacing: 0.5px;
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
       }
 
@@ -610,27 +610,27 @@ export class ComparePanel {
       }
 
       .model-toggle input[type="checkbox"] {
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
         accent-color: var(--color-accent-primary, #4CAF50);
         cursor: pointer;
       }
 
       .model-toggle .color-swatch {
-        width: 12px;
-        height: 12px;
+        width: 14px;
+        height: 14px;
         border-radius: var(--radius-sm, 4px);
         flex-shrink: 0;
       }
 
       .model-toggle .model-name {
-        font-size: var(--font-size-sm, 12px);
+        font-size: 14px;
         color: var(--color-text-primary, #fff);
         flex: 1;
       }
 
       .model-toggle .model-count {
-        font-size: var(--font-size-xs, 10px);
+        font-size: 12px;
         color: var(--color-text-disabled, rgba(255, 255, 255, 0.25));
       }
 
@@ -638,16 +638,16 @@ export class ComparePanel {
       .toggle-row {
         display: flex;
         align-items: center;
-        gap: var(--space-2, 8px);
+        gap: 10px;
         cursor: pointer;
-        padding: var(--space-1, 4px) 0;
-        font-size: var(--font-size-sm, 12px);
+        padding: 6px 0;
+        font-size: 14px;
         color: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
       }
 
       .toggle-row input[type="checkbox"] {
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
         accent-color: var(--color-accent-primary, #4CAF50);
         cursor: pointer;
       }
@@ -655,15 +655,15 @@ export class ComparePanel {
       .slider-row {
         display: flex;
         align-items: center;
-        gap: var(--space-2, 8px);
-        padding: var(--space-1, 4px) 0;
-        font-size: var(--font-size-sm, 12px);
+        gap: 10px;
+        padding: 6px 0;
+        font-size: 14px;
         color: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
       }
 
       .slider-row input[type="range"] {
         flex: 1;
-        height: 4px;
+        height: 6px;
         -webkit-appearance: none;
         background: rgba(255, 255, 255, 0.15);
         border-radius: var(--radius-full, 9999px);
@@ -673,16 +673,16 @@ export class ComparePanel {
 
       .slider-row input[type="range"]::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 10px;
-        height: 10px;
+        width: 14px;
+        height: 14px;
         background: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
         border-radius: 50%;
         cursor: pointer;
       }
 
       .slider-row input[type="range"]::-moz-range-thumb {
-        width: 10px;
-        height: 10px;
+        width: 14px;
+        height: 14px;
         background: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
         border-radius: 50%;
         cursor: pointer;
@@ -693,32 +693,32 @@ export class ComparePanel {
       .model-legend {
         display: flex;
         flex-direction: column;
-        gap: var(--space-2, 8px);
+        gap: 10px;
       }
 
       .legend-item {
         display: flex;
         align-items: center;
-        gap: var(--space-2, 8px);
+        gap: 10px;
       }
 
       .legend-swatch {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
         border-radius: var(--radius-sm, 4px);
         flex-shrink: 0;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       }
 
       .legend-name {
-        font-size: var(--font-size-sm, 12px);
+        font-size: 14px;
         font-weight: var(--font-weight-medium, 500);
         color: var(--color-text-primary, #fff);
         flex: 1;
       }
 
       .legend-count {
-        font-size: var(--font-size-xs, 10px);
+        font-size: 12px;
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
       }
 
