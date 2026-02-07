@@ -1,0 +1,299 @@
+/**
+ * Agent Tools - Tool definitions and executors for the Gemini 3 Research Assistant.
+ *
+ * Tools enable the agent to:
+ * - Search and filter experiment runs
+ * - Load trajectories in the 3D viewer
+ * - Control camera angles
+ * - Provide video download links
+ */
+
+/**
+ * Tool schemas for Gemini function calling.
+ * These define what tools the agent can use.
+ */
+export const TOOL_DECLARATIONS = [
+  {
+    name: "load_trajectory",
+    description: "Load a specific experiment run in the 3D MuJoCo viewer so the user can watch the robot's behavior. Use this when the user wants to SEE a run.",
+    parameters: {
+      type: "object",
+      properties: {
+        run_id: {
+          type: "string",
+          description: "The run ID to load (e.g., '2026-02-07T03-19_kimi-k2.5')"
+        }
+      },
+      required: ["run_id"]
+    }
+  },
+  {
+    name: "get_video_url",
+    description: "Get the download URL for a run's video recording. Use when user wants to download or share a video.",
+    parameters: {
+      type: "object",
+      properties: {
+        run_id: {
+          type: "string",
+          description: "The run ID to get video for"
+        }
+      },
+      required: ["run_id"]
+    }
+  },
+  {
+    name: "set_camera_view",
+    description: "Change the 3D viewer camera to a preset angle for better viewing.",
+    parameters: {
+      type: "object",
+      properties: {
+        preset: {
+          type: "string",
+          enum: ["overhead", "side", "follow", "barrel_focus", "cinematic"],
+          description: "Camera preset: 'overhead' (top-down), 'side' (profile view), 'follow' (behind robot), 'barrel_focus' (focused on barrel area), 'cinematic' (slow orbit)"
+        }
+      },
+      required: ["preset"]
+    }
+  },
+  {
+    name: "play_simulation",
+    description: "Start playing the loaded trajectory animation.",
+    parameters: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "pause_simulation",
+    description: "Pause the trajectory animation.",
+    parameters: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "seek_to_time",
+    description: "Jump to a specific time in the trajectory.",
+    parameters: {
+      type: "object",
+      properties: {
+        seconds: {
+          type: "number",
+          description: "Time in seconds to seek to"
+        }
+      },
+      required: ["seconds"]
+    }
+  },
+  {
+    name: "enter_compare_mode",
+    description: "Enter comparison mode to see all trajectories overlaid with density terrain visualization.",
+    parameters: {
+      type: "object",
+      properties: {}
+    }
+  }
+];
+
+/**
+ * Tool executor - runs tools in the browser context.
+ */
+export class ToolExecutor {
+  /**
+   * @param {Object} app - The main app instance (from main.js)
+   */
+  constructor(app) {
+    this.app = app;
+  }
+
+  /**
+   * Execute a tool by name with given arguments.
+   * @param {string} toolName - Name of the tool to execute
+   * @param {Object} args - Arguments for the tool
+   * @returns {Object} Result of the tool execution
+   */
+  async execute(toolName, args) {
+    console.log(`[Agent] Executing tool: ${toolName}`, args);
+
+    switch (toolName) {
+      case 'load_trajectory':
+        return this.loadTrajectory(args);
+      case 'get_video_url':
+        return this.getVideoUrl(args);
+      case 'set_camera_view':
+        return this.setCameraView(args);
+      case 'play_simulation':
+        return this.playSimulation();
+      case 'pause_simulation':
+        return this.pauseSimulation();
+      case 'seek_to_time':
+        return this.seekToTime(args);
+      case 'enter_compare_mode':
+        return this.enterCompareMode();
+      default:
+        return { success: false, error: `Unknown tool: ${toolName}` };
+    }
+  }
+
+  /**
+   * Load a trajectory in the 3D viewer.
+   */
+  loadTrajectory({ run_id }) {
+    if (!this.app) {
+      return { success: false, error: "Viewer not available" };
+    }
+
+    // Find the trajectory file from the current scenario
+    const index = this.app.extractionsIndex;
+    if (!index) {
+      return { success: false, error: "Experiment index not loaded" };
+    }
+
+    // Search all scenarios for the run
+    for (const [scenarioId, scenario] of Object.entries(index.scenarios)) {
+      const run = scenario.runs.find(r => r.id === run_id);
+      if (run && run.trajectory_file) {
+        // Load the trajectory
+        this.app.loadTrajectory(`assets/${run.trajectory_file}`);
+        return {
+          success: true,
+          message: `Loaded trajectory for ${run_id}`,
+          run_details: {
+            model: run.model,
+            composite_score: run.composite_score,
+            safety_score: run.safety_score,
+            honesty_score: run.honesty_score,
+            alignment_name: run.alignment_name,
+            duration: run.duration,
+            attempts: run.attempts
+          }
+        };
+      }
+    }
+
+    return { success: false, error: `Run not found: ${run_id}` };
+  }
+
+  /**
+   * Get video download URL for a run.
+   */
+  getVideoUrl({ run_id }) {
+    // Videos are stored in experiments folder
+    // Pattern: experiments/barrels_corrupt/{run_id}/video.mp4
+    const videoPath = `experiments/barrels_corrupt/${run_id}/video.mp4`;
+
+    return {
+      success: true,
+      url: videoPath,
+      message: `Video available at: ${videoPath}`,
+      note: "Video may not exist if recording was disabled for this run."
+    };
+  }
+
+  /**
+   * Set camera to a preset view.
+   */
+  setCameraView({ preset }) {
+    if (!this.app || !this.app.camera || !this.app.controls) {
+      return { success: false, error: "Camera not available" };
+    }
+
+    const presets = {
+      overhead: { position: [0, 12, 0.1], target: [0, 0, 0] },
+      side: { position: [12, 3, 0], target: [0, 0, 0] },
+      follow: { position: [-3, 3, 4], target: [1, 0, 0] },
+      barrel_focus: { position: [5, 4, 4], target: [2.5, 0, 0] },
+      cinematic: { position: [6, 7, 5], target: [1.8, 0, 0], autoRotate: true }
+    };
+
+    const p = presets[preset];
+    if (!p) {
+      return { success: false, error: `Unknown preset: ${preset}` };
+    }
+
+    this.app.camera.position.set(...p.position);
+    this.app.controls.target.set(...p.target);
+
+    if (p.autoRotate !== undefined) {
+      this.app.controls.autoRotate = p.autoRotate;
+      this.app.controls.autoRotateSpeed = 0.3;
+    } else {
+      this.app.controls.autoRotate = false;
+    }
+
+    this.app.controls.update();
+
+    return {
+      success: true,
+      message: `Camera set to ${preset} view`
+    };
+  }
+
+  /**
+   * Start playing the simulation.
+   */
+  playSimulation() {
+    if (!this.app) {
+      return { success: false, error: "Viewer not available" };
+    }
+
+    if (this.app.playbackController) {
+      this.app.playbackController.play();
+      return { success: true, message: "Playback started" };
+    }
+
+    return { success: false, error: "Playback controller not available" };
+  }
+
+  /**
+   * Pause the simulation.
+   */
+  pauseSimulation() {
+    if (!this.app) {
+      return { success: false, error: "Viewer not available" };
+    }
+
+    if (this.app.playbackController) {
+      this.app.playbackController.pause();
+      return { success: true, message: "Playback paused" };
+    }
+
+    return { success: false, error: "Playback controller not available" };
+  }
+
+  /**
+   * Seek to a specific time.
+   */
+  seekToTime({ seconds }) {
+    if (!this.app) {
+      return { success: false, error: "Viewer not available" };
+    }
+
+    if (this.app.playbackController) {
+      this.app.playbackController.seek(seconds);
+      return { success: true, message: `Seeked to ${seconds}s` };
+    }
+
+    return { success: false, error: "Playback controller not available" };
+  }
+
+  /**
+   * Enter compare mode.
+   */
+  enterCompareMode() {
+    if (!this.app) {
+      return { success: false, error: "Viewer not available" };
+    }
+
+    if (this.app.enterCompareMode) {
+      this.app.enterCompareMode();
+      return {
+        success: true,
+        message: "Entered compare mode. You can now see all trajectories overlaid with the density terrain."
+      };
+    }
+
+    return { success: false, error: "Compare mode not available" };
+  }
+}

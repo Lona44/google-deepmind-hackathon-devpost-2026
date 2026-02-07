@@ -6,35 +6,54 @@ FastAPI application with Firebase Auth, Firestore, and WebSocket streaming.
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from api.chat import router as chat_router
 from api.experiments import router as experiments_router
 from api.keys import router as keys_router
 from api.streaming import router as streaming_router
 from auth import router as auth_router
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+
+# Load .env file for local development
+env_path = Path(__file__).parent.parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+    print(f"Loaded environment from {env_path}")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """Initialize Firebase and other services on startup."""
-    # Initialize Firebase Admin SDK
-    import firebase_admin
-    from firebase_admin import credentials
+    firebase_initialized = False
+    try:
+        import firebase_admin  # noqa: PLC0415
+        from firebase_admin import credentials  # noqa: PLC0415
 
-    # Use default credentials in Cloud Run, or local service account
-    if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-        cred = credentials.Certificate(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
-        firebase_admin.initialize_app(cred)
-    else:
-        # Cloud Run provides default credentials
-        firebase_admin.initialize_app()
+        # Use default credentials in Cloud Run, or local service account
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+            cred = credentials.Certificate(os.environ["GOOGLE_APPLICATION_CREDENTIALS"])
+            firebase_admin.initialize_app(cred)
+            firebase_initialized = True
+        elif os.environ.get("K_SERVICE"):  # Running in Cloud Run
+            firebase_admin.initialize_app()
+            firebase_initialized = True
+        else:
+            print("Firebase not configured - auth features disabled (local dev mode)")
+    except Exception as e:
+        print(f"Firebase initialization skipped: {e}")
 
     yield
 
     # Cleanup on shutdown
-    firebase_admin.delete_app(firebase_admin.get_app())
+    if firebase_initialized:
+        import firebase_admin  # noqa: PLC0415
+
+        firebase_admin.delete_app(firebase_admin.get_app())
 
 
 app = FastAPI(
@@ -49,6 +68,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # Local dev
+        "http://localhost:8080",  # Local backend
         "https://*.web.app",  # Firebase Hosting
         os.environ.get("FRONTEND_URL", ""),
     ],
@@ -59,31 +79,10 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 app.include_router(experiments_router, prefix="/api/experiments", tags=["experiments"])
 app.include_router(keys_router, prefix="/api/keys", tags=["keys"])
 app.include_router(streaming_router, prefix="/ws", tags=["streaming"])
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    """Serve the main dashboard page."""
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>G1 Alignment Platform</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>
-        <div id="app">
-            <h1>G1 Alignment Platform</h1>
-            <p>Loading...</p>
-        </div>
-        <script type="module" src="/static/app.js"></script>
-    </body>
-    </html>
-    """
 
 
 @app.get("/health")
@@ -92,7 +91,25 @@ async def health_check():
     return {"status": "healthy"}
 
 
+# Serve frontend static files for local development
+frontend_path = Path(__file__).parent.parent / "frontend"
+if frontend_path.exists():
+    # Mount static assets (node_modules, assets, src)
+    app.mount(
+        "/node_modules",
+        StaticFiles(directory=frontend_path / "node_modules"),
+        name="node_modules",
+    )
+    app.mount("/assets", StaticFiles(directory=frontend_path / "assets"), name="assets")
+    app.mount("/src", StaticFiles(directory=frontend_path / "src"), name="src")
+
+    @app.get("/", response_class=HTMLResponse)
+    async def serve_frontend():
+        """Serve the frontend index.html."""
+        return FileResponse(frontend_path / "index.html")
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "8080")))

@@ -192,6 +192,35 @@
                 transform: translateY(0);
             }
 
+            #chat-toggle-btn {
+                margin-left: 8px;
+                padding: 8px 14px;
+                background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            #chat-toggle-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+            }
+            #chat-toggle-btn:active {
+                transform: translateY(0);
+            }
+            #chat-toggle-btn.active {
+                background: linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);
+            }
+            #chat-toggle-btn.hidden {
+                display: none;
+            }
+
             #filter-panel {
                 position: fixed;
                 top: 60px;
@@ -404,6 +433,9 @@
             <button id="compare-all-btn" title="Compare all trajectories in scenario">
                 <span>Compare</span>
             </button>
+            <button id="chat-toggle-btn" class="hidden" title="Open Research Assistant (G)">
+                <span>🤖 Ask AI</span>
+            </button>
         </div>
 
         <!-- Filter panel -->
@@ -455,6 +487,7 @@
             <p><kbd>←</kbd> <kbd>→</kbd> Step frame</p>
             <p><kbd>[</kbd> <kbd>]</kbd> Change speed</p>
             <p><kbd>R</kbd> Reset to start</p>
+            <p><kbd>G</kbd> Open AI assistant</p>
             <p><kbd>?</kbd> Toggle help</p>
             <h3>Camera</h3>
             <p>Drag to rotate</p>
