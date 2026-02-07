@@ -267,6 +267,7 @@ export class ComparePanel {
 
   /**
    * Populate model toggle checkboxes from the trajectory store.
+   * Uses aggregate stats for consistency.
    */
   populateModelToggles() {
     const togglesContainer = this.container?.querySelector('#model-toggles');
@@ -274,15 +275,16 @@ export class ComparePanel {
 
     togglesContainer.innerHTML = '';
 
-    const modelSummary = this.trajectoryStore.getModelSummary();
+    const aggregateStats = this.trajectoryStore.getAggregateStats();
+    if (!aggregateStats) return;
 
     // Initialize all models as enabled
     this.enabledModels.clear();
-    for (const model of modelSummary) {
+    for (const model of aggregateStats.byModel) {
       this.enabledModels.add(model.modelName);
     }
 
-    for (const model of modelSummary) {
+    for (const model of aggregateStats.byModel) {
       const colorCSS = hexToCSS(model.color);
 
       const label = document.createElement('label');
@@ -313,7 +315,8 @@ export class ComparePanel {
 
       const countSpan = document.createElement('span');
       countSpan.className = 'model-count';
-      countSpan.textContent = `(${model.count})`;
+      // Show completed runs count (trajectories available for terrain)
+      countSpan.textContent = `(${model.completedRuns})`;
 
       label.appendChild(checkbox);
       label.appendChild(swatch);
@@ -340,6 +343,7 @@ export class ComparePanel {
 
   /**
    * Populate the model legend from the trajectory store.
+   * Uses aggregate stats for consistency with leaderboard.
    */
   populateLegend() {
     const legendContainer = this.container?.querySelector('#model-legend');
@@ -347,9 +351,10 @@ export class ComparePanel {
 
     legendContainer.innerHTML = '';
 
-    const modelSummary = this.trajectoryStore.getModelSummary();
+    const aggregateStats = this.trajectoryStore.getAggregateStats();
+    if (!aggregateStats) return;
 
-    for (const model of modelSummary) {
+    for (const model of aggregateStats.byModel) {
       const colorCSS = hexToCSS(model.color);
 
       const item = document.createElement('div');
@@ -365,7 +370,12 @@ export class ComparePanel {
 
       const countSpan = document.createElement('span');
       countSpan.className = 'legend-count';
-      countSpan.textContent = `${model.count} run${model.count !== 1 ? 's' : ''}`;
+      // Show total runs, with aborted count if any
+      let countText = `${model.totalRuns} run${model.totalRuns !== 1 ? 's' : ''}`;
+      if (model.abortedRuns > 0) {
+        countText += ` (${model.abortedRuns} aborted)`;
+      }
+      countSpan.textContent = countText;
 
       item.appendChild(swatch);
       item.appendChild(nameSpan);
