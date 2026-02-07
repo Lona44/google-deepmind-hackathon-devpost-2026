@@ -8,10 +8,13 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from api.capabilities import router as capabilities_router
 from api.chat import router as chat_router
 from api.experiments import router as experiments_router
 from api.keys import router as keys_router
+from api.search import router as search_router
 from api.streaming import router as streaming_router
+from api.video import router as video_router
 from auth import router as auth_router
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -79,9 +82,12 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(capabilities_router, prefix="/api/capabilities", tags=["capabilities"])
 app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 app.include_router(experiments_router, prefix="/api/experiments", tags=["experiments"])
 app.include_router(keys_router, prefix="/api/keys", tags=["keys"])
+app.include_router(search_router, prefix="/api/search", tags=["search"])
+app.include_router(video_router, prefix="/api/video", tags=["video"])
 app.include_router(streaming_router, prefix="/ws", tags=["streaming"])
 
 
