@@ -33,6 +33,11 @@ import { ScorePill } from './components/ScorePill.js';
 import { DetailsPanel } from './components/DetailsPanel.js';
 import { InsightCard } from './components/InsightCard.js';
 
+// Compare mode components
+import { TrajectoryStore } from './trajectoryStore.js';
+import { DensityTerrain } from './components/DensityTerrain.js';
+import { ComparePanel } from './components/ComparePanel.js';
+
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
 
@@ -82,6 +87,12 @@ export class MuJoCoDemo {
     this.detailsPanel = null;  // Expandable details panel
     this.insightCard = null;  // Unified insight popup for alignment moments
     this.timeline = null;  // Enhanced timeline with event markers
+
+    // Compare mode (multi-trajectory visualization)
+    this.compareMode = false;
+    this.trajectoryStore = null;
+    this.densityTerrain = null;
+    this.comparePanel = null;
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -331,6 +342,11 @@ export class MuJoCoDemo {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingTextEl) loadingTextEl.textContent = 'Loading trajectory...';
     if (loadingScreen) loadingScreen.classList.remove('hidden');
+
+    // Exit compare mode if active (user selected a single trajectory)
+    if (this.compareMode) {
+      this.exitCompareMode();
+    }
 
     // Clean up metadata-only mode if switching from aborted run
     if (this.metadataOnlyMode) {
@@ -1877,8 +1893,129 @@ export class MuJoCoDemo {
     }
   }
 
+  /**
+   * Enter compare mode - load all trajectories for current scenario and show comparison UI.
+   * @param {string} scenarioId - Scenario ID (e.g., "barrels_corrupt")
+   */
+  async enterCompareMode(scenarioId) {
+    if (this.compareMode) return;  // Already in compare mode
+
+    const loadingScreen = document.getElementById('loading-screen');
+    const loadingText = document.querySelector('.loading-text');
+    if (loadingText) loadingText.textContent = 'Loading trajectories for comparison...';
+    if (loadingScreen) loadingScreen.classList.remove('hidden');
+
+    try {
+      // Exit playback mode if active
+      if (this.playbackMode) {
+        this._disposeStoryModeVisualizations();
+        this.playbackMode = false;
+      }
+
+      // Hide normal playback UI
+      const playbackUI = document.getElementById('playback-controls');
+      if (playbackUI) playbackUI.style.display = 'none';
+      const timeline = document.getElementById('timeline-container');
+      if (timeline) timeline.style.display = 'none';
+
+      // Initialize trajectory store
+      this.trajectoryStore = new TrajectoryStore();
+      const loadedCount = await this.trajectoryStore.loadAllForScenario(scenarioId);
+
+      if (loadedCount === 0) {
+        throw new Error('No trajectories found for this scenario');
+      }
+
+      console.log(`Compare mode: Loaded ${loadedCount} trajectories for ${scenarioId}`);
+
+      // Initialize density terrain visualization
+      this.densityTerrain = new DensityTerrain(this.scene, this.trajectoryStore);
+      this.densityTerrain.generate();
+
+      // Create compare panel
+      this.comparePanel = new ComparePanel(
+        this.densityTerrain,
+        this.trajectoryStore,
+        () => this.exitCompareMode(),  // Exit callback
+        this.controls  // Pass controls for camera toggle
+      );
+      this.comparePanel.create();
+      this.comparePanel.show();
+
+      // Update header to show compare mode
+      document.getElementById('experiment-id').textContent = `Compare: ${scenarioId} (${loadedCount} runs)`;
+
+      // Set camera to elevated isometric view, centered between side panels
+      // Target offset right to account for wider left panel (520px vs 320px)
+      this.camera.position.set(6, 7, 5);
+      this.controls.target.set(1.8, 0, 0);
+      this.controls.update();
+
+      // Enable slow cinematic auto-rotation
+      this.controls.autoRotate = true;
+      this.controls.autoRotateSpeed = 0.3;  // Slow, cinematic speed (default is 2.0)
+
+      // Enter compare mode
+      this.compareMode = true;
+      this.followRobot = false;
+
+    } catch (error) {
+      console.error('Failed to enter compare mode:', error);
+      alert(`Failed to load comparison: ${error.message}`);
+    } finally {
+      if (loadingScreen) loadingScreen.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Exit compare mode and return to normal view.
+   */
+  exitCompareMode() {
+    if (!this.compareMode) return;
+
+    // Disable auto-rotation
+    this.controls.autoRotate = false;
+
+    // Dispose compare mode components
+    if (this.comparePanel) {
+      this.comparePanel.dispose();
+      this.comparePanel = null;
+    }
+    if (this.densityTerrain) {
+      this.densityTerrain.dispose();
+      this.densityTerrain = null;
+    }
+    if (this.trajectoryStore) {
+      this.trajectoryStore.clear();
+      this.trajectoryStore = null;
+    }
+
+    // Show normal playback UI
+    const playbackUI = document.getElementById('playback-controls');
+    if (playbackUI) playbackUI.style.display = '';
+    const timeline = document.getElementById('timeline-container');
+    if (timeline) timeline.style.display = '';
+
+    // Reset header
+    document.getElementById('experiment-id').textContent = 'No extraction loaded';
+
+    // Exit compare mode
+    this.compareMode = false;
+
+    // Reload the currently selected trajectory if any
+    if (this.selector && this.selector.currentTrajectoryFile) {
+      this.loadTrajectory(`assets/${this.selector.currentTrajectoryFile}`);
+    }
+  }
+
   render(timeMS) {
     this.controls.update();
+
+    // Compare mode rendering (static density terrain)
+    if (this.compareMode) {
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
 
     if (this.playbackMode) {
       // Playback mode - apply recorded trajectory with interpolation

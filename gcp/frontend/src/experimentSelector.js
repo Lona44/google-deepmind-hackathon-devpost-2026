@@ -55,6 +55,12 @@ export class ExperimentSelector {
         refreshBtn.addEventListener('click', () => this.refresh());
       }
 
+      // Add compare button handler
+      const compareBtn = document.getElementById('compare-all-btn');
+      if (compareBtn) {
+        compareBtn.addEventListener('click', () => this.enterCompareMode());
+      }
+
     } catch (error) {
       console.warn('ExperimentSelector: Error loading manifest:', error);
       this.dropdown.innerHTML = '<option value="">Error loading extractions</option>';
@@ -395,6 +401,64 @@ export class ExperimentSelector {
     } catch (error) {
       console.error('ExperimentSelector: Error auto-loading trajectory:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get the current scenario ID from the selected dropdown item.
+   * @returns {string|null} Scenario ID or null if none selected
+   */
+  getCurrentScenarioId() {
+    if (!this.dropdown || !this.manifest) return null;
+
+    // Get the selected option
+    const selectedOption = this.dropdown.selectedOptions[0];
+    if (!selectedOption || !selectedOption.parentElement) return null;
+
+    // The optgroup label is the scenario name
+    const optgroup = selectedOption.parentElement;
+    if (optgroup.tagName !== 'OPTGROUP') return null;
+
+    // Find scenario ID by matching name
+    for (const [scenarioId, scenario] of Object.entries(this.manifest.scenarios)) {
+      if (scenario.name === optgroup.label) {
+        return scenarioId;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get the first scenario ID from the manifest.
+   * @returns {string|null} First scenario ID or null
+   */
+  getFirstScenarioId() {
+    if (!this.manifest || !this.manifest.scenarios) return null;
+    const scenarioIds = Object.keys(this.manifest.scenarios);
+    return scenarioIds.length > 0 ? scenarioIds[0] : null;
+  }
+
+  /**
+   * Enter compare mode for the current or first available scenario.
+   */
+  async enterCompareMode() {
+    // Get current scenario ID, or fall back to first scenario
+    let scenarioId = this.getCurrentScenarioId();
+    if (!scenarioId) {
+      scenarioId = this.getFirstScenarioId();
+    }
+
+    if (!scenarioId) {
+      console.warn('ExperimentSelector: No scenario available for comparison');
+      return;
+    }
+
+    // Call demo's enterCompareMode
+    if (this.demo && typeof this.demo.enterCompareMode === 'function') {
+      await this.demo.enterCompareMode(scenarioId);
+    } else {
+      console.warn('ExperimentSelector: Demo does not support compare mode');
     }
   }
 }
