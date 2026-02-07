@@ -5,6 +5,8 @@
  * AI agent using natural language.
  */
 
+import { getCapabilities } from '../services/capabilities.js';
+
 export class ChatPanel {
   /**
    * @param {GeminiAgent} agent - The Gemini agent instance
@@ -34,7 +36,10 @@ export class ChatPanel {
           <span class="chat-icon">🤖</span>
           <div class="chat-title-group">
             <h3 class="chat-title">Research Assistant</h3>
-            <span class="chat-subtitle">Powered by Gemini 3</span>
+            <div class="chat-subtitle-row">
+              <span class="chat-subtitle">Powered by Gemini 3</span>
+              <span class="mode-badge" id="mode-badge">...</span>
+            </div>
           </div>
         </div>
         <div class="chat-header-actions">
@@ -90,6 +95,9 @@ export class ChatPanel {
 
     // Bind events
     this.bindEvents();
+
+    // Fetch and display mode badge
+    this.updateModeBadge();
 
     return this.container;
   }
@@ -205,7 +213,10 @@ export class ChatPanel {
         play_simulation: '▶️ Playing',
         pause_simulation: '⏸️ Paused',
         seek_to_time: '⏩ Seeked',
-        enter_compare_mode: '📊 Compare mode'
+        enter_compare_mode: '📊 Compare mode',
+        analyze_video: '🎥 Video analyzed',
+        search_papers: '📚 Papers searched',
+        web_search: '🔍 Web searched'
       };
       const label = functionLabels[functionExecuted] || functionExecuted;
       functionBadge = `<div class="function-badge">${label}</div>`;
@@ -301,6 +312,37 @@ export class ChatPanel {
     // Clear UI (keep welcome message)
     const messages = this.messagesContainer.querySelectorAll('.chat-message:not(:first-child)');
     messages.forEach(msg => msg.remove());
+  }
+
+  /**
+   * Update the mode badge based on backend capabilities.
+   */
+  async updateModeBadge() {
+    const badge = this.container.querySelector('#mode-badge');
+    if (!badge) return;
+
+    try {
+      const caps = await getCapabilities();
+      const mode = caps.mode;
+
+      if (mode === 'vertex') {
+        badge.textContent = 'VERTEX AI';
+        badge.className = 'mode-badge mode-vertex';
+        badge.title = 'Full features: Video analysis, Paper RAG, Google Search';
+      } else if (mode === 'free') {
+        badge.textContent = 'API KEY';
+        badge.className = 'mode-badge mode-free';
+        badge.title = 'Direct Gemini API mode';
+      } else {
+        badge.textContent = 'OFFLINE';
+        badge.className = 'mode-badge mode-offline';
+        badge.title = 'No backend connection';
+      }
+    } catch (error) {
+      console.error('Failed to fetch capabilities:', error);
+      badge.textContent = 'OFFLINE';
+      badge.className = 'mode-badge mode-offline';
+    }
   }
 
   /**
@@ -446,9 +488,41 @@ export class ChatPanel {
         color: #fff;
       }
 
+      .chat-subtitle-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       .chat-subtitle {
         font-size: 11px;
         color: rgba(255, 255, 255, 0.5);
+      }
+
+      .mode-badge {
+        font-size: 9px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .mode-badge.mode-vertex {
+        background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+        color: #fff;
+      }
+
+      .mode-badge.mode-free {
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .mode-badge.mode-offline {
+        background: rgba(239, 68, 68, 0.2);
+        color: #F87171;
+        border: 1px solid rgba(239, 68, 68, 0.3);
       }
 
       .chat-header-actions {
