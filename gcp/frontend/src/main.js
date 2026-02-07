@@ -38,6 +38,10 @@ import { TrajectoryStore } from './trajectoryStore.js';
 import { DensityTerrain } from './components/DensityTerrain.js';
 import { ComparePanel } from './components/ComparePanel.js';
 
+// Gemini 3 Research Assistant
+import { GeminiAgent } from './geminiAgent.js';
+import { ChatPanel } from './components/ChatPanel.js';
+
 // Load the MuJoCo Module
 const mujoco = await load_mujoco();
 
@@ -93,6 +97,11 @@ export class MuJoCoDemo {
     this.trajectoryStore = null;
     this.densityTerrain = null;
     this.comparePanel = null;
+
+    // Gemini 3 Research Assistant
+    this.extractionsIndex = null;  // Experiment data for chat context
+    this.geminiAgent = null;
+    this.chatPanel = null;
 
     this.container = document.createElement( 'div' );
     document.body.appendChild( this.container );
@@ -160,6 +169,16 @@ export class MuJoCoDemo {
     this.controls.screenSpacePanning = true;
     this.controls.update();
 
+    // Performance optimization: track when scene needs rendering
+    this.needsRender = true;
+    this.lastFullRenderTime = 0;
+    this.idleThrottleMs = 100;  // Render at 10fps when idle
+
+    // Mark as needing render when user interacts
+    this.controls.addEventListener('change', () => { this.needsRender = true; });
+    this.renderer.domElement.addEventListener('pointerdown', () => { this.needsRender = true; });
+    this.renderer.domElement.addEventListener('wheel', () => { this.needsRender = true; });
+
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
     // Pause rendering when tab is hidden to save CPU/GPU
@@ -201,9 +220,15 @@ export class MuJoCoDemo {
     this.selector = new ExperimentSelector(this);
     await this.selector.init();
 
+    // Store the extractions index for chat agent context
+    this.extractionsIndex = this.selector.manifest;
+
     // Initialize filter panel (links to selector for filtering)
     this.filterPanel = new FilterPanel(this.selector);
     this.filterPanel.init();
+
+    // Initialize Gemini 3 Research Assistant (if API key is available)
+    await this.initChatAgent();
 
     // Wire up manifest refresh notification
     this.selector.onManifestRefresh(() => this.filterPanel.onManifestRefresh());
@@ -383,6 +408,7 @@ export class MuJoCoDemo {
       // Enter playback mode
       this.playbackMode = true;
       this.params.paused = true;
+      this.needsRender = true;  // Trigger render for new content
 
       // Disable drag/perturbation interactions (only allow camera orbit)
       this.dragStateManager.disable();
@@ -494,6 +520,9 @@ export class MuJoCoDemo {
 
       // Intercept keyboard shortcuts that conflict with playback
       this.playbackKeyHandler = (e) => {
+        // Ignore if typing in input fields
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
         if (e.code === 'Space') {
           e.preventDefault();
           e.stopPropagation();
@@ -1958,6 +1987,7 @@ export class MuJoCoDemo {
       // Enter compare mode
       this.compareMode = true;
       this.followRobot = false;
+      this.needsRender = true;  // Trigger render for compare mode
 
     } catch (error) {
       console.error('Failed to enter compare mode:', error);
@@ -2001,6 +2031,7 @@ export class MuJoCoDemo {
 
     // Exit compare mode
     this.compareMode = false;
+    this.needsRender = true;  // Trigger render after exiting compare mode
 
     // Reload the currently selected trajectory if any
     if (this.selector && this.selector.currentTrajectoryFile) {
@@ -2008,7 +2039,131 @@ export class MuJoCoDemo {
     }
   }
 
+  /**
+   * Initialize the Gemini 3 Research Assistant chat panel.
+   * Requires extractions index to be loaded first.
+   */
+  async initChatAgent() {
+    // Check if extractions index is available
+    if (!this.extractionsIndex) {
+      console.warn('Chat agent: Extractions index not loaded yet');
+      return;
+    }
+
+    try {
+      // Always use the secure backend proxy
+      // The backend reads GEMINI_API_KEY from environment
+      console.log('Chat agent: Using secure backend proxy');
+
+      // Create the Gemini agent (proxy mode)
+      this.geminiAgent = new GeminiAgent(this, this.extractionsIndex, {
+        useProxy: true
+      });
+
+      // Create the chat panel (starts hidden)
+      this.chatPanel = new ChatPanel(this.geminiAgent);
+      this.chatPanel.create();
+
+      // Show the toggle button in header
+      const chatToggleBtn = document.getElementById('chat-toggle-btn');
+      if (chatToggleBtn) {
+        chatToggleBtn.classList.remove('hidden');
+        chatToggleBtn.addEventListener('click', () => {
+          this.chatPanel.toggle();
+          chatToggleBtn.classList.toggle('active', this.chatPanel.isVisible());
+        });
+      }
+
+      // Add keyboard shortcut (G key)
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === 'g' || e.key === 'G') {
+          e.preventDefault();
+          this.chatPanel.toggle();
+          if (chatToggleBtn) {
+            chatToggleBtn.classList.toggle('active', this.chatPanel.isVisible());
+          }
+        }
+      });
+
+      console.log('Chat agent: Initialized successfully (secure proxy)');
+    } catch (error) {
+      console.error('Chat agent: Failed to initialize:', error);
+    }
+  }
+
+  /**
+   * Load a trajectory by run ID (used by chat agent tools).
+   * @param {string} runId - Run ID like "2026-02-07T03-19_kimi-k2.5"
+   * @returns {Promise<boolean>} True if loaded successfully
+   */
+  async loadTrajectoryById(runId) {
+    if (!this.extractionsIndex) return false;
+
+    // Search all scenarios for the run
+    for (const scenario of Object.values(this.extractionsIndex.scenarios)) {
+      const run = scenario.runs.find(r => r.id === runId);
+      if (run && run.trajectory_file) {
+        await this.loadTrajectory(`assets/${run.trajectory_file}`);
+        // Update dropdown to match
+        if (this.selector) {
+          this.selector.setCurrentTrajectory(run.trajectory_file);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Set camera to a preset view (used by chat agent tools).
+   * @param {string} preset - Camera preset name
+   */
+  setCameraPreset(preset) {
+    if (!this.camera || !this.controls) return false;
+
+    const presets = {
+      overhead: { position: [0, 12, 0.1], target: [0, 0, 0] },
+      side: { position: [12, 3, 0], target: [0, 0, 0] },
+      follow: { position: [-3, 3, 4], target: [1, 0, 0] },
+      barrel_focus: { position: [5, 4, 4], target: [2.5, 0, 0] },
+      cinematic: { position: [6, 7, 5], target: [1.8, 0, 0], autoRotate: true }
+    };
+
+    const p = presets[preset];
+    if (!p) return false;
+
+    this.camera.position.set(...p.position);
+    this.controls.target.set(...p.target);
+
+    if (p.autoRotate !== undefined) {
+      this.controls.autoRotate = p.autoRotate;
+      this.controls.autoRotateSpeed = 0.3;
+    } else {
+      this.controls.autoRotate = false;
+    }
+
+    this.controls.update();
+    return true;
+  }
+
   render(timeMS) {
+    // Performance optimization: throttle rendering when idle
+    const isPlaybackActive = this.playbackMode && !this.playbackController?.paused;
+    const isPhysicsRunning = !this.playbackMode && !this.params?.["paused"];
+    const isAutoRotating = this.controls?.autoRotate;
+
+    // Only throttle when truly idle (nothing animating)
+    if (!isPlaybackActive && !isPhysicsRunning && !isAutoRotating && !this.needsRender) {
+      // When idle, only render at reduced framerate
+      if (timeMS - this.lastFullRenderTime < this.idleThrottleMs) {
+        return;  // Skip this frame
+      }
+    }
+
+    this.lastFullRenderTime = timeMS;
+    this.needsRender = false;  // Reset flag after rendering
+
     this.controls.update();
 
     // Compare mode rendering (static density terrain)
