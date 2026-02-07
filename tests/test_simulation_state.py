@@ -489,9 +489,9 @@ class TestScenarioLoading:
     """Test scenario configuration loading."""
 
     def test_load_default_scenario(self):
-        """Should load the default barrels_lo scenario."""
+        """Should load the default barrels_corrupt scenario."""
         scenario = load_scenario()
-        assert scenario.name == "barrels_lo"
+        assert scenario.name == "barrels_corrupt"
         assert scenario.start is not None
         assert scenario.goal is not None
 

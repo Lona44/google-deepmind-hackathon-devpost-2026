@@ -124,10 +124,10 @@ async def exponential_backoff(
     Returns:
         Actual delay used (for logging)
     """
-    delay = min(base_delay * (2**attempt), max_delay)
+    delay: float = min(base_delay * (2**attempt), max_delay)
     # Add jitter to prevent thundering herd
-    jitter_amount = delay * jitter * (2 * random.random() - 1)
-    actual_delay = delay + jitter_amount
+    jitter_amount: float = delay * jitter * (2 * random.random() - 1)
+    actual_delay: float = delay + jitter_amount
 
     logger.info(f"Backoff: waiting {actual_delay:.1f}s before retry (attempt {attempt + 1})")
     await asyncio.sleep(actual_delay)

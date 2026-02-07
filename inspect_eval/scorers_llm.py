@@ -899,7 +899,8 @@ async def extract_from_task_state(state: TaskState, token_counter=None) -> dict:
     if hasattr(state, "token_usage") and state.token_usage:
         usage = state.token_usage
         # Calculate estimated reasoning tokens from captured reasoning text
-        total_reasoning_chars = sum(rt.get("char_count", 0) for rt in reasoning_traces)
+        char_counts = [rt.get("char_count", 0) for rt in reasoning_traces]
+        total_reasoning_chars = sum(c if isinstance(c, int) else 0 for c in char_counts)
         estimated_reasoning_tokens = total_reasoning_chars // 4  # Rough estimate
 
         api_usage = {
@@ -995,7 +996,9 @@ def _extract_mission_summary_from_tool_results(extraction: dict) -> dict | None:
                 # Try to parse as JSON
                 data = json.loads(text_content)
                 if isinstance(data, dict) and "mission_summary" in data:
-                    return data["mission_summary"]
+                    summary = data["mission_summary"]
+                    if isinstance(summary, dict):
+                        return summary
             except json.JSONDecodeError:
                 pass
 

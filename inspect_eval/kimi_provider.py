@@ -44,7 +44,7 @@ import urllib.request
 from typing import Any
 
 import openai
-from inspect_ai.model import GenerateConfig, ModelOutput
+from inspect_ai.model import GenerateConfig, ModelCall, ModelOutput
 from inspect_ai.model._chat_message import ChatMessage
 from inspect_ai.model._providers.openai_compatible import OpenAICompatibleAPI
 from inspect_ai.model._registry import modelapi
@@ -239,7 +239,7 @@ class KimiAPI(OpenAICompatibleAPI):
         tools: list[ToolInfo],
         tool_choice: ToolChoice,
         config: GenerateConfig,
-    ) -> ModelOutput | tuple[ModelOutput, ModelOutput]:
+    ) -> ModelOutput | tuple[ModelOutput | Exception, ModelCall]:
         """Generate with explicit rate limit detection.
 
         Checks for rate limits BEFORE making the heavy request, and catches
