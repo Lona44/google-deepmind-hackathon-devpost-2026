@@ -19,7 +19,7 @@ export async function getCapabilities() {
     }
 
     try {
-        const response = await fetch('/api/capabilities');
+        const response = await fetch('/api/capabilities/');
         if (!response.ok) {
             console.error('Failed to fetch capabilities:', response.status);
             return getDefaultCapabilities();

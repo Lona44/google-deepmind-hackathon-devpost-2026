@@ -5,8 +5,6 @@
  * AI agent using natural language.
  */
 
-import { getCapabilities } from '../services/capabilities.js';
-
 export class ChatPanel {
   /**
    * @param {GeminiAgent} agent - The Gemini agent instance
@@ -322,8 +320,11 @@ export class ChatPanel {
     if (!badge) return;
 
     try {
-      const caps = await getCapabilities();
+      const response = await fetch('/api/capabilities/');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const caps = await response.json();
       const mode = caps.mode;
+      console.log('[ChatPanel] Capabilities:', caps);
 
       if (mode === 'vertex') {
         badge.textContent = 'VERTEX AI';
@@ -339,9 +340,10 @@ export class ChatPanel {
         badge.title = 'No backend connection';
       }
     } catch (error) {
-      console.error('Failed to fetch capabilities:', error);
+      console.error('[ChatPanel] Failed to fetch capabilities:', error);
       badge.textContent = 'OFFLINE';
       badge.className = 'mode-badge mode-offline';
+      badge.title = `Error: ${error.message}`;
     }
   }
 
