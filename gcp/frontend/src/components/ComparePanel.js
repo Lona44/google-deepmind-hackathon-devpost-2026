@@ -84,14 +84,15 @@ export class ComparePanel {
       </div>
     `;
 
-    // Create LEFT panel (model statistics)
+    // Create LEFT panel (model leaderboard)
     this.statsPanel = document.createElement('div');
     this.statsPanel.id = 'compare-stats-panel';
     this.statsPanel.className = 'compare-stats-panel';
 
     this.statsPanel.innerHTML = `
       <div class="compare-header">
-        <h3>Model Statistics</h3>
+        <h3>Model Leaderboard</h3>
+        <button id="refresh-stats-btn" class="icon-btn" title="Refresh data">↻</button>
       </div>
       <div id="model-stats" class="model-stats">
         <!-- Stats cards generated dynamically -->
@@ -128,6 +129,12 @@ export class ComparePanel {
           this.onExit();
         }
       });
+    }
+
+    // Refresh button (reload data from manifest)
+    const refreshBtn = this.statsPanel.querySelector('#refresh-stats-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => this.refreshData());
     }
 
     // Terrain visible checkbox
@@ -309,6 +316,7 @@ export class ComparePanel {
 
   /**
    * Populate the model statistics from the trajectory store.
+   * Sorted by overall score (descending) as a leaderboard.
    */
   populateModelStats() {
     const statsContainer = this.statsPanel?.querySelector('#model-stats');
@@ -319,32 +327,42 @@ export class ComparePanel {
     const aggregateStats = this.trajectoryStore.getAggregateStats();
     if (!aggregateStats) return;
 
-    for (const model of aggregateStats.byModel) {
+    // Sort by overall/composite score (descending) for leaderboard
+    const sortedModels = [...aggregateStats.byModel].sort((a, b) => {
+      const scoreA = a.avgComposite ?? -1;
+      const scoreB = b.avgComposite ?? -1;
+      return scoreB - scoreA;
+    });
+
+    let rank = 1;
+    for (const model of sortedModels) {
       const colorCSS = hexToCSS(model.color);
 
       const card = document.createElement('div');
       card.className = 'model-stat-card';
 
-      // Header with model name and color
+      // Header with rank, model name and color
       const header = document.createElement('div');
       header.className = 'stat-card-header';
       header.innerHTML = `
+        <span class="stat-rank">#${rank}</span>
         <span class="stat-swatch" style="background-color: ${colorCSS}"></span>
         <span class="stat-model-name">${model.modelName}</span>
         <span class="stat-run-count">${model.totalRuns} run${model.totalRuns !== 1 ? 's' : ''}</span>
       `;
       card.appendChild(header);
+      rank++;
 
       // Scores row
       const scoresRow = document.createElement('div');
       scoresRow.className = 'stat-scores-row';
-      // Format composite as percentage
-      const compositePercent = model.avgComposite != null ? Math.round(model.avgComposite * 100) : null;
+      // Format overall score as percentage
+      const overallPercent = model.avgComposite != null ? Math.round(model.avgComposite * 100) : null;
 
       scoresRow.innerHTML = `
-        <div class="stat-score">
-          <span class="stat-value">${compositePercent != null ? compositePercent : '—'}<span class="stat-max">%</span></span>
-          <span class="stat-label">Composite</span>
+        <div class="stat-score stat-score-overall">
+          <span class="stat-value">${overallPercent != null ? overallPercent : '—'}<span class="stat-max">%</span></span>
+          <span class="stat-label">Overall</span>
         </div>
         <div class="stat-score">
           <span class="stat-value">${model.avgSafety != null ? model.avgSafety.toFixed(1) : '—'}<span class="stat-max">/5</span></span>
@@ -422,6 +440,41 @@ export class ComparePanel {
       case 'rationalization': return 'Rationalization';
       case 'strategic_concealment': return 'Concealment';
       default: return name;
+    }
+  }
+
+  /**
+   * Refresh data from the manifest (for when new experiments are added).
+   */
+  async refreshData() {
+    const refreshBtn = this.statsPanel?.querySelector('#refresh-stats-btn');
+    if (refreshBtn) {
+      refreshBtn.classList.add('spinning');
+    }
+
+    try {
+      // Clear cached manifest to force reload
+      this.trajectoryStore.manifest = null;
+
+      // Reload scenario data
+      const scenarioId = this.trajectoryStore.scenario;
+      if (scenarioId) {
+        await this.trajectoryStore.loadAllForScenario(scenarioId);
+
+        // Refresh UI
+        this.populateModelToggles();
+        this.populateLegend();
+        this.populateModelStats();
+
+        // Regenerate terrain with current filter
+        this._regenerateTerrain();
+      }
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    } finally {
+      if (refreshBtn) {
+        refreshBtn.classList.remove('spinning');
+      }
     }
   }
 
@@ -531,11 +584,47 @@ export class ComparePanel {
         border-bottom: 1px solid var(--color-border-default, rgba(255, 255, 255, 0.08));
       }
 
+      .compare-stats-panel .compare-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
       .compare-stats-panel .compare-header h3 {
         margin: 0;
         font-size: 18px;
         font-weight: var(--font-weight-semibold, 600);
         color: var(--color-text-primary, #fff);
+      }
+
+      .compare-stats-panel .icon-btn {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .compare-stats-panel .icon-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #fff;
+      }
+
+      .compare-stats-panel .icon-btn.spinning {
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
       }
 
       .compare-header {
@@ -748,6 +837,25 @@ export class ComparePanel {
         align-items: center;
         gap: 10px;
         margin-bottom: 12px;
+      }
+
+      .stat-rank {
+        font-size: 14px;
+        font-weight: var(--font-weight-bold, 700);
+        color: rgba(255, 255, 255, 0.4);
+        min-width: 24px;
+      }
+
+      .model-stat-card:first-child .stat-rank {
+        color: #FFD700;
+      }
+
+      .model-stat-card:nth-child(2) .stat-rank {
+        color: #C0C0C0;
+      }
+
+      .model-stat-card:nth-child(3) .stat-rank {
+        color: #CD7F32;
       }
 
       .stat-swatch {
