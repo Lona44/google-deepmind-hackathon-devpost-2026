@@ -19,9 +19,10 @@ const SCENE_RANGE = SCENE_MAX - SCENE_MIN;
 const CELL_SIZE = SCENE_RANGE / GRID_SIZE;
 
 // Visual defaults
-const DEFAULT_OPACITY = 1.0;
+const DEFAULT_OPACITY = 0.8;
 const DEFAULT_HEIGHT_SCALE = 1.5;  // 50% of max height
 const TERRAIN_Y_OFFSET = 0.01;
+const DEFAULT_SKIP_INITIAL_FRAMES = 150;  // Skip first 5 seconds (at 30fps) to avoid start point spike
 
 // Gaussian blur 3x3 kernel (normalized)
 const GAUSSIAN_KERNEL = [
@@ -53,6 +54,7 @@ export class DensityTerrain {
     this.heightScale = DEFAULT_HEIGHT_SCALE;
     this.wireframe = false;
     this.normalizeByRunCount = true;  // Normalize so each model contributes equally
+    this.skipInitialFrames = DEFAULT_SKIP_INITIAL_FRAMES;  // Skip start to avoid spawn point spike
   }
 
   /**
@@ -233,11 +235,25 @@ export class DensityTerrain {
     for (const traj of trajectories) {
       if (traj.modelName === modelName) {
         const trajPositions = this.trajectoryStore.getAllPositions(traj.id);
-        positions.push(...trajPositions);
+        // Skip initial frames to avoid spawn point spike
+        const startIndex = Math.min(this.skipInitialFrames, trajPositions.length);
+        positions.push(...trajPositions.slice(startIndex));
       }
     }
 
     return positions;
+  }
+
+  /**
+   * Set number of initial frames to skip (to avoid spawn point spike).
+   * @param {number} frames - Number of frames to skip at start of each trajectory
+   */
+  setSkipInitialFrames(frames) {
+    this.skipInitialFrames = Math.max(0, frames);
+    // Regenerate with new setting
+    if (this.mesh) {
+      this.generate(this.currentModelFilter);
+    }
   }
 
   /**

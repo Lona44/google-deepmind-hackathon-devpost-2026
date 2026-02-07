@@ -24,11 +24,13 @@ export class ComparePanel {
    * @param {Object} terrain - DensityTerrain instance
    * @param {Object} trajectoryStore - TrajectoryStore instance
    * @param {Function} onExit - Callback function when exit button is clicked
+   * @param {Object} controls - OrbitControls instance for camera control
    */
-  constructor(terrain, trajectoryStore, onExit) {
+  constructor(terrain, trajectoryStore, onExit, controls = null) {
     this.terrain = terrain;
     this.trajectoryStore = trajectoryStore;
     this.onExit = onExit;
+    this.controls = controls;
 
     this.container = null;
     this.isVisible = false;
@@ -61,6 +63,13 @@ export class ComparePanel {
       </div>
 
       <div class="compare-section">
+        <h4>Camera</h4>
+        <label class="toggle-row">
+          <input type="checkbox" id="camera-auto-rotate" checked> Cinematic orbit
+        </label>
+      </div>
+
+      <div class="compare-section">
         <h4>Terrain Settings</h4>
         <label class="toggle-row">
           <input type="checkbox" id="terrain-visible" checked> Show terrain
@@ -68,11 +77,14 @@ export class ComparePanel {
         <label class="toggle-row" title="When enabled, each model contributes equally regardless of run count">
           <input type="checkbox" id="terrain-normalize" checked> Normalize by runs
         </label>
+        <label class="slider-row" title="Skip initial frames to reduce spawn point spike">
+          Skip start: <input type="range" id="terrain-skip-frames" min="0" max="150" step="10" value="150"> <span id="skip-frames-value">150</span>
+        </label>
         <label class="slider-row">
           Height: <input type="range" id="terrain-height" min="0.2" max="3" step="0.1" value="1.5">
         </label>
         <label class="slider-row">
-          Opacity: <input type="range" id="terrain-opacity" min="0" max="1" step="0.05" value="1">
+          Opacity: <input type="range" id="terrain-opacity" min="0" max="1" step="0.05" value="0.8">
         </label>
         <label class="toggle-row">
           <input type="checkbox" id="terrain-wireframe"> Wireframe
@@ -83,6 +95,12 @@ export class ComparePanel {
         <h4>Legend</h4>
         <div id="model-legend" class="model-legend">
           <!-- Legend items generated dynamically -->
+        </div>
+      </div>
+
+      <div class="compare-section total-runs-section">
+        <div id="total-runs-display" class="total-runs-display">
+          <!-- Total runs generated dynamically -->
         </div>
       </div>
     `;
@@ -97,8 +115,14 @@ export class ComparePanel {
         <h3>Model Leaderboard</h3>
         <button id="refresh-stats-btn" class="icon-btn" title="Refresh data">↻</button>
       </div>
-      <div id="model-stats" class="model-stats">
-        <!-- Stats cards generated dynamically -->
+      <p class="leaderboard-subtitle">Ranked by alignment score based on our experimental methodology — an evolving approach to measuring AI safety behaviors.</p>
+      <div class="leaderboard-container">
+        <div id="rank-column" class="rank-column">
+          <!-- Rank numbers generated dynamically -->
+        </div>
+        <div id="model-stats" class="model-stats">
+          <!-- Stats cards generated dynamically -->
+        </div>
       </div>
     `;
 
@@ -112,6 +136,7 @@ export class ComparePanel {
     this.populateModelToggles();
     this.populateLegend();
     this.populateModelStats();
+    this.populateTotalRuns();
 
     // Add to DOM (hidden by default)
     document.body.appendChild(this.container);
@@ -140,6 +165,16 @@ export class ComparePanel {
       refreshBtn.addEventListener('click', () => this.refreshData());
     }
 
+    // Camera auto-rotate checkbox
+    const cameraAutoRotate = this.container.querySelector('#camera-auto-rotate');
+    if (cameraAutoRotate) {
+      cameraAutoRotate.addEventListener('change', (e) => {
+        if (this.controls) {
+          this.controls.autoRotate = e.target.checked;
+        }
+      });
+    }
+
     // Terrain visible checkbox
     const terrainVisible = this.container.querySelector('#terrain-visible');
     if (terrainVisible) {
@@ -156,6 +191,19 @@ export class ComparePanel {
       terrainNormalize.addEventListener('change', (e) => {
         if (this.terrain) {
           this.terrain.setNormalizeByRunCount(e.target.checked);
+        }
+      });
+    }
+
+    // Terrain skip frames slider
+    const terrainSkipFrames = this.container.querySelector('#terrain-skip-frames');
+    const skipFramesValue = this.container.querySelector('#skip-frames-value');
+    if (terrainSkipFrames) {
+      terrainSkipFrames.addEventListener('input', (e) => {
+        const frames = parseInt(e.target.value);
+        if (skipFramesValue) skipFramesValue.textContent = frames;
+        if (this.terrain) {
+          this.terrain.setSkipInitialFrames(frames);
         }
       });
     }
@@ -329,13 +377,15 @@ export class ComparePanel {
 
   /**
    * Populate the model statistics from the trajectory store.
-   * Sorted by overall score (descending) as a leaderboard.
+   * Sorted by overall score (descending) as a leaderboard with animated bars.
    */
   populateModelStats() {
     const statsContainer = this.statsPanel?.querySelector('#model-stats');
-    if (!statsContainer || !this.trajectoryStore) return;
+    const rankColumn = this.statsPanel?.querySelector('#rank-column');
+    if (!statsContainer || !rankColumn || !this.trajectoryStore) return;
 
     statsContainer.innerHTML = '';
+    rankColumn.innerHTML = '';
 
     const aggregateStats = this.trajectoryStore.getAggregateStats();
     if (!aggregateStats) return;
@@ -347,87 +397,143 @@ export class ComparePanel {
       return scoreB - scoreA;
     });
 
+    // Find max values for relative bar sizing
+    const maxComposite = Math.max(...sortedModels.map(m => m.avgComposite ?? 0), 0.01);
+
     let rank = 1;
     for (const model of sortedModels) {
       const colorCSS = hexToCSS(model.color);
+      const overallPercent = model.avgComposite != null ? Math.round(model.avgComposite * 100) : 0;
+      const safetyPercent = model.avgSafety != null ? (model.avgSafety / 5) * 100 : 0;
+      const honestyPercent = model.avgHonesty != null ? (model.avgHonesty / 5) * 100 : 0;
+
+      // Bar width relative to leader (leader gets 100%)
+      const relativeWidth = model.avgComposite != null ? (model.avgComposite / maxComposite) * 100 : 0;
+
+      // Create rank number in the left column
+      const rankNum = document.createElement('div');
+      rankNum.className = `rank-number${rank === 1 ? ' rank-leader' : ''}`;
+      rankNum.style.setProperty('--animation-delay', `${(rank - 1) * 100}ms`);
+      rankNum.textContent = rank;
+      rankColumn.appendChild(rankNum);
 
       const card = document.createElement('div');
-      card.className = 'model-stat-card';
+      card.className = `model-stat-card${rank === 1 ? ' leader-card' : ''}`;
+      card.style.setProperty('--model-color', colorCSS);
+      card.style.setProperty('--animation-delay', `${(rank - 1) * 100}ms`);
 
-      // Header with rank, model name and color
-      const header = document.createElement('div');
-      header.className = 'stat-card-header';
-      header.innerHTML = `
-        <span class="stat-rank">#${rank}</span>
-        <span class="stat-swatch" style="background-color: ${colorCSS}"></span>
-        <span class="stat-model-name">${model.modelName}</span>
-        <span class="stat-run-count">${model.totalRuns} run${model.totalRuns !== 1 ? 's' : ''}</span>
+      // Rank medal for top 3
+      const rankClass = rank <= 3 ? `rank-${rank}` : '';
+      const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+
+      card.innerHTML = `
+        <div class="leaderboard-row">
+          <div class="rank-badge ${rankClass}">${rankIcon}</div>
+          <div class="model-info">
+            <div class="model-header">
+              <span class="model-name-bar">${model.modelName}</span>
+              <span class="model-score-value">${overallPercent}%</span>
+            </div>
+            <div class="score-bar-container">
+              <div class="score-bar score-bar-overall" style="width: ${relativeWidth}%; background: ${colorCSS};">
+                <div class="score-bar-glow" style="background: ${colorCSS};"></div>
+              </div>
+            </div>
+            <div class="sub-scores">
+              <div class="sub-score">
+                <span class="sub-label">Safety</span>
+                <div class="sub-bar-container">
+                  <div class="sub-bar" style="width: ${safetyPercent}%;"></div>
+                </div>
+                <span class="sub-value">${model.avgSafety != null ? model.avgSafety.toFixed(1) : '—'}</span>
+              </div>
+              <div class="sub-score">
+                <span class="sub-label">Honesty</span>
+                <div class="sub-bar-container">
+                  <div class="sub-bar" style="width: ${honestyPercent}%;"></div>
+                </div>
+                <span class="sub-value">${model.avgHonesty != null ? model.avgHonesty.toFixed(1) : '—'}</span>
+              </div>
+              <div class="sub-score sub-score-text">
+                <span class="sub-label">Attempts</span>
+                <span class="sub-value">${model.avgAttempts != null ? model.avgAttempts.toFixed(1) : '—'}</span>
+              </div>
+              <div class="sub-score sub-score-text">
+                <span class="sub-label">Runs</span>
+                <span class="sub-value">${model.totalRuns}${model.abortedRuns > 0 ? ` <span class="aborted-indicator">(${model.abortedRuns} aborted)</span>` : ''}</span>
+              </div>
+            </div>
+            <div class="contact-stats">
+              <span class="contact-label">Barrel Contact:</span>
+              <span class="contact-value ${model.contactRate < 0.8 ? 'contact-low' : model.contactRate < 1 ? 'contact-medium' : 'contact-high'}">${model.runsWithContact}/${model.completedRuns} runs (${Math.round(model.contactRate * 100)}%)</span>
+              <span class="contact-detail">${model.totalContacts} total touches</span>
+            </div>
+          </div>
+        </div>
+        <div class="badge-row">
+          ${this._renderAlignmentBadges(model.alignmentNames)}
+          ${this._renderDeploymentBadges(model.deploymentStatuses)}
+        </div>
       `;
-      card.appendChild(header);
-      rank++;
-
-      // Scores row
-      const scoresRow = document.createElement('div');
-      scoresRow.className = 'stat-scores-row';
-      // Format overall score as percentage
-      const overallPercent = model.avgComposite != null ? Math.round(model.avgComposite * 100) : null;
-
-      scoresRow.innerHTML = `
-        <div class="stat-score stat-score-overall">
-          <span class="stat-value">${overallPercent != null ? overallPercent : '—'}<span class="stat-max">%</span></span>
-          <span class="stat-label">Overall</span>
-        </div>
-        <div class="stat-score">
-          <span class="stat-value">${model.avgSafety != null ? model.avgSafety.toFixed(1) : '—'}<span class="stat-max">/5</span></span>
-          <span class="stat-label">Safety</span>
-        </div>
-        <div class="stat-score">
-          <span class="stat-value">${model.avgHonesty != null ? model.avgHonesty.toFixed(1) : '—'}<span class="stat-max">/5</span></span>
-          <span class="stat-label">Honesty</span>
-        </div>
-        <div class="stat-score">
-          <span class="stat-value">${model.avgAttempts != null ? model.avgAttempts.toFixed(1) : '—'}</span>
-          <span class="stat-label">Attempts</span>
-        </div>
-      `;
-      card.appendChild(scoresRow);
-
-      // Aborted runs indicator (if any)
-      if (model.abortedRuns > 0) {
-        const abortedRow = document.createElement('div');
-        abortedRow.className = 'stat-aborted-row';
-        abortedRow.innerHTML = `<span class="abort-badge">${model.abortedRuns} aborted</span>`;
-        card.appendChild(abortedRow);
-      }
-
-      // Alignment breakdown
-      const alignmentRow = document.createElement('div');
-      alignmentRow.className = 'stat-alignment-row';
-      const alignmentBadges = [];
-      for (const [name, count] of Object.entries(model.alignmentNames)) {
-        if (count > 0) {
-          const badgeClass = this._getAlignmentBadgeClass(name);
-          alignmentBadges.push(`<span class="alignment-badge ${badgeClass}">${this._formatAlignmentName(name)} (${count})</span>`);
-        }
-      }
-      alignmentRow.innerHTML = alignmentBadges.join('');
-      card.appendChild(alignmentRow);
-
-      // Deployment status breakdown
-      const deploymentRow = document.createElement('div');
-      deploymentRow.className = 'stat-deployment-row';
-      const deploymentBadges = [];
-      for (const [status, count] of Object.entries(model.deploymentStatuses)) {
-        if (count > 0) {
-          const statusClass = status.toLowerCase();
-          deploymentBadges.push(`<span class="deployment-badge ${statusClass}">${status} (${count})</span>`);
-        }
-      }
-      deploymentRow.innerHTML = deploymentBadges.join('');
-      card.appendChild(deploymentRow);
 
       statsContainer.appendChild(card);
+      rank++;
+
+      // Trigger animation after append
+      requestAnimationFrame(() => {
+        card.classList.add('animate-in');
+        rankNum.classList.add('animate-in');
+      });
     }
+  }
+
+  /**
+   * Populate the total runs display.
+   */
+  populateTotalRuns() {
+    const totalRunsDisplay = this.container?.querySelector('#total-runs-display');
+    if (!totalRunsDisplay || !this.trajectoryStore) return;
+
+    const aggregateStats = this.trajectoryStore.getAggregateStats();
+    if (!aggregateStats) return;
+
+    const { totalRuns, totalCompleted, totalAborted } = aggregateStats.totals;
+
+    totalRunsDisplay.innerHTML = `
+      <div class="total-runs-number">${totalRuns}</div>
+      <div class="total-runs-label">Total Runs Analyzed</div>
+      ${totalAborted > 0 ? `<div class="total-runs-detail">${totalCompleted} completed · ${totalAborted} aborted</div>` : ''}
+    `;
+  }
+
+  /**
+   * Render alignment badges HTML.
+   * @private
+   */
+  _renderAlignmentBadges(alignmentNames) {
+    const badges = [];
+    for (const [name, count] of Object.entries(alignmentNames)) {
+      if (count > 0) {
+        const badgeClass = this._getAlignmentBadgeClass(name);
+        badges.push(`<span class="alignment-badge ${badgeClass}">${this._formatAlignmentName(name)} (${count})</span>`);
+      }
+    }
+    return badges.join('');
+  }
+
+  /**
+   * Render deployment status badges HTML.
+   * @private
+   */
+  _renderDeploymentBadges(deploymentStatuses) {
+    const badges = [];
+    for (const [status, count] of Object.entries(deploymentStatuses)) {
+      if (count > 0) {
+        const statusClass = status.toLowerCase();
+        badges.push(`<span class="deployment-badge ${statusClass}">${status} (${count})</span>`);
+      }
+    }
+    return badges.join('');
   }
 
   /**
@@ -478,6 +584,7 @@ export class ComparePanel {
         this.populateModelToggles();
         this.populateLegend();
         this.populateModelStats();
+        this.populateTotalRuns();
 
         // Regenerate terrain with current filter
         this._regenerateTerrain();
@@ -549,7 +656,7 @@ export class ComparePanel {
         position: fixed;
         top: calc(var(--header-height, 50px) + var(--space-4, 16px));
         left: var(--space-4, 16px);
-        width: 400px;
+        width: 520px;
         max-height: calc(100vh - var(--header-height, 50px) - var(--space-8, 32px));
         overflow-y: auto;
         background: rgba(24, 24, 28, 0.95);
@@ -608,6 +715,15 @@ export class ComparePanel {
         font-size: 18px;
         font-weight: var(--font-weight-semibold, 600);
         color: var(--color-text-primary, #fff);
+      }
+
+      .leaderboard-subtitle {
+        margin: 0 0 16px 0;
+        padding: 0 4px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.45);
+        font-style: italic;
       }
 
       .compare-stats-panel .icon-btn {
@@ -831,170 +947,451 @@ export class ComparePanel {
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
       }
 
-      /* Model Statistics */
+      /* Total Runs Display */
+      .total-runs-section {
+        border-bottom: none !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+      }
+
+      .total-runs-display {
+        text-align: center;
+        padding: 20px 16px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .total-runs-number {
+        font-size: 56px;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1;
+        margin-bottom: 8px;
+        text-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+      }
+
+      .total-runs-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.6);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .total-runs-detail {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.4);
+        margin-top: 8px;
+      }
+
+      /* Model Statistics - Animated Bar Chart Leaderboard */
+      .leaderboard-container {
+        display: flex;
+        gap: 0;
+      }
+
+      .rank-column {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding-right: 12px;
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
+        margin-right: 12px;
+      }
+
+      .rank-number {
+        width: 36px;
+        height: 100%;
+        min-height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.25);
+        opacity: 0;
+        transform: translateX(-10px);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition-delay: var(--animation-delay, 0ms);
+      }
+
+      .rank-number.animate-in {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .rank-number.rank-leader {
+        font-size: 36px;
+        color: #FFD700;
+        text-shadow:
+          0 0 10px rgba(255, 215, 0, 0.8),
+          0 0 20px rgba(255, 215, 0, 0.6),
+          0 0 30px rgba(255, 215, 0, 0.4),
+          0 0 40px rgba(255, 215, 0, 0.2);
+        animation: leaderPulse 2s ease-in-out infinite;
+      }
+
+      @keyframes leaderPulse {
+        0%, 100% {
+          text-shadow:
+            0 0 10px rgba(255, 215, 0, 0.8),
+            0 0 20px rgba(255, 215, 0, 0.6),
+            0 0 30px rgba(255, 215, 0, 0.4),
+            0 0 40px rgba(255, 215, 0, 0.2);
+        }
+        50% {
+          text-shadow:
+            0 0 15px rgba(255, 215, 0, 1),
+            0 0 30px rgba(255, 215, 0, 0.8),
+            0 0 45px rgba(255, 215, 0, 0.6),
+            0 0 60px rgba(255, 215, 0, 0.4);
+        }
+      }
+
       .model-stats {
         display: flex;
         flex-direction: column;
-        gap: var(--space-3, 12px);
+        gap: 16px;
+        flex: 1;
+        min-width: 0;
       }
 
       .model-stat-card {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: var(--radius-md, 8px);
+        border-radius: 12px;
         padding: 16px;
+        opacity: 0;
+        transform: translateX(-20px);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition-delay: var(--animation-delay, 0ms);
       }
 
-      .stat-card-header {
+      .model-stat-card.animate-in {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .model-stat-card:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: var(--model-color, rgba(255, 255, 255, 0.15));
+      }
+
+      /* Leader card special styling */
+      .model-stat-card.leader-card {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.08) 0%, rgba(255, 180, 0, 0.03) 100%);
+        border-color: rgba(255, 215, 0, 0.3);
+        box-shadow:
+          0 0 20px rgba(255, 215, 0, 0.15),
+          inset 0 0 30px rgba(255, 215, 0, 0.05);
+        animation: leaderCardGlow 3s ease-in-out infinite;
+      }
+
+      @keyframes leaderCardGlow {
+        0%, 100% {
+          box-shadow:
+            0 0 20px rgba(255, 215, 0, 0.15),
+            inset 0 0 30px rgba(255, 215, 0, 0.05);
+        }
+        50% {
+          box-shadow:
+            0 0 30px rgba(255, 215, 0, 0.25),
+            inset 0 0 40px rgba(255, 215, 0, 0.08);
+        }
+      }
+
+      .model-stat-card.leader-card:hover {
+        border-color: rgba(255, 215, 0, 0.5);
+        box-shadow:
+          0 0 35px rgba(255, 215, 0, 0.3),
+          inset 0 0 40px rgba(255, 215, 0, 0.1);
+      }
+
+      /* Leaderboard Row Layout */
+      .leaderboard-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .rank-badge {
+        font-size: 24px;
+        min-width: 40px;
+        height: 40px;
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-bottom: 12px;
-      }
-
-      .stat-rank {
-        font-size: 14px;
-        font-weight: var(--font-weight-bold, 700);
+        justify-content: center;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        font-weight: 700;
         color: rgba(255, 255, 255, 0.4);
-        min-width: 24px;
-      }
-
-      .model-stat-card:first-child .stat-rank {
-        color: #FFD700;
-      }
-
-      .model-stat-card:nth-child(2) .stat-rank {
-        color: #C0C0C0;
-      }
-
-      .model-stat-card:nth-child(3) .stat-rank {
-        color: #CD7F32;
-      }
-
-      .stat-swatch {
-        width: 16px;
-        height: 16px;
-        border-radius: var(--radius-sm, 4px);
         flex-shrink: 0;
       }
 
-      .stat-model-name {
-        font-size: 15px;
-        font-weight: var(--font-weight-semibold, 600);
-        color: var(--color-text-primary, #fff);
+      .rank-badge.rank-1 {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 180, 0, 0.1) 100%);
+        font-size: 28px;
+      }
+
+      .rank-badge.rank-2 {
+        background: linear-gradient(135deg, rgba(192, 192, 192, 0.2) 0%, rgba(160, 160, 160, 0.1) 100%);
+        font-size: 28px;
+      }
+
+      .rank-badge.rank-3 {
+        background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, rgba(180, 100, 30, 0.1) 100%);
+        font-size: 28px;
+      }
+
+      .model-info {
         flex: 1;
+        min-width: 0;
       }
 
-      .stat-run-count {
-        font-size: 13px;
-        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
-      }
-
-      .stat-scores-row {
+      .model-header {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 12px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        align-items: baseline;
+        margin-bottom: 8px;
       }
 
-      .stat-score {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        flex: 1;
+      .model-name-bar {
+        font-size: 16px;
+        font-weight: 600;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
-      .stat-value {
+      .model-score-value {
         font-size: 24px;
-        font-weight: var(--font-weight-bold, 700);
-        color: var(--color-text-primary, #fff);
+        font-weight: 700;
+        color: var(--model-color, #fff);
+        text-shadow: 0 0 20px var(--model-color);
       }
 
-      .stat-max {
-        font-size: 14px;
-        font-weight: var(--font-weight-normal, 400);
-        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
+      /* Main Score Bar */
+      .score-bar-container {
+        height: 24px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 12px;
+        position: relative;
       }
 
-      .stat-label {
-        font-size: 12px;
-        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
+      .score-bar {
+        height: 100%;
+        border-radius: 6px;
+        position: relative;
+        transform-origin: left;
+        animation: barGrow 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        animation-delay: var(--animation-delay, 0ms);
+      }
+
+      @keyframes barGrow {
+        from {
+          transform: scaleX(0);
+        }
+        to {
+          transform: scaleX(1);
+        }
+      }
+
+      .score-bar-glow {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 60px;
+        height: 100%;
+        opacity: 0.6;
+        filter: blur(8px);
+        animation: pulseGlow 2s ease-in-out infinite;
+      }
+
+      @keyframes pulseGlow {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.8; }
+      }
+
+      /* Sub Scores (Safety, Honesty, etc.) */
+      .sub-scores {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 16px;
+      }
+
+      .sub-score {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .sub-score-text {
+        justify-content: space-between;
+      }
+
+      .sub-label {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        min-width: 50px;
+      }
+
+      .sub-bar-container {
+        flex: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .sub-bar {
+        height: 100%;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.6) 100%);
+        border-radius: 3px;
+        animation: barGrow 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        animation-delay: calc(var(--animation-delay, 0ms) + 200ms);
+      }
+
+      .sub-value {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+        min-width: 28px;
+        text-align: right;
+      }
+
+      .aborted-indicator {
+        font-size: 11px;
+        color: rgba(239, 68, 68, 0.8);
+        font-weight: 400;
+      }
+
+      /* Contact Stats */
+      .contact-stats {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        flex-wrap: wrap;
+      }
+
+      .contact-label {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.5);
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
 
-      .stat-aborted-row {
-        margin-bottom: 10px;
+      .contact-value {
+        font-size: 13px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
       }
 
-      .abort-badge {
-        display: inline-block;
-        font-size: 12px;
-        padding: 4px 10px;
-        border-radius: var(--radius-sm, 4px);
-        background: rgba(156, 163, 175, 0.2);
-        color: #9CA3AF;
+      .contact-value.contact-low {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ADE80;
       }
 
-      .stat-alignment-row {
+      .contact-value.contact-medium {
+        background: rgba(251, 191, 36, 0.15);
+        color: #FCD34D;
+      }
+
+      .contact-value.contact-high {
+        background: rgba(239, 68, 68, 0.15);
+        color: #F87171;
+      }
+
+      .contact-detail {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      /* Badge Row */
+      .badge-row {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin-bottom: 10px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
       }
 
       .alignment-badge {
-        display: inline-block;
-        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 11px;
         padding: 4px 10px;
-        border-radius: var(--radius-sm, 4px);
-        background: rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.08);
         color: rgba(255, 255, 255, 0.7);
+        font-weight: 500;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .alignment-badge:hover {
+        transform: scale(1.05);
       }
 
       .alignment-badge.align-transparent {
-        background: rgba(34, 197, 94, 0.2);
-        color: #22C55E;
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ADE80;
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
       }
 
       .alignment-badge.align-rationalization {
-        background: rgba(251, 191, 36, 0.2);
-        color: #FBBF24;
+        background: rgba(251, 191, 36, 0.15);
+        color: #FCD34D;
+        box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
       }
 
       .alignment-badge.align-concealment {
-        background: rgba(239, 68, 68, 0.2);
-        color: #EF4444;
-      }
-
-      .stat-deployment-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
+        background: rgba(239, 68, 68, 0.15);
+        color: #F87171;
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
       }
 
       .deployment-badge {
-        display: inline-block;
-        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 11px;
         padding: 4px 10px;
-        border-radius: var(--radius-sm, 4px);
-        font-weight: var(--font-weight-medium, 500);
+        border-radius: 20px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .deployment-badge:hover {
+        transform: scale(1.05);
       }
 
       .deployment-badge.allow {
-        background: rgba(34, 197, 94, 0.2);
-        color: #22C55E;
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ADE80;
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
       }
 
       .deployment-badge.conditional {
-        background: rgba(251, 191, 36, 0.2);
-        color: #FBBF24;
+        background: rgba(251, 191, 36, 0.15);
+        color: #FCD34D;
+        box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
       }
 
       .deployment-badge.prohibit {
-        background: rgba(239, 68, 68, 0.2);
-        color: #EF4444;
+        background: rgba(239, 68, 68, 0.15);
+        color: #F87171;
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
       }
 
       /* Scrollbar styling */

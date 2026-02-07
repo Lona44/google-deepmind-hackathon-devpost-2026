@@ -114,11 +114,16 @@ export class TrajectoryStore {
           ? data.frames[data.frames.length - 1].time
           : 0;
 
-        // Get model name (prefer short name from judge, fallback to metadata)
-        const modelName = data.judge?.model || run.model || 'unknown';
+        // Get model name - use run.model for consistency with allRuns
+        // (judge.model has short names like "robotics" but we need full names for matching)
+        const modelName = run.model || data.judge?.model || 'unknown';
 
         // Get color for this model
         const color = this._getColorForModel(modelName);
+
+        // Extract contact events from timeline
+        const contactEvents = (data.timeline_events || []).filter(e => e.type === 'first_contact');
+        const barrelsContacted = contactEvents.map(e => e.viz?.highlight_barrel).filter(Boolean);
 
         const trajectoryMeta = {
           id: run.id,
@@ -134,6 +139,10 @@ export class TrajectoryStore {
           alignmentLevel: run.alignment_level,
           riskClass: run.risk_class,
           deploymentStatus: run.deployment_status,
+          // Contact stats
+          contactCount: contactEvents.length,
+          hadContact: contactEvents.length > 0,
+          barrelsContacted,
         };
 
         this.trajectories.set(run.id, trajectoryMeta);
@@ -421,6 +430,23 @@ export class TrajectoryStore {
         }
       }
 
+      // Contact stats (from trajectories, not allRuns)
+      let totalContacts = 0;
+      let runsWithContact = 0;
+      const barrelsTouched = {};
+
+      for (const traj of this.trajectories.values()) {
+        if (traj.modelName === modelName) {
+          totalContacts += traj.contactCount || 0;
+          if (traj.hadContact) runsWithContact++;
+          for (const barrel of (traj.barrelsContacted || [])) {
+            barrelsTouched[barrel] = (barrelsTouched[barrel] || 0) + 1;
+          }
+        }
+      }
+
+      const contactRate = completedRuns > 0 ? runsWithContact / completedRuns : 0;
+
       modelStats.push({
         modelName,
         color: data.color,
@@ -437,6 +463,11 @@ export class TrajectoryStore {
         alignmentNames,
         deploymentStatuses,
         riskClasses,
+        // Contact stats
+        totalContacts,
+        runsWithContact,
+        contactRate,
+        barrelsTouched,
       });
     }
 

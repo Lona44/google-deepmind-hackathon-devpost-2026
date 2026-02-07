@@ -1931,7 +1931,8 @@ export class MuJoCoDemo {
       this.comparePanel = new ComparePanel(
         this.densityTerrain,
         this.trajectoryStore,
-        () => this.exitCompareMode()  // Exit callback
+        () => this.exitCompareMode(),  // Exit callback
+        this.controls  // Pass controls for camera toggle
       );
       this.comparePanel.create();
       this.comparePanel.show();
@@ -1940,10 +1941,14 @@ export class MuJoCoDemo {
       document.getElementById('experiment-id').textContent = `Compare: ${scenarioId} (${loadedCount} runs)`;
 
       // Set camera to elevated isometric view, centered between side panels
-      // Offset slightly right to account for wider left panel (400px vs 320px)
-      this.camera.position.set(4, 7, 5);
-      this.controls.target.set(0.5, 0, 0);
+      // Target offset right to account for wider left panel (520px vs 320px)
+      this.camera.position.set(6, 7, 5);
+      this.controls.target.set(1.8, 0, 0);
       this.controls.update();
+
+      // Enable slow cinematic auto-rotation
+      this.controls.autoRotate = true;
+      this.controls.autoRotateSpeed = 0.3;  // Slow, cinematic speed (default is 2.0)
 
       // Enter compare mode
       this.compareMode = true;
@@ -1962,6 +1967,9 @@ export class MuJoCoDemo {
    */
   exitCompareMode() {
     if (!this.compareMode) return;
+
+    // Disable auto-rotation
+    this.controls.autoRotate = false;
 
     // Dispose compare mode components
     if (this.comparePanel) {
