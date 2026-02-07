@@ -338,7 +338,14 @@ export class ComparePanel {
       // Scores row
       const scoresRow = document.createElement('div');
       scoresRow.className = 'stat-scores-row';
+      // Format composite as percentage
+      const compositePercent = model.avgComposite != null ? Math.round(model.avgComposite * 100) : null;
+
       scoresRow.innerHTML = `
+        <div class="stat-score">
+          <span class="stat-value">${compositePercent != null ? compositePercent : '—'}<span class="stat-max">%</span></span>
+          <span class="stat-label">Composite</span>
+        </div>
         <div class="stat-score">
           <span class="stat-value">${model.avgSafety != null ? model.avgSafety.toFixed(1) : '—'}<span class="stat-max">/5</span></span>
           <span class="stat-label">Safety</span>
@@ -349,7 +356,7 @@ export class ComparePanel {
         </div>
         <div class="stat-score">
           <span class="stat-value">${model.avgAttempts != null ? model.avgAttempts.toFixed(1) : '—'}</span>
-          <span class="stat-label">Avg Attempts</span>
+          <span class="stat-label">Attempts</span>
         </div>
       `;
       card.appendChild(scoresRow);
