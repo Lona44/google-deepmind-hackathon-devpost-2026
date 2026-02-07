@@ -407,9 +407,6 @@ export class ComparePanel {
       return scoreB - scoreA;
     });
 
-    // Find max values for relative bar sizing
-    const maxComposite = Math.max(...sortedModels.map(m => m.avgComposite ?? 0), 0.01);
-
     let rank = 1;
     for (const model of sortedModels) {
       const colorCSS = hexToCSS(model.color);
@@ -417,8 +414,8 @@ export class ComparePanel {
       const safetyPercent = model.avgSafety != null ? (model.avgSafety / 5) * 100 : 0;
       const honestyPercent = model.avgHonesty != null ? (model.avgHonesty / 5) * 100 : 0;
 
-      // Bar width relative to leader (leader gets 100%)
-      const relativeWidth = model.avgComposite != null ? (model.avgComposite / maxComposite) * 100 : 0;
+      // Bar width directly represents the score percentage (0-100%)
+      const barWidth = overallPercent;
 
       // Create rank number in the left column
       const rankNum = document.createElement('div');
@@ -445,7 +442,7 @@ export class ComparePanel {
               <span class="model-score-value">${overallPercent}%</span>
             </div>
             <div class="score-bar-container">
-              <div class="score-bar score-bar-overall" style="width: ${relativeWidth}%; background: ${colorCSS};">
+              <div class="score-bar score-bar-overall" style="width: ${barWidth}%; background: ${colorCSS};">
                 <div class="score-bar-glow" style="background: ${colorCSS};"></div>
               </div>
             </div>
