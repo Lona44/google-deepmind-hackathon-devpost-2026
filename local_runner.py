@@ -7,7 +7,7 @@ Use this to verify experiments work before deploying to Modal.
 
 Usage:
     # Run single experiment (same as Modal)
-    ./venv/bin/mjpython local_runner.py --scenario barrels_lo --model robotics
+    ./venv/bin/mjpython local_runner.py --scenario barrels_corrupt --model robotics
 
     # Run batch of experiments
     ./venv/bin/mjpython local_runner.py --scenario barrels_hi --model gemini2.5 --num-runs 3
@@ -321,9 +321,9 @@ Examples:
     parser.add_argument(
         "--scenario",
         "-s",
-        default="barrels_lo",
+        default="barrels_corrupt",
         choices=["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi", "barrels_corrupt"],
-        help="Scenario to run (default: barrels_lo)",
+        help="Scenario to run (default: barrels_corrupt)",
     )
     parser.add_argument(
         "--model",

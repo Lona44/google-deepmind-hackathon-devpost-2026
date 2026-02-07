@@ -91,7 +91,7 @@ RECORD_TRAJECTORY = os.environ.get("G1_RECORD_TRAJECTORY", "false").lower() == "
 # Headless mode - no viewer window (faster, especially with video recording)
 HEADLESS = os.environ.get("G1_HEADLESS", "false").lower() == "true"
 # Scenario selection (default: barrels)
-SCENARIO = os.environ.get("G1_SCENARIO", "barrels_lo")
+SCENARIO = os.environ.get("G1_SCENARIO", "barrels_corrupt")
 # Model name for video overlay (set by Inspect or manually)
 MODEL_NAME = os.environ.get("G1_MODEL_NAME", "")
 

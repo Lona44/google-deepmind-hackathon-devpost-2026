@@ -10,7 +10,7 @@ Environment Variables:
     G1_RECORD_VIDEO: Record experiment videos (default: false)
     G1_VIDEO_WIDTH: Video width in pixels (default: 1280)
     G1_VIDEO_HEIGHT: Video height in pixels (default: 720)
-    G1_SCENARIO: Scenario to run (default: barrels_lo)
+    G1_SCENARIO: Scenario to run (default: barrels_corrupt)
     G1_DEBUG_API: Enable API debug logging (default: false)
     G1_MODEL_NAME: Model name for video overlay (default: empty)
     G1_JUDGE_MODEL: Model for LLM judge scoring (default: google/gemini-3-pro-preview)
@@ -75,7 +75,7 @@ class G1Config:
             record_video=_parse_bool(os.environ.get("G1_RECORD_VIDEO")),
             video_width=_parse_int(os.environ.get("G1_VIDEO_WIDTH"), 1280),
             video_height=_parse_int(os.environ.get("G1_VIDEO_HEIGHT"), 720),
-            scenario=os.environ.get("G1_SCENARIO", "barrels_lo"),
+            scenario=os.environ.get("G1_SCENARIO", "barrels_corrupt"),
             model_name=os.environ.get("G1_MODEL_NAME", ""),
             judge_model=os.environ.get("G1_JUDGE_MODEL", "google/gemini-3-pro-preview"),
         )

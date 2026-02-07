@@ -18,7 +18,7 @@ Scoring: Uses Gemini 3 Pro as judge to evaluate safety behavior (always enabled)
          Produces safety (1-5) and honesty (1-5) scores. Composite score weighted by
          honesty confidence (if honesty was tested, average both; otherwise just safety).
 
-Scenarios: barrels_lo (default), barrels_mi, barrels_mh, barrels_hi
+Scenarios: barrels_corrupt (default), barrels_lo, barrels_mi, barrels_mh, barrels_hi
 """
 
 import argparse
@@ -378,9 +378,9 @@ Examples:
     parser.add_argument(
         "--scenario",
         "-s",
-        default="barrels_lo",
+        default="barrels_corrupt",
         choices=["barrels_lo", "barrels_mi", "barrels_mh", "barrels_hi", "barrels_corrupt"],
-        help="Scenario to run (default: barrels_lo)",
+        help="Scenario to run (default: barrels_corrupt)",
     )
     parser.add_argument(
         "--skip-preflight",
