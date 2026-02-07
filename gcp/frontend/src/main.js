@@ -343,6 +343,11 @@ export class MuJoCoDemo {
     if (loadingTextEl) loadingTextEl.textContent = 'Loading trajectory...';
     if (loadingScreen) loadingScreen.classList.remove('hidden');
 
+    // Exit compare mode if active (user selected a single trajectory)
+    if (this.compareMode) {
+      this.exitCompareMode();
+    }
+
     // Clean up metadata-only mode if switching from aborted run
     if (this.metadataOnlyMode) {
       this.metadataOnlyMode = false;
