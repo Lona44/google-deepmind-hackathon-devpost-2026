@@ -25,6 +25,7 @@ EXTRACTIONS_INDEX = FRONTEND_ASSETS / "extractions_index.json"
 # EXTRACTIONS INDEX CONTRACT
 # =============================================================================
 
+
 class TestExtractionsIndexContract:
     """Tests for extractions_index.json structure - used by frontend to list runs."""
 
@@ -32,7 +33,7 @@ class TestExtractionsIndexContract:
     def index_data(self) -> dict[str, Any]:
         """Load the extractions index."""
         assert EXTRACTIONS_INDEX.exists(), f"Missing: {EXTRACTIONS_INDEX}"
-        with open(EXTRACTIONS_INDEX) as f:
+        with EXTRACTIONS_INDEX.open() as f:
             return json.load(f)
 
     def test_has_generated_at_timestamp(self, index_data: dict) -> None:
@@ -56,15 +57,15 @@ class TestExtractionsIndexContract:
     def test_run_has_required_fields(self, index_data: dict) -> None:
         """Each run must have fields needed by frontend leaderboard."""
         required_fields = {
-            "id",           # Unique identifier
-            "model",        # Model name (e.g., "gpt-5", "gemini-2.5-pro")
-            "timestamp",    # When the run occurred
-            "composite_score",   # Overall score (0-1)
-            "safety_score",      # Safety score (0-5)
-            "honesty_score",     # Honesty score (0-5)
-            "alignment_level",   # 1, 2, or 3
-            "alignment_name",    # "transparent_shortcut", "rationalization", "strategic_concealment"
-            "has_trajectory",    # Boolean - whether trajectory file exists
+            "id",  # Unique identifier
+            "model",  # Model name (e.g., "gpt-5", "gemini-2.5-pro")
+            "timestamp",  # When the run occurred
+            "composite_score",  # Overall score (0-1)
+            "safety_score",  # Safety score (0-5)
+            "honesty_score",  # Honesty score (0-5)
+            "alignment_level",  # 1, 2, or 3
+            "alignment_name",  # "transparent_shortcut", "rationalization", "strategic_concealment"
+            "has_trajectory",  # Boolean - whether trajectory file exists
         }
 
         for scenario_id, scenario in index_data["scenarios"].items():
@@ -78,14 +79,14 @@ class TestExtractionsIndexContract:
     def test_run_has_leaderboard_fields(self, index_data: dict) -> None:
         """Runs should have fields used by the leaderboard display."""
         leaderboard_fields = {
-            "risk_class",        # e.g., "HIGH_SYSTEMIC", "MEDIUM_CAPABILITY"
-            "deployment_status", # "ALLOW", "CONDITIONAL", "PROHIBIT"
-            "attempts",          # Number of attempts
-            "frames",            # Number of frames
-            "duration",          # Duration in seconds
+            "risk_class",  # e.g., "HIGH_SYSTEMIC", "MEDIUM_CAPABILITY"
+            "deployment_status",  # "ALLOW", "CONDITIONAL", "PROHIBIT"
+            "attempts",  # Number of attempts
+            "frames",  # Number of frames
+            "duration",  # Duration in seconds
         }
 
-        for scenario_id, scenario in index_data["scenarios"].items():
+        for _scenario_id, scenario in index_data["scenarios"].items():
             for run in scenario["runs"]:
                 for field in leaderboard_fields:
                     assert field in run, (
@@ -94,7 +95,7 @@ class TestExtractionsIndexContract:
 
     def test_trajectory_file_exists_when_has_trajectory(self, index_data: dict) -> None:
         """If has_trajectory is True, the trajectory file must exist."""
-        for scenario_id, scenario in index_data["scenarios"].items():
+        for _scenario_id, scenario in index_data["scenarios"].items():
             for run in scenario["runs"]:
                 if run.get("has_trajectory"):
                     traj_file = run.get("trajectory_file")
@@ -106,7 +107,7 @@ class TestExtractionsIndexContract:
 
     def test_score_ranges_are_valid(self, index_data: dict) -> None:
         """Scores must be within valid ranges."""
-        for scenario_id, scenario in index_data["scenarios"].items():
+        for _scenario_id, scenario in index_data["scenarios"].items():
             for run in scenario["runs"]:
                 run_id = run.get("id", "UNKNOWN")
 
@@ -139,6 +140,7 @@ class TestExtractionsIndexContract:
 # TRAJECTORY FILE CONTRACT
 # =============================================================================
 
+
 class TestTrajectoryFileContract:
     """Tests for trajectory_*.json structure - used by 3D viewer and terrain."""
 
@@ -147,7 +149,7 @@ class TestTrajectoryFileContract:
         """Load a sample trajectory file for testing."""
         traj_files = list(FRONTEND_ASSETS.glob("trajectory_*.json"))
         assert len(traj_files) > 0, "No trajectory files found"
-        with open(traj_files[0]) as f:
+        with traj_files[0].open() as f:
             return json.load(f)
 
     @pytest.fixture
@@ -155,17 +157,17 @@ class TestTrajectoryFileContract:
         """Load all trajectory files."""
         trajectories = []
         for traj_file in FRONTEND_ASSETS.glob("trajectory_*.json"):
-            with open(traj_file) as f:
+            with traj_file.open() as f:
                 trajectories.append((traj_file.name, json.load(f)))
         return trajectories
 
     def test_has_required_top_level_keys(self, sample_trajectory: dict) -> None:
         """Trajectory must have required top-level keys."""
         required_keys = {
-            "fps",              # Frames per second (always 30)
-            "frames",           # Array of frame data
-            "metadata",         # Experiment metadata
-            "judge",            # Judge evaluation results
+            "fps",  # Frames per second (always 30)
+            "frames",  # Array of frame data
+            "metadata",  # Experiment metadata
+            "judge",  # Judge evaluation results
             "timeline_events",  # Events for timeline visualization
         }
         for key in required_keys:
@@ -174,9 +176,9 @@ class TestTrajectoryFileContract:
     def test_metadata_has_required_fields(self, sample_trajectory: dict) -> None:
         """Metadata must have fields needed by frontend."""
         required_metadata = {
-            "scenario",     # Scenario ID (e.g., "barrels_corrupt")
-            "goal",         # Goal position [x, y]
-            "model",        # Full model name
+            "scenario",  # Scenario ID (e.g., "barrels_corrupt")
+            "goal",  # Goal position [x, y]
+            "model",  # Full model name
         }
         metadata = sample_trajectory.get("metadata", {})
         for field in required_metadata:
@@ -206,10 +208,10 @@ class TestTrajectoryFileContract:
     def test_frames_have_required_fields(self, sample_trajectory: dict) -> None:
         """Each frame must have fields needed by 3D playback."""
         required_frame_fields = {
-            "time",           # Timestamp in seconds
-            "robot_position", # [x, y] position for visualization
-            "battery",        # Battery level (0-1)
-            "attempt",        # Current attempt number
+            "time",  # Timestamp in seconds
+            "robot_position",  # [x, y] position for visualization
+            "battery",  # Battery level (0-1)
+            "attempt",  # Current attempt number
         }
         frames = sample_trajectory.get("frames", [])
         assert len(frames) > 0, "No frames in trajectory"
@@ -230,10 +232,10 @@ class TestTrajectoryFileContract:
     def test_timeline_events_have_required_fields(self, sample_trajectory: dict) -> None:
         """Timeline events must have fields needed by timeline UI."""
         required_event_fields = {
-            "id",      # Unique event ID
-            "time",    # Timestamp
-            "type",    # Event type (e.g., "set_waypoints", "first_contact")
-            "label",   # Display label
+            "id",  # Unique event ID
+            "time",  # Timestamp
+            "type",  # Event type (e.g., "set_waypoints", "first_contact")
+            "label",  # Display label
         }
         events = sample_trajectory.get("timeline_events", [])
         for event in events:
@@ -261,7 +263,8 @@ class TestTrajectoryFileContract:
             # Allow unknown types but warn
             if event_type not in valid_types:
                 import warnings
-                warnings.warn(f"Unknown timeline event type: {event_type}")
+
+                warnings.warn(f"Unknown timeline event type: {event_type}", stacklevel=2)
 
     def test_fps_is_30(self, sample_trajectory: dict) -> None:
         """FPS should always be 30."""
@@ -272,12 +275,13 @@ class TestTrajectoryFileContract:
 # CROSS-VALIDATION TESTS
 # =============================================================================
 
+
 class TestDataConsistency:
     """Tests that index and trajectory data are consistent."""
 
     @pytest.fixture
     def index_data(self) -> dict:
-        with open(EXTRACTIONS_INDEX) as f:
+        with EXTRACTIONS_INDEX.open() as f:
             return json.load(f)
 
     def test_all_trajectory_files_are_indexed(self, index_data: dict) -> None:
@@ -302,15 +306,14 @@ class TestDataConsistency:
         for scenario in index_data["scenarios"].values():
             for run in scenario["runs"]:
                 traj_file = run.get("trajectory_file")
-                if traj_file:
-                    if not (FRONTEND_ASSETS / traj_file).exists():
-                        missing.append(traj_file)
+                if traj_file and not (FRONTEND_ASSETS / traj_file).exists():
+                    missing.append(traj_file)
 
         assert len(missing) == 0, f"Referenced files missing from disk: {missing}"
 
     def test_model_names_are_consistent(self, index_data: dict) -> None:
         """Model names in index should match those in trajectory files."""
-        for scenario_id, scenario in index_data["scenarios"].items():
+        for _scenario_id, scenario in index_data["scenarios"].items():
             for run in scenario["runs"]:
                 if not run.get("has_trajectory"):
                     continue
@@ -323,7 +326,7 @@ class TestDataConsistency:
                 if not traj_path.exists():
                     continue
 
-                with open(traj_path) as f:
+                with traj_path.open() as f:
                     traj_data = json.load(f)
 
                 # The model name should appear somewhere in the trajectory
@@ -332,9 +335,9 @@ class TestDataConsistency:
 
                 # Check if they're related (one contains the other or matches)
                 assert (
-                    index_model in traj_model or
-                    traj_model in index_model or
-                    index_model.replace("-", "") in traj_model.replace("-", "").lower()
+                    index_model in traj_model
+                    or traj_model in index_model
+                    or index_model.replace("-", "") in traj_model.replace("-", "").lower()
                 ), (
                     f"Model mismatch for {run['id']}: "
                     f"index has '{index_model}', trajectory has '{traj_model}'"
@@ -345,12 +348,13 @@ class TestDataConsistency:
 # FRONTEND DISPLAY TESTS
 # =============================================================================
 
+
 class TestFrontendDisplayData:
     """Tests that data needed for specific frontend features is present."""
 
     @pytest.fixture
     def index_data(self) -> dict:
-        with open(EXTRACTIONS_INDEX) as f:
+        with EXTRACTIONS_INDEX.open() as f:
             return json.load(f)
 
     def test_leaderboard_can_rank_by_composite_score(self, index_data: dict) -> None:
@@ -358,14 +362,12 @@ class TestFrontendDisplayData:
         for scenario in index_data["scenarios"].values():
             for run in scenario["runs"]:
                 score = run.get("composite_score")
-                assert score is not None, (
-                    f"Run {run['id']} missing composite_score for leaderboard"
-                )
+                assert score is not None, f"Run {run['id']} missing composite_score for leaderboard"
 
     def test_terrain_can_get_positions(self) -> None:
         """Trajectories must have robot_position in frames for terrain generation."""
         for traj_file in list(FRONTEND_ASSETS.glob("trajectory_*.json"))[:5]:
-            with open(traj_file) as f:
+            with traj_file.open() as f:
                 data = json.load(f)
 
             frames = data.get("frames", [])
@@ -382,7 +384,7 @@ class TestFrontendDisplayData:
 
         for traj_file in FRONTEND_ASSETS.glob("trajectory_*.json"):
             traj_count += 1
-            with open(traj_file) as f:
+            with traj_file.open() as f:
                 data = json.load(f)
 
             events = data.get("timeline_events", [])
