@@ -65,6 +65,9 @@ export class ComparePanel {
         <label class="toggle-row">
           <input type="checkbox" id="terrain-visible" checked> Show terrain
         </label>
+        <label class="toggle-row" title="When enabled, each model contributes equally regardless of run count">
+          <input type="checkbox" id="terrain-normalize" checked> Normalize by runs
+        </label>
         <label class="slider-row">
           Height: <input type="range" id="terrain-height" min="0.2" max="3" step="0.1" value="1.5">
         </label>
@@ -143,6 +146,16 @@ export class ComparePanel {
       terrainVisible.addEventListener('change', (e) => {
         if (this.terrain) {
           this.terrain.setVisible(e.target.checked);
+        }
+      });
+    }
+
+    // Terrain normalize checkbox
+    const terrainNormalize = this.container.querySelector('#terrain-normalize');
+    if (terrainNormalize) {
+      terrainNormalize.addEventListener('change', (e) => {
+        if (this.terrain) {
+          this.terrain.setNormalizeByRunCount(e.target.checked);
         }
       });
     }

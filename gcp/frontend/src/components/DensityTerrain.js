@@ -52,6 +52,7 @@ export class DensityTerrain {
     this.opacity = DEFAULT_OPACITY;
     this.heightScale = DEFAULT_HEIGHT_SCALE;
     this.wireframe = false;
+    this.normalizeByRunCount = true;  // Normalize so each model contributes equally
   }
 
   /**
@@ -97,7 +98,21 @@ export class DensityTerrain {
 
       // Apply Gaussian blur
       const blurredGrid = this._applyGaussianBlur(grid);
-      modelGrids.set(model.modelName, { grid: blurredGrid, color: model.color });
+      modelGrids.set(model.modelName, { grid: blurredGrid, color: model.color, runCount: model.count });
+    }
+
+    // Normalize each model's grid if enabled (so each model contributes equally)
+    if (this.normalizeByRunCount) {
+      for (const [modelName, data] of modelGrids) {
+        const maxVal = this._findMaxDensityInGrid(data.grid);
+        if (maxVal > 0) {
+          for (let z = 0; z < GRID_SIZE; z++) {
+            for (let x = 0; x < GRID_SIZE; x++) {
+              data.grid[z][x] /= maxVal;
+            }
+          }
+        }
+      }
     }
 
     // Create combined grid: height = total density, color = dominant model
@@ -173,6 +188,19 @@ export class DensityTerrain {
     this.wireframe = enabled;
     if (this.material) {
       this.material.wireframe = this.wireframe;
+    }
+  }
+
+  /**
+   * Toggle normalization by run count.
+   * When enabled, each model contributes equally regardless of run count.
+   * @param {boolean} enabled - Enable normalization
+   */
+  setNormalizeByRunCount(enabled) {
+    this.normalizeByRunCount = enabled;
+    // Regenerate with new normalization setting
+    if (this.mesh) {
+      this.generate(this.currentModelFilter);
     }
   }
 
