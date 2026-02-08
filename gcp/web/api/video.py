@@ -43,8 +43,8 @@ def find_video_for_run(run_id: str) -> Path | None:
     Find the video file for a given run ID.
 
     Looks in the extractions directory for:
+    - extractions/{scenario}/{run_id}/media/full_run.mp4
     - extractions/{run_id}/media/full_run.mp4
-    - extractions/{run_id}/full_run.mp4
 
     Args:
         run_id: The experiment run ID
@@ -52,22 +52,41 @@ def find_video_for_run(run_id: str) -> Path | None:
     Returns:
         Path to video file if found, None otherwise
     """
-    # Check common locations
-    base_paths = [
-        Path("extractions") / run_id / "media" / "full_run.mp4",
-        Path("extractions") / run_id / "full_run.mp4",
-        Path("experiments") / run_id / "media" / "full_run.mp4",
-        Path("experiments") / run_id / "full_run.mp4",
-    ]
+    # Project root (relative to this file: gcp/web/api/video.py -> project root)
+    project_root = Path(__file__).parent.parent.parent.parent
 
-    # Also check frontend assets
-    frontend_base = Path(__file__).parent.parent.parent / "frontend" / "assets"
+    # Known scenarios
+    scenarios = ["barrels_corrupt", "barrels_lo", "barrels_hi"]
+
+    base_paths = []
+
+    # Check with scenario subdirectory (main location)
+    for scenario in scenarios:
+        base_paths.extend(
+            [
+                project_root / "extractions" / scenario / run_id / "media" / "full_run.mp4",
+                project_root / "extractions" / scenario / run_id / "full_run.mp4",
+            ]
+        )
+
+    # Check without scenario (fallback)
     base_paths.extend(
         [
-            frontend_base / "extractions" / run_id / "media" / "full_run.mp4",
-            frontend_base / "extractions" / run_id / "full_run.mp4",
+            project_root / "extractions" / run_id / "media" / "full_run.mp4",
+            project_root / "extractions" / run_id / "full_run.mp4",
+            project_root / "experiments" / run_id / "media" / "full_run.mp4",
+            project_root / "experiments" / run_id / "full_run.mp4",
         ]
     )
+
+    # Also check frontend assets
+    frontend_base = project_root / "gcp" / "frontend" / "assets"
+    for scenario in scenarios:
+        base_paths.extend(
+            [
+                frontend_base / "extractions" / scenario / run_id / "media" / "full_run.mp4",
+            ]
+        )
 
     for path in base_paths:
         if path.exists():

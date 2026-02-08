@@ -139,7 +139,7 @@ Focus on papers about AI alignment, safety, deception, and emergent behaviors.""
         return PaperSearchResponse(
             query=request.query,
             papers=papers[:10],  # Limit to 10 results
-            summary=response_text[:500] if len(response_text) > 500 else response_text,
+            summary=response_text,  # Return full response
         )
 
     except ImportError as e:
@@ -181,14 +181,25 @@ async def search_web(request: WebSearchRequest) -> WebSearchResponse:
 Query: {request.query}
 
 Please provide:
-1. A list of relevant search results with titles, URLs, and brief descriptions
-2. A summary of the key findings
+1. A summary of the key findings (2-3 paragraphs)
+2. A list of relevant sources with titles and URLs in markdown format: [Title](URL)
 
 Focus on recent academic papers, research blogs, and authoritative sources.""",
-            config=GenerateContentConfig(tools=[tool]),
+            config=GenerateContentConfig(
+                tools=[tool],
+                max_output_tokens=4096,
+            ),
         )
 
-        response_text = response.text if hasattr(response, "text") else str(response)
+        # Get full response text from all parts
+        response_text = ""
+        if response.candidates and response.candidates[0].content:
+            for part in response.candidates[0].content.parts or []:
+                if hasattr(part, "text") and part.text:
+                    response_text += part.text
+
+        if not response_text:
+            response_text = response.text if hasattr(response, "text") else str(response)
 
         # Parse response into structured format
         results = []
@@ -217,7 +228,7 @@ Focus on recent academic papers, research blogs, and authoritative sources.""",
         return WebSearchResponse(
             query=request.query,
             results=results[:10],  # Limit to 10 results
-            summary=response_text[:500] if len(response_text) > 500 else response_text,
+            summary=response_text,  # Return full response
         )
 
     except Exception as e:
@@ -225,6 +236,97 @@ Focus on recent academic papers, research blogs, and authoritative sources.""",
             status_code=500,
             detail=f"Web search failed: {e}",
         ) from e
+
+
+class ResearchRequest(BaseModel):
+    """Request for comprehensive research combining papers and web."""
+
+    query: str
+    include_papers: bool = True
+    include_web: bool = True
+
+
+class ResearchResponse(BaseModel):
+    """Combined research response from multiple sources."""
+
+    query: str
+    papers: list[PaperResult]
+    web_results: list[WebResult]
+    synthesis: str
+    sources_used: list[str]
+
+
+@router.post("/research", response_model=ResearchResponse)
+async def research(request: ResearchRequest) -> ResearchResponse:
+    """
+    Comprehensive research combining Paper RAG and Google Search.
+
+    Queries both indexed papers (if available) and live web search,
+    then synthesizes the findings into a unified response.
+    """
+    client = get_vertex_client()
+    papers: list[PaperResult] = []
+    web_results: list[WebResult] = []
+    sources_used: list[str] = []
+    all_context = []
+
+    # Query Paper RAG if available and requested
+    if request.include_papers and client.capabilities.paper_rag:
+        try:
+            paper_response = await search_papers(PaperSearchRequest(query=request.query))
+            papers = paper_response.papers
+            sources_used.append("paper_rag")
+            if paper_response.summary:
+                all_context.append(f"From indexed papers:\n{paper_response.summary}")
+        except HTTPException:
+            pass  # Paper RAG not available, continue with web search
+
+    # Query Google Search if available and requested
+    if request.include_web and client.capabilities.google_search:
+        try:
+            web_response = await search_web(WebSearchRequest(query=request.query))
+            web_results = web_response.results
+            sources_used.append("google_search")
+            if web_response.summary:
+                all_context.append(f"From web search:\n{web_response.summary}")
+        except HTTPException:
+            pass  # Google Search not available
+
+    # Synthesize findings if we have context from multiple sources
+    synthesis = ""
+    if len(all_context) > 1:
+        try:
+            synth_response = client.client.models.generate_content(
+                model=client.capabilities.chat_model,
+                contents=f"""Synthesize these research findings into a coherent summary:
+
+Query: {request.query}
+
+{chr(10).join(all_context)}
+
+Provide a 2-3 paragraph synthesis that:
+1. Identifies key themes and consensus across sources
+2. Notes any contradictions or debates
+3. Highlights the most important findings for AI alignment research""",
+                config=GenerateContentConfig(max_output_tokens=2048),
+            )
+            synthesis = (
+                synth_response.text if hasattr(synth_response, "text") else str(synth_response)
+            )
+        except Exception:
+            synthesis = "\n\n---\n\n".join(all_context)
+    elif all_context:
+        synthesis = all_context[0]
+    else:
+        synthesis = "No research sources available. Configure Paper RAG or enable Vertex AI mode."
+
+    return ResearchResponse(
+        query=request.query,
+        papers=papers,
+        web_results=web_results,
+        synthesis=synthesis,
+        sources_used=sources_used,
+    )
 
 
 @router.get("/status")

@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Any
 
 from google import genai
+from google.genai import types
 from google.genai.types import GenerateContentConfig
 
 
@@ -188,11 +189,13 @@ class VertexClient:
 
         model_name = model or self._capabilities.vision_model
 
-        # Build multimodal content
-        contents = [
-            {"video": {"uri": video_uri}},
-            prompt,
-        ]
+        # Build multimodal content using Part.from_uri for GCS video
+        video_part = types.Part.from_uri(
+            file_uri=video_uri,
+            mime_type="video/mp4",
+        )
+
+        contents = [video_part, prompt]
 
         return self._client.models.generate_content(
             model=model_name,
