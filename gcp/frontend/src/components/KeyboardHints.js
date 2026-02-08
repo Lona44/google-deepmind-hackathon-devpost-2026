@@ -88,22 +88,6 @@ export class KeyboardHints {
                 <kbd>R</kbd>
                 <span>Reset to start</span>
               </div>
-              <div class="hint-row">
-                <kbd>Home</kbd>
-                <span>Jump to start</span>
-              </div>
-              <div class="hint-row">
-                <kbd>End</kbd>
-                <span>Jump to end</span>
-              </div>
-              <div class="hint-row">
-                <kbd>J</kbd>
-                <span>Previous event</span>
-              </div>
-              <div class="hint-row">
-                <kbd>K</kbd>
-                <span>Next event</span>
-              </div>
             </div>
           </div>
 

@@ -88,10 +88,11 @@ export class ExperimentSelector {
       this.manifest = await resp.json();
 
       // Find new trajectories (ones we haven't seen before)
+      // Skip aborted runs (no trajectory_file) - they can't be "new"
       this.newTrajectories.clear();
       for (const scenario of Object.values(this.manifest.scenarios)) {
         for (const run of scenario.runs) {
-          if (!this.knownTrajectories.has(run.trajectory_file)) {
+          if (run.trajectory_file && !this.knownTrajectories.has(run.trajectory_file)) {
             this.newTrajectories.add(run.trajectory_file);
           }
         }
@@ -161,10 +162,19 @@ export class ExperimentSelector {
 
       for (const run of scenario.runs) {
         const option = document.createElement('option');
-        const hasTrajectory = run.has_trajectory !== false;
+        // Check both has_trajectory flag AND trajectory_file existence
+        const hasTrajectory = run.has_trajectory === true ||
+                              (run.has_trajectory !== false && run.trajectory_file != null);
 
         // Use trajectory file for normal runs, metadata URI for aborted runs
         option.value = hasTrajectory ? run.trajectory_file : `metadata:${run.id}`;
+
+        // Debug: log run detection
+        console.log('[ExperimentSelector] Run:', run.id,
+                    'has_trajectory:', run.has_trajectory,
+                    'trajectory_file:', run.trajectory_file,
+                    'detected as:', hasTrajectory ? 'normal' : 'aborted',
+                    'value:', option.value);
 
         // Format: "model • score • timestamp"
         const score = run.composite_score != null
@@ -189,6 +199,7 @@ export class ExperimentSelector {
         }
 
         // Store full metadata on option
+        option.dataset.runId = run.id;  // Always store run ID for aborted run fallback
         option.dataset.model = run.model;
         option.dataset.score = run.composite_score;
         option.dataset.safety = run.safety_score;
@@ -229,10 +240,29 @@ export class ExperimentSelector {
 
     try {
       // Check if this is a metadata-only (aborted) run
-      if (value.startsWith('metadata:')) {
-        const runId = value.slice('metadata:'.length);
+      console.log('[ExperimentSelector] Selected value:', value);
+
+      // Detect aborted runs: either explicitly marked with metadata: prefix,
+      // or has invalid trajectory file (null, "null", empty, or no .json extension)
+      const isAbortedRun = value.startsWith('metadata:') ||
+                           !value ||
+                           value === 'null' ||
+                           !value.endsWith('.json');
+
+      if (isAbortedRun) {
+        // Extract run ID - either from metadata: prefix or find by trajectory file
+        let runId;
+        if (value.startsWith('metadata:')) {
+          runId = value.slice('metadata:'.length);
+        } else {
+          // Find the run in manifest by looking for matching trajectory_file or null trajectory
+          const selectedOption = event.target.options[event.target.selectedIndex];
+          runId = selectedOption?.dataset?.runId || this._findRunIdByValue(value);
+        }
+        console.log('[ExperimentSelector] Loading metadata-only for:', runId);
         await this.demo.loadMetadataOnly(runId);
       } else {
+        console.log('[ExperimentSelector] Loading trajectory:', value);
         await this.demo.loadTrajectory(`assets/${value}`);
       }
     } catch (error) {
@@ -260,6 +290,26 @@ export class ExperimentSelector {
         return;
       }
     }
+  }
+
+  /**
+   * Find run ID by trajectory file value (fallback for aborted runs).
+   * @private
+   */
+  _findRunIdByValue(value) {
+    if (!this.manifest?.scenarios) return null;
+
+    // For aborted runs, value might be "null" - find runs without trajectory
+    for (const scenario of Object.values(this.manifest.scenarios)) {
+      for (const run of scenario.runs) {
+        // Match by trajectory file, or find aborted run if value is null-ish
+        if (run.trajectory_file === value ||
+            ((!value || value === 'null') && !run.trajectory_file)) {
+          return run.id;
+        }
+      }
+    }
+    return null;
   }
 
   /**
@@ -342,6 +392,7 @@ export class ExperimentSelector {
         }
 
         // Store full metadata on option
+        option.dataset.runId = run.id;  // Always store run ID for aborted run fallback
         option.dataset.model = run.model;
         option.dataset.score = run.composite_score;
         option.dataset.safety = run.safety_score;

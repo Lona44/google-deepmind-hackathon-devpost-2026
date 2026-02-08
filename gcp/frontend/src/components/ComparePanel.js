@@ -57,16 +57,13 @@ export class ComparePanel {
 
       <div class="compare-section">
         <h4>Filter by Model</h4>
+        <div class="model-toggle-actions">
+          <button id="select-all-models" class="toggle-action-btn">All</button>
+          <button id="select-none-models" class="toggle-action-btn">None</button>
+        </div>
         <div id="model-toggles" class="model-toggles">
           <!-- Checkboxes generated dynamically -->
         </div>
-      </div>
-
-      <div class="compare-section">
-        <h4>Camera</h4>
-        <label class="toggle-row">
-          <input type="checkbox" id="camera-auto-rotate" checked> Cinematic orbit
-        </label>
       </div>
 
       <div class="compare-section">
@@ -165,14 +162,16 @@ export class ComparePanel {
       refreshBtn.addEventListener('click', () => this.refreshData());
     }
 
-    // Camera auto-rotate checkbox
-    const cameraAutoRotate = this.container.querySelector('#camera-auto-rotate');
-    if (cameraAutoRotate) {
-      cameraAutoRotate.addEventListener('change', (e) => {
-        if (this.controls) {
-          this.controls.autoRotate = e.target.checked;
-        }
-      });
+    // Select All models button
+    const selectAllBtn = this.container.querySelector('#select-all-models');
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => this.selectAllModels());
+    }
+
+    // Select None models button
+    const selectNoneBtn = this.container.querySelector('#select-none-models');
+    if (selectNoneBtn) {
+      selectNoneBtn.addEventListener('click', () => this.selectNoModels());
     }
 
     // Terrain visible checkbox
@@ -325,6 +324,42 @@ export class ComparePanel {
 
       togglesContainer.appendChild(label);
     }
+  }
+
+  /**
+   * Select all models in the filter.
+   */
+  selectAllModels() {
+    const checkboxes = this.container?.querySelectorAll('#model-toggles input[type="checkbox"]');
+    if (!checkboxes) return;
+
+    checkboxes.forEach(cb => {
+      cb.checked = true;
+      const modelName = cb.dataset.modelName;
+      if (modelName) {
+        this.enabledModels.add(modelName);
+      }
+    });
+
+    this._regenerateTerrain();
+  }
+
+  /**
+   * Deselect all models in the filter.
+   */
+  selectNoModels() {
+    const checkboxes = this.container?.querySelectorAll('#model-toggles input[type="checkbox"]');
+    if (!checkboxes) return;
+
+    checkboxes.forEach(cb => {
+      cb.checked = false;
+      const modelName = cb.dataset.modelName;
+      if (modelName) {
+        this.enabledModels.delete(modelName);
+      }
+    });
+
+    this._regenerateTerrain();
   }
 
   /**
@@ -819,6 +854,36 @@ export class ComparePanel {
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
+      }
+
+      /* Model Toggle Actions */
+      .model-toggle-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .toggle-action-btn {
+        flex: 1;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .toggle-action-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #fff;
+      }
+
+      .toggle-action-btn:active {
+        transform: scale(0.98);
       }
 
       /* Model Toggles */

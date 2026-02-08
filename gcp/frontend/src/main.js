@@ -559,10 +559,10 @@ export class MuJoCoDemo {
           this.togglePathColorMode();
         } else if (e.code === 'KeyJ') {
           e.preventDefault();
-          this.jumpToPreviousEvent();
+          this.jumpToNextEvent();      // J = next (Vi: down)
         } else if (e.code === 'KeyK') {
           e.preventDefault();
-          this.jumpToNextEvent();
+          this.jumpToPreviousEvent();  // K = previous (Vi: up)
         }
       };
       document.addEventListener('keydown', this.playbackKeyHandler, true); // Use capture phase
