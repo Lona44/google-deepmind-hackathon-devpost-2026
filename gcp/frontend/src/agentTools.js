@@ -113,6 +113,20 @@ export const TOOL_DECLARATIONS = [
     }
   },
   {
+    name: "get_experiment_insights",
+    description: "Get aggregate insights and statistics from all experiment runs. Use this to understand patterns across models, compare safety scores, find interesting behaviors, or get data to compare against research papers.",
+    parameters: {
+      type: "object",
+      properties: {
+        question: {
+          type: "string",
+          description: "What you want to know about the experiments (e.g., 'which model had the best safety score?', 'how many runs showed deceptive behavior?', 'compare model performance')"
+        }
+      },
+      required: ["question"]
+    }
+  },
+  {
     name: "search_papers",
     description: "Search AI safety research papers for relevant information. REQUIRES VERTEX AI MODE.",
     parameters: {
@@ -177,6 +191,8 @@ export class ToolExecutor {
         return this.seekToTime(args);
       case 'enter_compare_mode':
         return this.enterCompareMode();
+      case 'get_experiment_insights':
+        return this.getExperimentInsights(args);
       case 'analyze_video':
         return this.analyzeVideo(args);
       case 'search_papers':
@@ -347,6 +363,102 @@ export class ToolExecutor {
     }
 
     return { success: false, error: "Compare mode not available" };
+  }
+
+  /**
+   * Get aggregate insights from all experiment runs.
+   * Provides data the agent can use to compare against research papers.
+   */
+  getExperimentInsights({ question }) {
+    const index = this.app?.extractionsIndex;
+    if (!index) {
+      return { success: false, error: "Experiment index not loaded" };
+    }
+
+    // Gather all runs across scenarios
+    const allRuns = [];
+    for (const [scenarioId, scenario] of Object.entries(index.scenarios)) {
+      for (const run of scenario.runs) {
+        allRuns.push({
+          ...run,
+          scenario: scenarioId,
+          scenario_description: scenario.description
+        });
+      }
+    }
+
+    // Calculate aggregate statistics by model
+    const modelStats = {};
+    for (const run of allRuns) {
+      const model = run.model || 'unknown';
+      if (!modelStats[model]) {
+        modelStats[model] = {
+          runs: 0,
+          total_safety: 0,
+          total_honesty: 0,
+          total_composite: 0,
+          alignments: {},
+          violations: 0,
+          avg_attempts: 0,
+          total_attempts: 0,
+          aborted_runs: 0
+        };
+      }
+      const stats = modelStats[model];
+      stats.runs++;
+
+      if (run.safety_score != null) stats.total_safety += run.safety_score;
+      if (run.honesty_score != null) stats.total_honesty += run.honesty_score;
+      if (run.composite_score != null) stats.total_composite += run.composite_score;
+      if (run.attempts) stats.total_attempts += run.attempts;
+      if (run.alignment_name) {
+        stats.alignments[run.alignment_name] = (stats.alignments[run.alignment_name] || 0) + 1;
+      }
+      if (!run.has_trajectory) stats.aborted_runs++;
+    }
+
+    // Calculate averages
+    for (const [model, stats] of Object.entries(modelStats)) {
+      if (stats.runs > 0) {
+        stats.avg_safety = (stats.total_safety / stats.runs).toFixed(2);
+        stats.avg_honesty = (stats.total_honesty / stats.runs).toFixed(2);
+        stats.avg_composite = (stats.total_composite / stats.runs).toFixed(2);
+        stats.avg_attempts = (stats.total_attempts / stats.runs).toFixed(1);
+      }
+    }
+
+    // Find notable runs
+    const notableRuns = {
+      highest_safety: allRuns.filter(r => r.safety_score != null)
+        .sort((a, b) => b.safety_score - a.safety_score).slice(0, 3),
+      lowest_safety: allRuns.filter(r => r.safety_score != null)
+        .sort((a, b) => a.safety_score - b.safety_score).slice(0, 3),
+      most_honest: allRuns.filter(r => r.honesty_score != null)
+        .sort((a, b) => b.honesty_score - a.honesty_score).slice(0, 3),
+      deceptive_or_sycophantic: allRuns.filter(r =>
+        r.alignment_name && (r.alignment_name.includes('Deceptive') || r.alignment_name.includes('Sycophantic'))
+      )
+    };
+
+    // Alignment distribution
+    const alignmentCounts = {};
+    for (const run of allRuns) {
+      if (run.alignment_name) {
+        alignmentCounts[run.alignment_name] = (alignmentCounts[run.alignment_name] || 0) + 1;
+      }
+    }
+
+    return {
+      success: true,
+      question: question,
+      total_runs: allRuns.length,
+      scenarios: Object.keys(index.scenarios),
+      model_statistics: modelStats,
+      alignment_distribution: alignmentCounts,
+      notable_runs: notableRuns,
+      raw_data_available: true,
+      message: `Analyzed ${allRuns.length} experiment runs across ${Object.keys(index.scenarios).length} scenarios. Use this data to answer: "${question}"`
+    };
   }
 
   /**
