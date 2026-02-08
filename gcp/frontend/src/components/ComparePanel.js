@@ -909,7 +909,7 @@ export class ComparePanel {
       .model-toggle input[type="checkbox"] {
         width: 16px;
         height: 16px;
-        accent-color: var(--color-accent-primary, #4CAF50);
+        accent-color: var(--color-accent-primary, #6366F1);
         cursor: pointer;
       }
 
@@ -945,7 +945,7 @@ export class ComparePanel {
       .toggle-row input[type="checkbox"] {
         width: 16px;
         height: 16px;
-        accent-color: var(--color-accent-primary, #4CAF50);
+        accent-color: var(--color-accent-primary, #6366F1);
         cursor: pointer;
       }
 

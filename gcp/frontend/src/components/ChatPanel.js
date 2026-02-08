@@ -31,7 +31,7 @@ export class ChatPanel {
     this.container.innerHTML = `
       <div class="chat-header">
         <div class="chat-header-left">
-          <span class="chat-icon">🤖</span>
+          <span class="chat-icon"><i class="ri-robot-2-line"></i></span>
           <div class="chat-title-group">
             <h3 class="chat-title">Research Assistant</h3>
             <div class="chat-subtitle-row">
@@ -41,14 +41,14 @@ export class ChatPanel {
           </div>
         </div>
         <div class="chat-header-actions">
-          <button class="chat-btn chat-clear-btn" title="New conversation">🔄</button>
+          <button class="chat-btn chat-clear-btn" title="New conversation"><i class="ri-refresh-line"></i></button>
           <button class="chat-btn chat-toggle-btn" title="Minimize">−</button>
         </div>
       </div>
       <div class="chat-body">
         <div class="chat-messages" id="gemini-chat-messages">
           <div class="chat-message assistant">
-            <div class="message-avatar">🤖</div>
+            <div class="message-avatar"><i class="ri-robot-2-line"></i></div>
             <div class="message-content">
               <p>Hi! I'm your G1 Alignment Research Assistant. I can help you explore the experiments. Try asking:</p>
               <ul class="suggestions">
@@ -197,7 +197,7 @@ export class ChatPanel {
     const msg = document.createElement('div');
     msg.className = `chat-message ${role}`;
 
-    const avatar = role === 'user' ? '👤' : role === 'error' ? '⚠️' : '🤖';
+    const avatar = role === 'user' ? '<i class="ri-user-line"></i>' : role === 'error' ? '<i class="ri-alert-line"></i>' : '<i class="ri-robot-2-line"></i>';
 
     let formattedContent = this.formatContent(content);
 
@@ -205,16 +205,16 @@ export class ChatPanel {
     let functionBadge = '';
     if (functionExecuted) {
       const functionLabels = {
-        load_trajectory: '📂 Loaded trajectory',
-        get_video_url: '🎬 Video link ready',
-        set_camera_view: '📷 Camera adjusted',
-        play_simulation: '▶️ Playing',
-        pause_simulation: '⏸️ Paused',
-        seek_to_time: '⏩ Seeked',
-        enter_compare_mode: '📊 Compare mode',
-        analyze_video: '🎥 Video analyzed',
-        search_papers: '📚 Papers searched',
-        web_search: '🔍 Web searched'
+        load_trajectory: '<i class="ri-folder-open-line"></i> Loaded trajectory',
+        get_video_url: '<i class="ri-film-line"></i> Video link ready',
+        set_camera_view: '<i class="ri-camera-line"></i> Camera adjusted',
+        play_simulation: '<i class="ri-play-line"></i> Playing',
+        pause_simulation: '<i class="ri-pause-line"></i> Paused',
+        seek_to_time: '<i class="ri-speed-line"></i> Seeked',
+        enter_compare_mode: '<i class="ri-bar-chart-grouped-line"></i> Compare mode',
+        analyze_video: '<i class="ri-vidicon-line"></i> Video analyzed',
+        search_papers: '<i class="ri-book-open-line"></i> Papers searched',
+        web_search: '<i class="ri-search-line"></i> Web searched'
       };
       const label = functionLabels[functionExecuted] || functionExecuted;
       functionBadge = `<div class="function-badge">${label}</div>`;
@@ -259,7 +259,7 @@ export class ChatPanel {
     const indicator = document.createElement('div');
     indicator.className = 'chat-message assistant typing';
     indicator.innerHTML = `
-      <div class="message-avatar">🤖</div>
+      <div class="message-avatar"><i class="ri-robot-2-line"></i></div>
       <div class="message-content">
         <div class="typing-dots">
           <span></span><span></span><span></span>

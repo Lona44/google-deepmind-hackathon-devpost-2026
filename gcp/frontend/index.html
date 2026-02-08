@@ -7,8 +7,9 @@
         <meta name="description"        content="Interactive 3D playback of G1 robot alignment experiments">
         <meta name="keywords"           content="MuJoCo, G1, Robot, Alignment, AI">
         <meta name="viewport"           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no, shrink-to-fit=0">
-        <meta name="theme-color"        content="#1a1a2e">
+        <meta name="theme-color"        content="#030712">
         <link rel="icon" type="image/x-icon" href="./assets/favicon.png">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css">
         <style>
             * {
                 box-sizing: border-box;
@@ -16,7 +17,7 @@
             body {
                 margin: 0;
                 padding: 0;
-                background-color: #1a1a2e;
+                background-color: #030712;
                 overflow: hidden;
                 position: fixed;
                 min-height: 100%;
@@ -37,7 +38,7 @@
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: #1a1a2e;
+                background: #030712;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -52,7 +53,7 @@
                 width: 50px;
                 height: 50px;
                 border: 3px solid #333;
-                border-top-color: #4CAF50;
+                border-top-color: #6366F1;
                 border-radius: 50%;
                 animation: spin 1s linear infinite;
             }
@@ -70,96 +71,109 @@
                 top: 0;
                 left: 0;
                 right: 0;
-                height: 50px;
-                background: rgba(26, 26, 46, 0.95);
+                height: 64px;
+                background: rgba(3, 7, 18, 0.70);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
                 display: flex;
                 align-items: center;
                 padding: 0 20px;
                 z-index: 1001;
-                border-bottom: 1px solid #333;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            }
+            #header-home-link {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                text-decoration: none;
+                color: rgba(255, 255, 255, 0.7);
+                transition: color 0.15s;
+                margin-right: 12px;
+                flex-shrink: 0;
+            }
+            #header-home-link:hover {
+                color: #fff;
+            }
+            #header-home-link i {
+                font-size: 18px;
+            }
+            #header-home-link .header-brand-icon {
+                color: #818CF8;
             }
             #header h1 {
                 display: block !important;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 600;
                 color: white;
                 margin: 0;
+                white-space: nowrap;
             }
             #header .experiment-id {
-                display: none;  /* Hidden - dropdown shows all relevant info */
+                display: none;
             }
             #extraction-dropdown {
                 margin-left: auto;
                 padding: 8px 12px;
-                background: #2a2a4e;
+                background: #111827;
                 color: white;
-                border: 1px solid #444;
-                border-radius: 4px;
+                border: 1px solid #374151;
+                border-radius: 8px;
                 font-size: 14px;
                 cursor: pointer;
                 min-width: 280px;
             }
             #extraction-dropdown:hover {
-                border-color: #4CAF50;
+                border-color: #6366F1;
             }
             #extraction-dropdown:focus {
                 outline: none;
-                border-color: #4CAF50;
-                box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+                border-color: #6366F1;
+                box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
             }
             #extraction-dropdown option {
-                background: #2a2a4e;
+                background: #111827;
                 color: white;
             }
             #extraction-dropdown optgroup {
-                background: #1a1a2e;
-                color: #4CAF50;
+                background: #030712;
+                color: #6366F1;
                 font-weight: bold;
             }
-            #refresh-manifest-btn {
+            .header-btn-unified {
                 margin-left: 8px;
-                padding: 8px 10px;
-                background: #2a2a4e;
-                color: #888;
-                border: 1px solid #444;
-                border-radius: 4px;
+                padding: 8px 12px;
+                background: transparent;
+                color: rgba(255, 255, 255, 0.6);
+                border: 1px solid #374151;
+                border-radius: 8px;
                 cursor: pointer;
                 font-size: 14px;
-                transition: all 0.2s;
+                transition: all 0.15s;
+                display: flex;
+                align-items: center;
+                gap: 6px;
             }
-            #refresh-manifest-btn:hover {
-                border-color: #4CAF50;
-                color: #4CAF50;
+            .header-btn-unified:hover {
+                border-color: rgba(255, 255, 255, 0.3);
+                color: #fff;
+                background: rgba(255, 255, 255, 0.05);
+            }
+            .header-btn-unified i {
+                font-size: 16px;
+            }
+            #refresh-manifest-btn {
+                padding: 8px 10px;
             }
             #refresh-manifest-btn.spinning {
                 animation: spin 1s linear infinite;
             }
-
-            #filter-toggle-btn {
-                margin-left: 8px;
-                padding: 8px 12px;
-                background: #2a2a4e;
-                color: #888;
-                border: 1px solid #444;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                transition: all 0.2s;
-                display: flex;
-                align-items: center;
-                gap: 4px;
-            }
-            #filter-toggle-btn:hover {
-                border-color: #4CAF50;
-                color: #4CAF50;
-            }
             #filter-toggle-btn.active {
-                border-color: #4CAF50;
-                color: #4CAF50;
-                background: rgba(76, 175, 80, 0.1);
+                border-color: #6366F1;
+                color: #818CF8;
+                background: rgba(99, 102, 241, 0.1);
             }
             #filter-toggle-btn .filter-badge {
-                background: #4CAF50;
+                background: #6366F1;
                 color: white;
                 font-size: 11px;
                 padding: 2px 6px;
@@ -168,25 +182,15 @@
             }
 
             #compare-all-btn {
-                margin-left: 8px;
-                padding: 8px 12px;
-                background: linear-gradient(135deg, #2a2a4e 0%, #3a3a5e 100%);
-                color: #ff9800;
-                border: 1px solid #ff9800;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                transition: all 0.2s;
-                display: flex;
-                align-items: center;
-                gap: 4px;
+                color: #818CF8;
+                border-color: rgba(99, 102, 241, 0.4);
             }
             #compare-all-btn:hover {
-                background: rgba(255, 152, 0, 0.15);
-                color: #ffb74d;
-                border-color: #ffb74d;
+                background: rgba(99, 102, 241, 0.1);
+                color: #a5b4fc;
+                border-color: rgba(99, 102, 241, 0.6);
                 transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
             }
             #compare-all-btn:active {
                 transform: translateY(0);
@@ -195,10 +199,10 @@
             #chat-toggle-btn {
                 margin-left: 8px;
                 padding: 8px 14px;
-                background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+                background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
                 color: white;
                 border: none;
-                border-radius: 4px;
+                border-radius: 8px;
                 cursor: pointer;
                 font-size: 14px;
                 font-weight: 500;
@@ -209,13 +213,13 @@
             }
             #chat-toggle-btn:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+                box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
             }
             #chat-toggle-btn:active {
                 transform: translateY(0);
             }
             #chat-toggle-btn.active {
-                background: linear-gradient(135deg, #7C3AED 0%, #9333EA 100%);
+                background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
             }
             #chat-toggle-btn.hidden {
                 display: none;
@@ -223,14 +227,14 @@
 
             #filter-panel {
                 position: fixed;
-                top: 60px;
+                top: 74px;
                 right: 10px;
                 width: 280px;
-                max-height: calc(100vh - 80px);
+                max-height: calc(100vh - 90px);
                 overflow-y: auto;
-                background: rgba(26, 26, 46, 0.95);
-                backdrop-filter: blur(10px);
-                border: 1px solid #333;
+                background: rgba(0, 0, 0, 0.70);
+                backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 border-radius: 8px;
                 padding: 16px;
                 z-index: 1000;
@@ -252,7 +256,7 @@
             #filter-panel .filter-header h3 {
                 margin: 0;
                 font-size: 14px;
-                color: #4CAF50;
+                color: #6366F1;
             }
             #filter-panel .filter-results {
                 color: #888;
@@ -282,12 +286,12 @@
                 padding: 4px 0;
             }
             #filter-panel .checkbox-group label:hover {
-                color: #4CAF50;
+                color: #6366F1;
             }
             #filter-panel .checkbox-group input[type="checkbox"] {
                 width: 16px;
                 height: 16px;
-                accent-color: #4CAF50;
+                accent-color: #6366F1;
             }
             #filter-panel .checkbox-group .count {
                 margin-left: auto;
@@ -301,8 +305,8 @@
             }
             #filter-panel .button-group button {
                 padding: 6px 12px;
-                background: #2a2a4e;
-                border: 1px solid #444;
+                background: #111827;
+                border: 1px solid #374151;
                 border-radius: 4px;
                 color: #888;
                 font-size: 12px;
@@ -310,13 +314,13 @@
                 transition: all 0.15s;
             }
             #filter-panel .button-group button:hover {
-                border-color: #4CAF50;
-                color: #4CAF50;
+                border-color: #6366F1;
+                color: #6366F1;
             }
             #filter-panel .button-group button.active {
-                background: rgba(76, 175, 80, 0.2);
-                border-color: #4CAF50;
-                color: #4CAF50;
+                background: rgba(99, 102, 241, 0.2);
+                border-color: #6366F1;
+                color: #6366F1;
             }
             #filter-panel .range-slider {
                 display: flex;
@@ -325,7 +329,7 @@
             }
             #filter-panel .range-slider input[type="range"] {
                 width: 100%;
-                accent-color: #4CAF50;
+                accent-color: #6366F1;
             }
             #filter-panel .range-display {
                 display: flex;
@@ -334,14 +338,14 @@
                 color: #666;
             }
             #filter-panel .range-display span:nth-child(2) {
-                color: #4CAF50;
+                color: #6366F1;
                 font-weight: bold;
             }
             #filter-panel #filter-clear {
                 width: 100%;
                 padding: 10px;
                 background: transparent;
-                border: 1px solid #444;
+                border: 1px solid #374151;
                 border-radius: 4px;
                 color: #888;
                 font-size: 13px;
@@ -361,11 +365,13 @@
 
             #help-panel {
                 position: fixed;
-                top: 60px;
+                top: 74px;
                 right: 10px;
-                background: rgba(0, 0, 0, 0.85);
+                background: rgba(0, 0, 0, 0.70);
+                backdrop-filter: blur(12px);
                 padding: 15px;
                 border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 color: white;
                 font-size: 13px;
                 z-index: 1000;
@@ -377,7 +383,7 @@
             #help-panel h3 {
                 margin: 0 0 10px 0;
                 font-size: 14px;
-                color: #4CAF50;
+                color: #6366F1;
             }
             #help-panel kbd {
                 background: #333;
@@ -392,8 +398,8 @@
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(76, 175, 80, 0.2);
-                border: 4px dashed #4CAF50;
+                background: rgba(99, 102, 241, 0.2);
+                border: 4px dashed #6366F1;
                 display: none;
                 align-items: center;
                 justify-content: center;
@@ -420,21 +426,30 @@
 
         <!-- Header -->
         <div id="header">
-            <h1>G1 Alignment Viewer</h1>
+            <a id="header-home-link" href="/" target="_top" title="Back to Home">
+                <i class="ri-arrow-left-s-line"></i>
+                <i class="ri-robot-2-line header-brand-icon"></i>
+            </a>
+            <h1>G1 Alignment</h1>
             <span class="experiment-id" id="experiment-id"></span>
             <select id="extraction-dropdown">
                 <option value="">Loading extractions...</option>
             </select>
-            <button id="refresh-manifest-btn" title="Refresh extractions list">↻</button>
-            <button id="filter-toggle-btn" title="Toggle filters (F)">
+            <button id="refresh-manifest-btn" class="header-btn-unified" title="Refresh extractions list">
+                <i class="ri-refresh-line"></i>
+            </button>
+            <button id="filter-toggle-btn" class="header-btn-unified" title="Toggle filters (F)">
+                <i class="ri-filter-3-line"></i>
                 <span>Filters</span>
                 <span class="filter-badge" id="filter-badge" style="display: none;"></span>
             </button>
-            <button id="compare-all-btn" title="Compare all trajectories in scenario">
+            <button id="compare-all-btn" class="header-btn-unified" title="Compare all trajectories in scenario">
+                <i class="ri-bar-chart-grouped-line"></i>
                 <span>Compare</span>
             </button>
             <button id="chat-toggle-btn" class="hidden" title="Open Research Assistant (G)">
-                <span>🤖 Ask AI</span>
+                <i class="ri-robot-2-line"></i>
+                <span>Ask AI</span>
             </button>
         </div>
 
@@ -511,5 +526,25 @@
         <div id="appbody" style="position: absolute;">
             <script type="module" src="./src/main.js"></script>
         </div>
+
+        <script>
+            // Home link: detect parent origin via document.referrer when inside an iframe
+            (function() {
+                var homeLink = document.getElementById('header-home-link');
+                if (!homeLink) return;
+                homeLink.addEventListener('click', function(e) {
+                    if (window !== window.top && document.referrer) {
+                        e.preventDefault();
+                        try {
+                            var parentOrigin = new URL(document.referrer).origin;
+                            window.top.location.href = parentOrigin;
+                        } catch (err) {
+                            // Fallback: let the default target="_top" behavior handle it
+                        }
+                    }
+                    // When not in iframe, default href="/" navigates normally
+                });
+            })();
+        </script>
     </body>
 </html>

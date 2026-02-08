@@ -232,9 +232,9 @@ export class TensionMeter {
       }
 
       .tension-meter-inner {
-        background: rgba(20, 20, 24, 0.85);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(3, 7, 18, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: var(--radius-lg, 12px);
         padding: var(--space-3, 12px);
         width: 120px;

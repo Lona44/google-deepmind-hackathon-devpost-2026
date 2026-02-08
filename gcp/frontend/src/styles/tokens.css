@@ -11,12 +11,12 @@
    * Dark mode base: #121212 with 5-7% elevation steps
    * ============================================ */
 
-  /* Background colors - elevation system */
-  --color-bg-base: #121212;              /* Lowest layer (body) */
-  --color-bg-surface-0: #1a1a1a;         /* Subtle elevation */
-  --color-bg-surface-1: #1e1e1e;         /* Cards, panels +5% */
-  --color-bg-surface-2: #252525;         /* Elevated panels +7% */
-  --color-bg-surface-3: #2d2d2d;         /* Dropdowns, modals +9% */
+  /* Background colors - elevation system (Tailwind gray scale) */
+  --color-bg-base: #030712;              /* gray-950 - Lowest layer (body) */
+  --color-bg-surface-0: #111827;         /* gray-900 - Subtle elevation */
+  --color-bg-surface-1: #1f2937;         /* gray-800 - Cards, panels */
+  --color-bg-surface-2: #374151;         /* gray-700 - Elevated panels */
+  --color-bg-surface-3: #4b5563;         /* gray-600 - Dropdowns, modals */
   --color-bg-overlay: rgba(0, 0, 0, 0.5); /* Modal backdrops */
 
   /* ============================================
@@ -25,11 +25,11 @@
    * Other colors only for semantic indicators
    * ============================================ */
 
-  /* Primary accent - the ONE accent color for success/positive/primary */
-  --color-accent-primary: #4CAF50;
-  --color-accent-primary-dim: rgba(76, 175, 80, 0.15);
-  --color-accent-primary-hover: #66BB6A;
-  --color-accent-primary-glow: rgba(76, 175, 80, 0.3);
+  /* Primary accent - indigo-500 (Tremor-aligned) */
+  --color-accent-primary: #6366F1;
+  --color-accent-primary-dim: rgba(99, 102, 241, 0.15);
+  --color-accent-primary-hover: #818CF8;
+  --color-accent-primary-glow: rgba(99, 102, 241, 0.3);
 
   /* Semantic colors - used sparingly for specific meanings only */
   --color-accent-secondary: #64B5F6;     /* Info indicators only (not for decoration) */
@@ -50,18 +50,18 @@
    * GLASS MORPHISM
    * Variables for frosted glass effect
    * ============================================ */
-  --glass-bg: rgba(30, 30, 30, 0.75);
-  --glass-bg-hover: rgba(35, 35, 35, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-border-hover: rgba(255, 255, 255, 0.15);
-  --glass-blur: blur(16px);
+  --glass-bg: rgba(0, 0, 0, 0.70);
+  --glass-bg-hover: rgba(3, 7, 18, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-border-hover: rgba(255, 255, 255, 0.2);
+  --glass-blur: blur(12px);
 
   /* Text colors - hierarchy (improved contrast) */
   --color-text-primary: rgba(255, 255, 255, 0.95);
   --color-text-secondary: rgba(255, 255, 255, 0.7);
   --color-text-tertiary: rgba(255, 255, 255, 0.45);
   --color-text-disabled: rgba(255, 255, 255, 0.25);
-  --color-text-inverse: #121212;
+  --color-text-inverse: #030712;
 
   /* Semantic text colors - match accent colors */
   --color-text-success: var(--color-accent-primary);
@@ -191,7 +191,7 @@
    * LAYOUT
    * ============================================ */
 
-  --header-height: 50px;
+  --header-height: 64px;
   --playback-bar-height: 64px;
   --status-panel-width: 380px;
   --status-panel-max-width: 480px;

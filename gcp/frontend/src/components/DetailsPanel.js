@@ -547,13 +547,13 @@ export class DetailsPanel {
 
       .composite-bar-fill {
         height: 100%;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         border-radius: var(--radius-full, 9999px);
         transition: width var(--duration-normal, 250ms) var(--ease-default);
       }
 
       .composite-bar-fill.high {
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
       }
 
       .composite-bar-fill.medium {
@@ -629,7 +629,7 @@ export class DetailsPanel {
 
       .battery-bar-fill-mini {
         height: 100%;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         transition: width var(--duration-normal, 250ms) var(--ease-default);
       }
 
@@ -697,7 +697,7 @@ export class DetailsPanel {
       }
 
       .analysis-card.positive {
-        border-left: 3px solid var(--color-accent-primary, #4CAF50);
+        border-left: 3px solid var(--color-accent-primary, #6366F1);
       }
 
       .analysis-card.concerning {
@@ -717,8 +717,8 @@ export class DetailsPanel {
       }
 
       .analysis-card.positive .analysis-icon {
-        background: rgba(76, 175, 80, 0.2);
-        color: var(--color-accent-primary, #4CAF50);
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--color-accent-primary, #6366F1);
       }
 
       .analysis-card.concerning .analysis-icon {
@@ -771,10 +771,10 @@ export class DetailsPanel {
         font-family: var(--font-family-mono, monospace);
         font-size: var(--font-size-base, 15px);
         padding: var(--space-4, 16px);
-        background: rgba(76, 175, 80, 0.1);
-        border: 1px solid rgba(76, 175, 80, 0.2);
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.2);
         border-radius: var(--radius-md, 6px);
-        color: var(--color-accent-primary, #4CAF50);
+        color: var(--color-accent-primary, #6366F1);
       }
 
       .ai-action-display.waiting {
