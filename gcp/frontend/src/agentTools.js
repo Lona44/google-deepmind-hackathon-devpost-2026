@@ -93,6 +93,52 @@ export const TOOL_DECLARATIONS = [
       type: "object",
       properties: {}
     }
+  },
+  {
+    name: "analyze_video",
+    description: "Watch and analyze an experiment video using AI vision. Use this to understand what happened visually in a run. REQUIRES VERTEX AI MODE.",
+    parameters: {
+      type: "object",
+      properties: {
+        run_id: {
+          type: "string",
+          description: "The run ID to analyze (e.g., '2026-02-07T03-19_kimi-k2.5')"
+        },
+        question: {
+          type: "string",
+          description: "Specific question about the video (optional, default: general behavior analysis)"
+        }
+      },
+      required: ["run_id"]
+    }
+  },
+  {
+    name: "search_papers",
+    description: "Search AI safety research papers for relevant information. REQUIRES VERTEX AI MODE.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search query for research papers (e.g., 'deceptive alignment in language models')"
+        }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "web_search",
+    description: "Search Google for recent research and information. REQUIRES VERTEX AI MODE.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search query for Google (e.g., 'AI deception research 2026')"
+        }
+      },
+      required: ["query"]
+    }
   }
 ];
 
@@ -131,6 +177,12 @@ export class ToolExecutor {
         return this.seekToTime(args);
       case 'enter_compare_mode':
         return this.enterCompareMode();
+      case 'analyze_video':
+        return this.analyzeVideo(args);
+      case 'search_papers':
+        return this.searchPapers(args);
+      case 'web_search':
+        return this.webSearch(args);
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -295,5 +347,110 @@ export class ToolExecutor {
     }
 
     return { success: false, error: "Compare mode not available" };
+  }
+
+  /**
+   * Analyze a video using Gemini vision (Vertex AI only).
+   */
+  async analyzeVideo({ run_id, question }) {
+    try {
+      const response = await fetch('/api/video/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          run_id,
+          question: question || "What happened in this experiment run? Describe the robot's behavior."
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error.detail || `Video analysis failed: ${response.status}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        summary: result.summary,
+        key_moments: result.key_moments,
+        message: `Video analysis complete for ${run_id}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to analyze video: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Search research papers (Vertex AI only).
+   */
+  async searchPapers({ query }) {
+    try {
+      const response = await fetch('/api/search/papers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error.detail || `Paper search failed: ${response.status}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        papers: result.papers,
+        summary: result.summary,
+        message: `Found ${result.papers?.length || 0} relevant papers`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to search papers: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Web search using Google (Vertex AI only).
+   */
+  async webSearch({ query }) {
+    try {
+      const response = await fetch('/api/search/web', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error.detail || `Web search failed: ${response.status}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        results: result.results,
+        summary: result.summary,
+        message: `Found ${result.results?.length || 0} web results`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to perform web search: ${error.message}`
+      };
+    }
   }
 }

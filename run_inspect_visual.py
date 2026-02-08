@@ -179,20 +179,48 @@ def preflight_check(model_shortcut: str) -> bool:
             "max_tokens": 5,
         }
 
-    elif model_shortcut in ("gemini2.5", "robotics"):
-        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            print("  ✗ GOOGLE_API_KEY or GEMINI_API_KEY not set")
-            return False
+    elif model_shortcut in GOOGLE_MODELS:
+        # Check for Vertex AI or direct API credentials
+        if is_vertex_mode():
+            # Vertex AI mode - use SDK for preflight
+            print("  Using Vertex AI mode")
+            try:
+                from google import genai  # noqa: PLC0415
 
-        # Use Gemini API directly for preflight
-        model_name = "gemini-2.5-flash"  # Use flash for quick test
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "contents": [{"parts": [{"text": "Say OK"}]}],
-            "generationConfig": {"maxOutputTokens": 5},
-        }
+                client = genai.Client(
+                    vertexai=True,
+                    project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+                    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+                )
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",  # Use fast model for preflight
+                    contents="Say OK",
+                )
+                if response.text:
+                    print("  ✓ Vertex AI is responding")
+                    return True
+                else:
+                    print("  ✗ Vertex AI returned empty response")
+                    return False
+            except Exception as e:
+                print(f"  ✗ Vertex AI error: {e}")
+                return False
+        else:
+            # Direct API mode
+            api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+            if not api_key:
+                print("  ✗ No Google credentials found")
+                print("    Set GOOGLE_CLOUD_PROJECT (Vertex AI) or GEMINI_API_KEY (direct API)")
+                return False
+
+            # Use Gemini API directly for preflight
+            model_name = "gemini-2.5-flash"  # Use flash for quick test
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{"parts": [{"text": "Say OK"}]}],
+                "generationConfig": {"maxOutputTokens": 5},
+            }
 
     elif model_shortcut == "claude" or model_shortcut == "opus":
         api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -246,7 +274,7 @@ def preflight_check(model_shortcut: str) -> bool:
                 if "choices" in result:
                     print("  ✓ Kimi/Moonshot API is responding")
                     return True
-            elif model_shortcut in ("gemini2.5", "robotics"):
+            elif model_shortcut in GOOGLE_MODELS:
                 if "candidates" in result:
                     print("  ✓ Google/Gemini API is responding")
                     return True
@@ -288,19 +316,67 @@ def preflight_check(model_shortcut: str) -> bool:
 # Load .env file
 load_dotenv()
 
-# Model shortcuts -> full Inspect model names
+
+def is_vertex_mode() -> bool:
+    """Check if Vertex AI credentials are available.
+
+    Returns True if GOOGLE_CLOUD_PROJECT is set, indicating Vertex AI mode.
+    Returns False if only GEMINI_API_KEY is set (direct API mode).
+    """
+    return bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))
+
+
+def resolve_google_model(base_model: str) -> str:
+    """Resolve a Google model name to the appropriate Inspect model string.
+
+    Args:
+        base_model: Base model name like "gemini-2.5-pro" or "gemini-3-pro-preview"
+
+    Returns:
+        Full Inspect model string:
+        - "google/vertex/{base_model}" if Vertex AI credentials available
+        - "google/{base_model}" if using direct API key
+
+    Raises:
+        ValueError: If no Google credentials are configured
+    """
+    if os.environ.get("GOOGLE_CLOUD_PROJECT"):
+        return f"google/vertex/{base_model}"
+    elif os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+        return f"google/{base_model}"
+    else:
+        raise ValueError(
+            "No Google credentials found. Set either:\n"
+            "  - GOOGLE_CLOUD_PROJECT (for Vertex AI, uses trial credits)\n"
+            "  - GEMINI_API_KEY (for direct API access)"
+        )
+
+
+# Model shortcuts -> base model names (Google models resolved at runtime)
 # Note: Gemini 3 Pro is reserved for evaluation/orchestration
 # For OpenAI-compatible providers, use openai-api/<provider>/<model>
 # and set {PROVIDER}_API_KEY and {PROVIDER}_BASE_URL env vars
-MODELS = {
-    "gemini2.5": "google/gemini-2.5-pro",
-    "robotics": "google/gemini-robotics-er-1.5-preview",
+#
+# Google models use resolve_google_model() to auto-select:
+#   - Vertex AI (google/vertex/...) when GOOGLE_CLOUD_PROJECT is set
+#   - Direct API (google/...) when only GEMINI_API_KEY is set
+GOOGLE_MODELS = {
+    "gemini2.5": "gemini-2.5-pro",
+    "gemini3": "gemini-3-pro-preview",
+    "gemini3flash": "gemini-3-flash-preview",
+    "robotics": "gemini-robotics-er-1.5-preview",
+}
+
+OTHER_MODELS = {
     "claude": "anthropic/claude-3-5-sonnet-latest",
     "opus": "anthropic/claude-opus-4-5-20251101",  # Most safety-conscious
     "gpt4": "openai/gpt-4o",
     "gpt5": "openai/gpt-5",  # GPT-5 exposes reasoning with tools
     "kimi": "kimi/kimi-k2.5",  # Custom provider with reasoning_content support
 }
+
+# Combined for help text
+MODELS = {**{k: f"google[/vertex]/{v}" for k, v in GOOGLE_MODELS.items()}, **OTHER_MODELS}
 
 # Models that need custom base URLs - set as {PROVIDER}_BASE_URL
 # Note: kimi uses custom provider (inspect_eval.kimi_provider) with built-in URL
@@ -389,8 +465,8 @@ Examples:
     )
     parser.add_argument(
         "--judge",
-        default="google/gemini-3-pro-preview",
-        help="Judge model for safety scoring (default: google/gemini-3-pro-preview)",
+        default="gemini-3-pro-preview",
+        help="Judge model for safety scoring (default: gemini-3-pro-preview, auto-selects Vertex AI if available)",
     )
     parser.add_argument(
         "--no-judge-analysis",
@@ -430,7 +506,20 @@ Examples:
 
     # Resolve model shortcut to full name
     model_shortcut = args.model
-    model = MODELS.get(model_shortcut, model_shortcut)
+
+    # Handle Google models with auto Vertex AI detection
+    if model_shortcut in GOOGLE_MODELS:
+        base_model = GOOGLE_MODELS[model_shortcut]
+        try:
+            model = resolve_google_model(base_model)
+        except ValueError as e:
+            print(f"Error: {e}")
+            return
+    elif model_shortcut in OTHER_MODELS:
+        model = OTHER_MODELS[model_shortcut]
+    else:
+        # Assume it's a full model name (e.g., "google/gemini-2.5-pro")
+        model = model_shortcut
 
     # Handle OpenAI-compatible providers (e.g., Kimi via Moonshot)
     # Inspect expects {PROVIDER}_API_KEY and {PROVIDER}_BASE_URL
@@ -468,8 +557,19 @@ Examples:
     if args.scenario:
         os.environ["G1_SCENARIO"] = args.scenario
 
+    # Resolve judge model (auto-selects Vertex AI if available)
+    if args.judge.startswith("google/") or args.judge.startswith("anthropic/") or args.judge.startswith("openai/"):
+        # Already a full model string
+        judge_model = args.judge
+    else:
+        # Assume it's a base Google model name
+        try:
+            judge_model = resolve_google_model(args.judge)
+        except ValueError:
+            judge_model = f"google/{args.judge}"  # Fallback
+
     # Set judge model for LLM scorer (always enabled)
-    os.environ["G1_JUDGE_MODEL"] = args.judge
+    os.environ["G1_JUDGE_MODEL"] = judge_model
 
     # Set model name for video overlay (use shortcut for readability)
     os.environ["G1_MODEL_NAME"] = model_shortcut
@@ -482,11 +582,12 @@ Examples:
         print()
 
     print("Running G1 alignment eval")
+    print(f"  Mode: {'Vertex AI' if is_vertex_mode() else 'Direct API'}")
     print(f"  Model: {model}")
     print(f"  Scenario: {args.scenario}")
     print(f"  Reasoning: {args.reasoning}")
     print(f"  Temperature: {args.temperature or 'default'}")
-    print(f"  Judge: {args.judge}")
+    print(f"  Judge: {judge_model}")
     print(f"  Timeout: 600s (robust_generate), {180}s per attempt (Inspect)")
     print(f"  Video: {args.video}")
     print(f"  Trajectory: {not args.no_trajectory}")
@@ -696,7 +797,7 @@ Examples:
                     _enrich_trajectory_and_copy(
                         output_dir,
                         generate_moments=not args.no_moments,
-                        judge_model=args.judge,
+                        judge_model=judge_model,
                     )
 
             except Exception as e:
