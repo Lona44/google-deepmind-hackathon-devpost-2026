@@ -6,6 +6,7 @@ Requires Vertex AI mode with appropriate resources configured.
 
 import asyncio
 import os
+import random
 import re
 from typing import Any
 
@@ -16,6 +17,35 @@ from google.cloud import storage
 from google.genai.types import GenerateContentConfig, GoogleSearch, Retrieval, Tool, VertexAISearch
 from pydantic import BaseModel
 from services.vertex_client import get_vertex_client
+
+
+async def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1.0):
+    """
+    Retry a function with exponential backoff on 429 errors.
+
+    Uses truncated exponential backoff as recommended by Google Cloud.
+    """
+    last_exception = None
+
+    for attempt in range(max_retries):
+        try:
+            return await func() if asyncio.iscoroutinefunction(func) else func()
+        except Exception as e:
+            error_str = str(e)
+            # Check if it's a rate limit error
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    # Exponential backoff with jitter
+                    delay = base_delay * (2**attempt) + random.uniform(0, 1)
+                    await asyncio.sleep(delay)
+                    continue
+            # Not a rate limit error, raise immediately
+            raise
+
+    # All retries exhausted
+    raise last_exception or Exception("Max retries exceeded")
+
 
 router = APIRouter()
 
@@ -103,10 +133,11 @@ async def search_papers(request: PaperSearchRequest) -> PaperSearchResponse:
 
         tool = Tool(retrieval=Retrieval(vertex_ai_search=VertexAISearch(datastore=datastore_path)))
 
-        # Query with RAG
-        response = client.client.models.generate_content(
-            model=client.capabilities.chat_model,
-            contents=f"""Search for AI safety research papers related to:
+        # Query with RAG - wrap with retry for rate limiting
+        async def make_request():
+            return client.client.models.generate_content(
+                model=client.capabilities.chat_model,
+                contents=f"""Search for AI safety research papers related to:
 
 Query: {request.query}
 
@@ -115,9 +146,10 @@ Please provide:
 2. A summary of how these papers relate to the query
 
 Focus on papers about AI alignment, safety, deception, and emergent behaviors.""",
-            config=GenerateContentConfig(tools=[tool]),
-        )
+                config=GenerateContentConfig(tools=[tool]),
+            )
 
+        response = await retry_with_backoff(make_request, max_retries=3, base_delay=2.0)
         response_text = response.text if hasattr(response, "text") else str(response)
 
         # Parse response into structured format
@@ -178,9 +210,11 @@ async def search_web(request: WebSearchRequest) -> WebSearchResponse:
         # Use Google Search grounding
         tool = Tool(google_search=GoogleSearch())
 
-        response = client.client.models.generate_content(
-            model=client.capabilities.chat_model,
-            contents=f"""Search the web for information about:
+        # Wrap API call with retry logic for rate limiting
+        async def make_request():
+            return client.client.models.generate_content(
+                model=client.capabilities.chat_model,
+                contents=f"""Search the web for information about:
 
 Query: {request.query}
 
@@ -189,11 +223,13 @@ Please provide:
 2. A list of relevant sources with titles and URLs in markdown format: [Title](URL)
 
 Focus on recent academic papers, research blogs, and authoritative sources.""",
-            config=GenerateContentConfig(
-                tools=[tool],
-                max_output_tokens=4096,
-            ),
-        )
+                config=GenerateContentConfig(
+                    tools=[tool],
+                    max_output_tokens=4096,
+                ),
+            )
+
+        response = await retry_with_backoff(make_request, max_retries=3, base_delay=2.0)
 
         # Get full response text from all parts
         response_text = ""
@@ -497,6 +533,7 @@ async def add_paper_to_database(request: AddPaperRequest) -> AddPaperResponse:
     The paper will be downloaded to GCS. Note: Vertex AI Search requires
     manual re-import to index new papers (or use the /papers/reindex endpoint).
     """
+
     # Determine download URL
     # Document IDs must match pattern: [a-zA-Z0-9-_]*
     def sanitize_id(s: str) -> str:
@@ -583,14 +620,16 @@ async def add_paper_to_database(request: AddPaperRequest) -> AddPaperResponse:
             reindex_message = "Paper indexed and will be searchable shortly."
 
             # Add to dynamic catalog
-            ADDED_PAPERS.append({
-                "id": paper_id,
-                "title": request.title,
-                "authors": request.authors or "Unknown",
-                "year": 2024,  # Default to current
-                "arxiv": request.arxiv_id,
-                "topic": request.topic or "Uncategorized",
-            })
+            ADDED_PAPERS.append(
+                {
+                    "id": paper_id,
+                    "title": request.title,
+                    "authors": request.authors or "Unknown",
+                    "year": 2024,  # Default to current
+                    "arxiv": request.arxiv_id,
+                    "topic": request.topic or "Uncategorized",
+                }
+            )
         except Exception as e:
             reindex_message = (
                 f"Upload successful but auto-index failed: {e}. Manual reindex may be needed."

@@ -633,9 +633,17 @@ export class ToolExecutor {
         message: `Found ${result.results?.length || 0} web results`
       };
     } catch (error) {
+      // Friendlier error messages
+      const errorMsg = error.message || String(error);
+      if (errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+        return {
+          success: false,
+          error: "Rate limit reached. Please wait a moment and try again."
+        };
+      }
       return {
         success: false,
-        error: `Failed to perform web search: ${error.message}`
+        error: `Web search unavailable: ${errorMsg}`
       };
     }
   }
