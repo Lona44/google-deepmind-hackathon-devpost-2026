@@ -9,7 +9,9 @@ import os
 import re
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException
+from google.cloud import storage
 from google.genai.types import GenerateContentConfig, GoogleSearch, Retrieval, Tool, VertexAISearch
 from pydantic import BaseModel
 from services.vertex_client import get_vertex_client
@@ -444,6 +446,109 @@ async def get_paper_catalog() -> dict[str, Any]:
         "papers": PAPER_CATALOG,
         "topics": list({p["topic"] for p in PAPER_CATALOG}),
         "years": sorted({p["year"] for p in PAPER_CATALOG}),
+    }
+
+
+class AddPaperRequest(BaseModel):
+    """Request to add a paper to the database."""
+
+    arxiv_id: str | None = None
+    url: str | None = None
+    title: str
+    authors: str | None = None
+    topic: str | None = None
+
+
+class AddPaperResponse(BaseModel):
+    """Response from adding a paper."""
+
+    success: bool
+    message: str
+    paper_id: str | None = None
+    gcs_path: str | None = None
+    needs_reindex: bool = True
+
+
+# Track papers pending reindex
+PENDING_PAPERS: list[dict] = []
+
+
+@router.post("/papers/add", response_model=AddPaperResponse)
+async def add_paper_to_database(request: AddPaperRequest) -> AddPaperResponse:
+    """
+    Download and add a paper to the Paper RAG database.
+
+    The paper will be downloaded to GCS. Note: Vertex AI Search requires
+    manual re-import to index new papers (or use the /papers/reindex endpoint).
+    """
+    # Determine download URL
+    if request.arxiv_id:
+        pdf_url = f"https://arxiv.org/pdf/{request.arxiv_id}.pdf"
+        paper_id = f"{request.arxiv_id}-{request.title.lower().replace(' ', '-')[:30]}"
+    elif request.url:
+        pdf_url = request.url
+        paper_id = request.title.lower().replace(" ", "-")[:50]
+    else:
+        return AddPaperResponse(
+            success=False,
+            message="Either arxiv_id or url must be provided",
+        )
+
+    # Download the PDF
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.get(pdf_url, follow_redirects=True)
+            response.raise_for_status()
+            pdf_content = response.content
+    except Exception as e:
+        return AddPaperResponse(
+            success=False,
+            message=f"Failed to download paper: {e}",
+        )
+
+    # Upload to GCS
+    bucket_name = "g1-ai-safety-papers"
+    blob_name = f"{paper_id}.pdf"
+
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+        blob.upload_from_string(pdf_content, content_type="application/pdf")
+        gcs_path = f"gs://{bucket_name}/{blob_name}"
+    except Exception as e:
+        return AddPaperResponse(
+            success=False,
+            message=f"Failed to upload to GCS: {e}",
+        )
+
+    # Add to pending papers list
+    paper_info = {
+        "id": paper_id,
+        "title": request.title,
+        "authors": request.authors,
+        "topic": request.topic or "Uncategorized",
+        "arxiv": request.arxiv_id,
+        "gcs_path": gcs_path,
+    }
+    PENDING_PAPERS.append(paper_info)
+
+    return AddPaperResponse(
+        success=True,
+        message=f"Paper '{request.title}' added to GCS. Run reindex to make it searchable.",
+        paper_id=paper_id,
+        gcs_path=gcs_path,
+        needs_reindex=True,
+    )
+
+
+@router.get("/papers/pending")
+async def get_pending_papers() -> dict[str, Any]:
+    """Get papers that have been added but not yet indexed."""
+    return {
+        "pending_count": len(PENDING_PAPERS),
+        "papers": PENDING_PAPERS,
+        "message": "These papers are in GCS but need reindexing to be searchable.",
     }
 
 

@@ -161,6 +161,36 @@ export const TOOL_DECLARATIONS = [
       },
       required: ["query"]
     }
+  },
+  {
+    name: "add_paper_to_database",
+    description: "Add a new research paper to our indexed database. Use this when you find a relevant paper via web search that should be added to our collection. The paper will be downloaded and stored, then available after reindexing.",
+    parameters: {
+      type: "object",
+      properties: {
+        arxiv_id: {
+          type: "string",
+          description: "The arxiv ID (e.g., '2412.14093') - preferred if available"
+        },
+        url: {
+          type: "string",
+          description: "Direct URL to the PDF if not on arxiv"
+        },
+        title: {
+          type: "string",
+          description: "Title of the paper"
+        },
+        authors: {
+          type: "string",
+          description: "Authors of the paper"
+        },
+        topic: {
+          type: "string",
+          description: "Topic category (e.g., 'Deception', 'Safe RL', 'Embodied AI')"
+        }
+      },
+      required: ["title"]
+    }
   }
 ];
 
@@ -209,6 +239,8 @@ export class ToolExecutor {
         return this.searchPapers(args);
       case 'web_search':
         return this.webSearch(args);
+      case 'add_paper_to_database':
+        return this.addPaperToDatabase(args);
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -604,6 +636,44 @@ export class ToolExecutor {
       return {
         success: false,
         error: `Failed to perform web search: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Add a paper to the database.
+   */
+  async addPaperToDatabase({ arxiv_id, url, title, authors, topic }) {
+    try {
+      const response = await fetch('/api/search/papers/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ arxiv_id, url, title, authors, topic })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error.detail || `Failed to add paper: ${response.status}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: result.success,
+        message: result.message,
+        paper_id: result.paper_id,
+        gcs_path: result.gcs_path,
+        needs_reindex: result.needs_reindex,
+        note: result.needs_reindex
+          ? "Paper added to storage. An admin needs to trigger reindexing in Vertex AI Search for it to become searchable."
+          : "Paper added and indexed."
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to add paper: ${error.message}`
       };
     }
   }
