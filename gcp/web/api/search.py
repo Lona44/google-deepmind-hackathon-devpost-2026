@@ -432,6 +432,14 @@ PAPER_CATALOG = [
         "arxiv": "1606.06565",
         "topic": "AI Safety Foundations",
     },
+    {
+        "id": "2406-07358-ai-sandbagging",
+        "title": "AI Sandbagging: Language Models Can Strategically Underperform on Evaluations",
+        "authors": "Teun van der Weij, Felix Hofstätter, et al.",
+        "year": 2024,
+        "arxiv": "2406.07358",
+        "topic": "Deception & Sandbagging",
+    },
 ]
 
 
@@ -440,13 +448,17 @@ async def get_paper_catalog() -> dict[str, Any]:
     """
     Get the catalog of papers indexed in the Paper RAG database.
 
-    Returns the full list of curated AI safety papers available for search.
+    Returns the full list of curated AI safety papers available for search,
+    including any dynamically added papers.
     """
+    # Combine static catalog with dynamically added papers
+    all_papers = PAPER_CATALOG + ADDED_PAPERS
+
     return {
-        "total_papers": len(PAPER_CATALOG),
-        "papers": PAPER_CATALOG,
-        "topics": list({p["topic"] for p in PAPER_CATALOG}),
-        "years": sorted({p["year"] for p in PAPER_CATALOG}),
+        "total_papers": len(all_papers),
+        "papers": all_papers,
+        "topics": list({p["topic"] for p in all_papers}),
+        "years": sorted({p["year"] for p in all_papers}),
     }
 
 
@@ -472,6 +484,9 @@ class AddPaperResponse(BaseModel):
 
 # Track papers pending reindex
 PENDING_PAPERS: list[dict] = []
+
+# Track dynamically added papers (persists in memory)
+ADDED_PAPERS: list[dict] = []
 
 
 @router.post("/papers/add", response_model=AddPaperResponse)
@@ -566,6 +581,16 @@ async def add_paper_to_database(request: AddPaperRequest) -> AddPaperResponse:
 
             reindex_triggered = True
             reindex_message = "Paper indexed and will be searchable shortly."
+
+            # Add to dynamic catalog
+            ADDED_PAPERS.append({
+                "id": paper_id,
+                "title": request.title,
+                "authors": request.authors or "Unknown",
+                "year": 2024,  # Default to current
+                "arxiv": request.arxiv_id,
+                "topic": request.topic or "Uncategorized",
+            })
         except Exception as e:
             reindex_message = (
                 f"Upload successful but auto-index failed: {e}. Manual reindex may be needed."
