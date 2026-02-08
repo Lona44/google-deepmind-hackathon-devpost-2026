@@ -339,6 +339,114 @@ Provide a 2-3 paragraph synthesis that:
     )
 
 
+# Curated paper catalog - these are indexed in Vertex AI Search
+PAPER_CATALOG = [
+    {
+        "id": "alignment-faking-anthropic",
+        "title": "Alignment Faking in Large Language Models",
+        "authors": "Ryan Greenblatt, Buck Shlegeris, Kshitij Sachan, Fabien Roger (Anthropic)",
+        "year": 2024,
+        "arxiv": "2412.14093",
+        "topic": "Deception & Alignment Faking",
+    },
+    {
+        "id": "sleeper-agents-anthropic",
+        "title": "Sleeper Agents: Training Deceptive LLMs that Persist Through Safety Training",
+        "authors": "Evan Hubinger, Carson Denison, Jesse Mu et al. (Anthropic)",
+        "year": 2024,
+        "arxiv": "2401.05566",
+        "topic": "Deception & Backdoors",
+    },
+    {
+        "id": "scheming-apollo-research",
+        "title": "Frontier Models are Capable of In-context Scheming",
+        "authors": "Apollo Research",
+        "year": 2024,
+        "arxiv": "2411.08792",
+        "topic": "Scheming & Deception",
+    },
+    {
+        "id": "deliberative-alignment-openai",
+        "title": "Deliberative Alignment: Reasoning Enables Safer Language Models",
+        "authors": "OpenAI",
+        "year": 2024,
+        "arxiv": "2412.16339",
+        "topic": "Safety Training",
+    },
+    {
+        "id": "goal-misgeneralization-deepmind",
+        "title": "Goal Misgeneralization in Deep Reinforcement Learning",
+        "authors": "DeepMind",
+        "year": 2022,
+        "arxiv": "2210.01790",
+        "topic": "Goal Misgeneralization",
+    },
+    {
+        "id": "specification-gaming",
+        "title": "Specification Gaming: The Flip Side of AI Ingenuity",
+        "authors": "DeepMind",
+        "year": 2020,
+        "arxiv": "2004.05867",
+        "topic": "Reward Hacking",
+    },
+    {
+        "id": "rt2-vision-language-action",
+        "title": "RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control",
+        "authors": "Google DeepMind",
+        "year": 2023,
+        "arxiv": "2307.15818",
+        "topic": "Embodied AI",
+    },
+    {
+        "id": "safety-gymnasium",
+        "title": "Safety Gymnasium: A Unified Safe Reinforcement Learning Benchmark",
+        "authors": "PKU-Alignment Team",
+        "year": 2023,
+        "arxiv": "2310.12567",
+        "topic": "Safe RL Benchmarks",
+    },
+    {
+        "id": "constrained-policy-optimization",
+        "title": "Constrained Policy Optimization",
+        "authors": "Berkeley AI Research",
+        "year": 2017,
+        "arxiv": "1705.10528",
+        "topic": "Safe RL Methods",
+    },
+    {
+        "id": "representation-engineering",
+        "title": "Representation Engineering: A Top-Down Approach to AI Transparency",
+        "authors": "Anthropic",
+        "year": 2023,
+        "arxiv": "2310.01405",
+        "topic": "Interpretability",
+    },
+    {
+        "id": "concrete-problems-ai-safety",
+        "title": "Concrete Problems in AI Safety",
+        "authors": "Amodei, Olah, et al. (Google Brain, OpenAI)",
+        "year": 2016,
+        "arxiv": "1606.06565",
+        "topic": "AI Safety Foundations",
+    },
+]
+
+
+@router.get("/papers/catalog")
+async def get_paper_catalog() -> dict[str, Any]:
+    """
+    Get the catalog of papers indexed in the Paper RAG database.
+
+    Returns the full list of curated AI safety papers available for search.
+    """
+    return {
+        "total_papers": len(PAPER_CATALOG),
+        "papers": PAPER_CATALOG,
+        "topics": list({p["topic"] for p in PAPER_CATALOG}),
+        "years": sorted({p["year"] for p in PAPER_CATALOG}),
+    }
+
+
 @router.get("/status")
 async def get_search_status() -> dict[str, Any]:
     """

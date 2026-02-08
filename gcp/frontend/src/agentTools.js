@@ -127,6 +127,14 @@ export const TOOL_DECLARATIONS = [
     }
   },
   {
+    name: "get_paper_catalog",
+    description: "Get the list of all AI safety papers in our indexed database. Use this to tell users what papers are available or to understand our research corpus.",
+    parameters: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
     name: "search_papers",
     description: "Search AI safety research papers for relevant information. REQUIRES VERTEX AI MODE.",
     parameters: {
@@ -195,6 +203,8 @@ export class ToolExecutor {
         return this.getExperimentInsights(args);
       case 'analyze_video':
         return this.analyzeVideo(args);
+      case 'get_paper_catalog':
+        return this.getPaperCatalog();
       case 'search_papers':
         return this.searchPapers(args);
       case 'web_search':
@@ -494,6 +504,38 @@ export class ToolExecutor {
       return {
         success: false,
         error: `Failed to analyze video: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Get the catalog of indexed papers.
+   */
+  async getPaperCatalog() {
+    try {
+      const response = await fetch('/api/search/papers/catalog');
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error.detail || `Failed to get paper catalog: ${response.status}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        total_papers: result.total_papers,
+        papers: result.papers,
+        topics: result.topics,
+        years: result.years,
+        message: `We have ${result.total_papers} AI safety papers indexed, covering topics: ${result.topics.join(', ')}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get paper catalog: ${error.message}`
       };
     }
   }
