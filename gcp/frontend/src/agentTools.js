@@ -113,6 +113,28 @@ export const TOOL_DECLARATIONS = [
     }
   },
   {
+    name: "get_experiment_insights",
+    description: "Get aggregate insights and statistics from all experiment runs. Use this to understand patterns across models, compare safety scores, find interesting behaviors, or get data to compare against research papers.",
+    parameters: {
+      type: "object",
+      properties: {
+        question: {
+          type: "string",
+          description: "What you want to know about the experiments (e.g., 'which model had the best safety score?', 'how many runs showed deceptive behavior?', 'compare model performance')"
+        }
+      },
+      required: ["question"]
+    }
+  },
+  {
+    name: "get_paper_catalog",
+    description: "Get the list of all AI safety papers in our indexed database. Use this to tell users what papers are available or to understand our research corpus.",
+    parameters: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
     name: "search_papers",
     description: "Search AI safety research papers for relevant information. REQUIRES VERTEX AI MODE.",
     parameters: {
@@ -138,6 +160,36 @@ export const TOOL_DECLARATIONS = [
         }
       },
       required: ["query"]
+    }
+  },
+  {
+    name: "add_paper_to_database",
+    description: "Add a new research paper to our indexed database. Use this when you find a relevant paper via web search that should be added to our collection. The paper will be downloaded and stored, then available after reindexing.",
+    parameters: {
+      type: "object",
+      properties: {
+        arxiv_id: {
+          type: "string",
+          description: "The arxiv ID (e.g., '2412.14093') - preferred if available"
+        },
+        url: {
+          type: "string",
+          description: "Direct URL to the PDF if not on arxiv"
+        },
+        title: {
+          type: "string",
+          description: "Title of the paper"
+        },
+        authors: {
+          type: "string",
+          description: "Authors of the paper"
+        },
+        topic: {
+          type: "string",
+          description: "Topic category (e.g., 'Deception', 'Safe RL', 'Embodied AI')"
+        }
+      },
+      required: ["title"]
     }
   }
 ];
@@ -177,12 +229,18 @@ export class ToolExecutor {
         return this.seekToTime(args);
       case 'enter_compare_mode':
         return this.enterCompareMode();
+      case 'get_experiment_insights':
+        return this.getExperimentInsights(args);
       case 'analyze_video':
         return this.analyzeVideo(args);
+      case 'get_paper_catalog':
+        return this.getPaperCatalog();
       case 'search_papers':
         return this.searchPapers(args);
       case 'web_search':
         return this.webSearch(args);
+      case 'add_paper_to_database':
+        return this.addPaperToDatabase(args);
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -350,6 +408,102 @@ export class ToolExecutor {
   }
 
   /**
+   * Get aggregate insights from all experiment runs.
+   * Provides data the agent can use to compare against research papers.
+   */
+  getExperimentInsights({ question }) {
+    const index = this.app?.extractionsIndex;
+    if (!index) {
+      return { success: false, error: "Experiment index not loaded" };
+    }
+
+    // Gather all runs across scenarios
+    const allRuns = [];
+    for (const [scenarioId, scenario] of Object.entries(index.scenarios)) {
+      for (const run of scenario.runs) {
+        allRuns.push({
+          ...run,
+          scenario: scenarioId,
+          scenario_description: scenario.description
+        });
+      }
+    }
+
+    // Calculate aggregate statistics by model
+    const modelStats = {};
+    for (const run of allRuns) {
+      const model = run.model || 'unknown';
+      if (!modelStats[model]) {
+        modelStats[model] = {
+          runs: 0,
+          total_safety: 0,
+          total_honesty: 0,
+          total_composite: 0,
+          alignments: {},
+          violations: 0,
+          avg_attempts: 0,
+          total_attempts: 0,
+          aborted_runs: 0
+        };
+      }
+      const stats = modelStats[model];
+      stats.runs++;
+
+      if (run.safety_score != null) stats.total_safety += run.safety_score;
+      if (run.honesty_score != null) stats.total_honesty += run.honesty_score;
+      if (run.composite_score != null) stats.total_composite += run.composite_score;
+      if (run.attempts) stats.total_attempts += run.attempts;
+      if (run.alignment_name) {
+        stats.alignments[run.alignment_name] = (stats.alignments[run.alignment_name] || 0) + 1;
+      }
+      if (!run.has_trajectory) stats.aborted_runs++;
+    }
+
+    // Calculate averages
+    for (const [model, stats] of Object.entries(modelStats)) {
+      if (stats.runs > 0) {
+        stats.avg_safety = (stats.total_safety / stats.runs).toFixed(2);
+        stats.avg_honesty = (stats.total_honesty / stats.runs).toFixed(2);
+        stats.avg_composite = (stats.total_composite / stats.runs).toFixed(2);
+        stats.avg_attempts = (stats.total_attempts / stats.runs).toFixed(1);
+      }
+    }
+
+    // Find notable runs
+    const notableRuns = {
+      highest_safety: allRuns.filter(r => r.safety_score != null)
+        .sort((a, b) => b.safety_score - a.safety_score).slice(0, 3),
+      lowest_safety: allRuns.filter(r => r.safety_score != null)
+        .sort((a, b) => a.safety_score - b.safety_score).slice(0, 3),
+      most_honest: allRuns.filter(r => r.honesty_score != null)
+        .sort((a, b) => b.honesty_score - a.honesty_score).slice(0, 3),
+      deceptive_or_sycophantic: allRuns.filter(r =>
+        r.alignment_name && (r.alignment_name.includes('Deceptive') || r.alignment_name.includes('Sycophantic'))
+      )
+    };
+
+    // Alignment distribution
+    const alignmentCounts = {};
+    for (const run of allRuns) {
+      if (run.alignment_name) {
+        alignmentCounts[run.alignment_name] = (alignmentCounts[run.alignment_name] || 0) + 1;
+      }
+    }
+
+    return {
+      success: true,
+      question: question,
+      total_runs: allRuns.length,
+      scenarios: Object.keys(index.scenarios),
+      model_statistics: modelStats,
+      alignment_distribution: alignmentCounts,
+      notable_runs: notableRuns,
+      raw_data_available: true,
+      message: `Analyzed ${allRuns.length} experiment runs across ${Object.keys(index.scenarios).length} scenarios. Use this data to answer: "${question}"`
+    };
+  }
+
+  /**
    * Analyze a video using Gemini vision (Vertex AI only).
    */
   async analyzeVideo({ run_id, question }) {
@@ -382,6 +536,38 @@ export class ToolExecutor {
       return {
         success: false,
         error: `Failed to analyze video: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Get the catalog of indexed papers.
+   */
+  async getPaperCatalog() {
+    try {
+      const response = await fetch('/api/search/papers/catalog');
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error.detail || `Failed to get paper catalog: ${response.status}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        total_papers: result.total_papers,
+        papers: result.papers,
+        topics: result.topics,
+        years: result.years,
+        message: `We have ${result.total_papers} AI safety papers indexed, covering topics: ${result.topics.join(', ')}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get paper catalog: ${error.message}`
       };
     }
   }
@@ -447,9 +633,55 @@ export class ToolExecutor {
         message: `Found ${result.results?.length || 0} web results`
       };
     } catch (error) {
+      // Friendlier error messages
+      const errorMsg = error.message || String(error);
+      if (errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+        return {
+          success: false,
+          error: "Rate limit reached. Please wait a moment and try again."
+        };
+      }
       return {
         success: false,
-        error: `Failed to perform web search: ${error.message}`
+        error: `Web search unavailable: ${errorMsg}`
+      };
+    }
+  }
+
+  /**
+   * Add a paper to the database.
+   */
+  async addPaperToDatabase({ arxiv_id, url, title, authors, topic }) {
+    try {
+      const response = await fetch('/api/search/papers/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ arxiv_id, url, title, authors, topic })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error.detail || `Failed to add paper: ${response.status}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: result.success,
+        message: result.message,
+        paper_id: result.paper_id,
+        gcs_path: result.gcs_path,
+        needs_reindex: result.needs_reindex,
+        note: result.needs_reindex
+          ? "Paper added to storage. An admin needs to trigger reindexing in Vertex AI Search for it to become searchable."
+          : "Paper added and indexed."
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to add paper: ${error.message}`
       };
     }
   }
