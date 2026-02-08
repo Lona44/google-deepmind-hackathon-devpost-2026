@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException
+from google.cloud import discoveryengine_v1 as discoveryengine
 from google.cloud import storage
 from google.genai.types import GenerateContentConfig, GoogleSearch, Retrieval, Tool, VertexAISearch
 from pydantic import BaseModel
@@ -482,12 +483,18 @@ async def add_paper_to_database(request: AddPaperRequest) -> AddPaperResponse:
     manual re-import to index new papers (or use the /papers/reindex endpoint).
     """
     # Determine download URL
+    # Document IDs must match pattern: [a-zA-Z0-9-_]*
+    def sanitize_id(s: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9_-]", "-", s).strip("-")
+
     if request.arxiv_id:
         pdf_url = f"https://arxiv.org/pdf/{request.arxiv_id}.pdf"
-        paper_id = f"{request.arxiv_id}-{request.title.lower().replace(' ', '-')[:30]}"
+        arxiv_clean = sanitize_id(request.arxiv_id)
+        title_clean = sanitize_id(request.title.lower()[:30])
+        paper_id = f"{arxiv_clean}-{title_clean}"
     elif request.url:
         pdf_url = request.url
-        paper_id = request.title.lower().replace(" ", "-")[:50]
+        paper_id = sanitize_id(request.title.lower()[:50])
     else:
         return AddPaperResponse(
             success=False,
@@ -522,23 +529,74 @@ async def add_paper_to_database(request: AddPaperRequest) -> AddPaperResponse:
             message=f"Failed to upload to GCS: {e}",
         )
 
-    # Add to pending papers list
-    paper_info = {
-        "id": paper_id,
-        "title": request.title,
-        "authors": request.authors,
-        "topic": request.topic or "Uncategorized",
-        "arxiv": request.arxiv_id,
-        "gcs_path": gcs_path,
-    }
-    PENDING_PAPERS.append(paper_info)
+    # Trigger incremental import to Vertex AI Search
+    reindex_triggered = False
+    reindex_message = ""
+
+    datastore_id = os.getenv("VERTEX_SEARCH_DATASTORE_ID")
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+
+    if datastore_id and project_id:
+        try:
+            # Trigger document import for the new file
+            parent = (
+                f"projects/{project_id}/locations/global/"
+                f"collections/default_collection/dataStores/{datastore_id}/branches/default_branch"
+            )
+
+            # Import the single document
+            import_client = discoveryengine.DocumentServiceClient()
+
+            # Create the document with content from GCS
+            document = discoveryengine.Document(
+                id=paper_id,
+                json_data=f'{{"title": "{request.title}", "authors": "{request.authors or ""}", "topic": "{request.topic or ""}"}}',
+            )
+            document.content = discoveryengine.Document.Content(
+                mime_type="application/pdf",
+                uri=gcs_path,
+            )
+
+            # Use create_document for immediate indexing
+            import_client.create_document(
+                parent=parent,
+                document=document,
+                document_id=paper_id,
+            )
+
+            reindex_triggered = True
+            reindex_message = "Paper indexed and will be searchable shortly."
+        except Exception as e:
+            reindex_message = (
+                f"Upload successful but auto-index failed: {e}. Manual reindex may be needed."
+            )
+            # Still add to pending list for tracking
+            PENDING_PAPERS.append(
+                {
+                    "id": paper_id,
+                    "title": request.title,
+                    "authors": request.authors,
+                    "topic": request.topic or "Uncategorized",
+                    "arxiv": request.arxiv_id,
+                    "gcs_path": gcs_path,
+                }
+            )
+    else:
+        reindex_message = "Datastore not configured. Paper saved but not indexed."
+        PENDING_PAPERS.append(
+            {
+                "id": paper_id,
+                "title": request.title,
+                "gcs_path": gcs_path,
+            }
+        )
 
     return AddPaperResponse(
         success=True,
-        message=f"Paper '{request.title}' added to GCS. Run reindex to make it searchable.",
+        message=f"Paper '{request.title}' added. {reindex_message}",
         paper_id=paper_id,
         gcs_path=gcs_path,
-        needs_reindex=True,
+        needs_reindex=not reindex_triggered,
     )
 
 
