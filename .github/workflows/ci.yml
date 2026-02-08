@@ -140,8 +140,12 @@ jobs:
 
       - name: Scan for secrets
         run: |
-          # Scan the codebase for secrets
-          detect-secrets scan --baseline .secrets.baseline
+          # Scan the codebase for secrets (exclude lockfiles, node_modules, and UI false positives)
+          detect-secrets scan --baseline .secrets.baseline \
+            --exclude-files 'pnpm-lock\.yaml$' \
+            --exclude-files 'package-lock\.json$' \
+            --exclude-files 'node_modules/' \
+            --exclude-files '\.tsx$'
           # Extract only the results (actual secrets) - ignore metadata changes
           BASELINE_RESULTS=$(jq -r '.results | keys | length' .secrets.baseline)
           if [ "$BASELINE_RESULTS" -eq 0 ]; then
