@@ -4,6 +4,7 @@ Search API - Paper RAG and Google Search grounding.
 Requires Vertex AI mode with appropriate resources configured.
 """
 
+import asyncio
 import os
 import re
 from typing import Any
@@ -270,27 +271,36 @@ async def research(request: ResearchRequest) -> ResearchResponse:
     sources_used: list[str] = []
     all_context = []
 
-    # Query Paper RAG if available and requested
+    # Run Paper RAG and Google Search in parallel for faster response
+    tasks = []
     if request.include_papers and client.capabilities.paper_rag:
-        try:
-            paper_response = await search_papers(PaperSearchRequest(query=request.query))
-            papers = paper_response.papers
-            sources_used.append("paper_rag")
-            if paper_response.summary:
-                all_context.append(f"From indexed papers:\n{paper_response.summary}")
-        except HTTPException:
-            pass  # Paper RAG not available, continue with web search
-
-    # Query Google Search if available and requested
+        tasks.append(("papers", search_papers(PaperSearchRequest(query=request.query))))
     if request.include_web and client.capabilities.google_search:
-        try:
-            web_response = await search_web(WebSearchRequest(query=request.query))
-            web_results = web_response.results
-            sources_used.append("google_search")
-            if web_response.summary:
-                all_context.append(f"From web search:\n{web_response.summary}")
-        except HTTPException:
-            pass  # Google Search not available
+        tasks.append(("web", search_web(WebSearchRequest(query=request.query))))
+
+    if tasks:
+        # Execute queries in parallel
+        results = await asyncio.gather(
+            *[task[1] for task in tasks],
+            return_exceptions=True,
+        )
+
+        # Process results
+        for i, (source_type, _) in enumerate(tasks):
+            result = results[i]
+            if isinstance(result, Exception):
+                continue  # Skip failed queries
+
+            if source_type == "papers":
+                papers = result.papers
+                sources_used.append("paper_rag")
+                if result.summary:
+                    all_context.append(f"From indexed papers:\n{result.summary}")
+            elif source_type == "web":
+                web_results = result.results
+                sources_used.append("google_search")
+                if result.summary:
+                    all_context.append(f"From web search:\n{result.summary}")
 
     # Synthesize findings if we have context from multiple sources
     synthesis = ""
