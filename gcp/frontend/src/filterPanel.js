@@ -139,13 +139,31 @@ export class FilterPanel {
   }
 
   /**
-   * Render model filter checkboxes.
+   * Render model filter checkboxes with All/None buttons.
    */
   renderModelFilters(allRuns) {
     const container = document.getElementById('filter-models');
     if (!container) return;
 
     container.innerHTML = '';
+
+    // Add All/None buttons
+    const buttonRow = document.createElement('div');
+    buttonRow.className = 'filter-toggle-buttons';
+
+    const allBtn = document.createElement('button');
+    allBtn.textContent = 'All';
+    allBtn.className = 'filter-toggle-btn';
+    allBtn.addEventListener('click', () => this.selectAllModels());
+
+    const noneBtn = document.createElement('button');
+    noneBtn.textContent = 'None';
+    noneBtn.className = 'filter-toggle-btn';
+    noneBtn.addEventListener('click', () => this.selectNoModels());
+
+    buttonRow.appendChild(allBtn);
+    buttonRow.appendChild(noneBtn);
+    container.appendChild(buttonRow);
 
     // Count runs per model
     const counts = {};
@@ -173,6 +191,27 @@ export class FilterPanel {
       label.appendChild(count);
       container.appendChild(label);
     }
+  }
+
+  /**
+   * Select all models.
+   */
+  selectAllModels() {
+    this.filters.models.clear(); // Empty = show all
+    this.populateFilterOptions();
+    this.applyFilters();
+  }
+
+  /**
+   * Select no models (deselect all).
+   */
+  selectNoModels() {
+    this.filters.models.clear();
+    // Add a placeholder to indicate "none selected" state
+    // Since we filter by inclusion, we add an impossible value
+    this.filters.models.add('__none__');
+    this.populateFilterOptions();
+    this.applyFilters();
   }
 
   /**
