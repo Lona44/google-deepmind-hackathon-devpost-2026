@@ -345,6 +345,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               </span>
               <a
                 href={`/viewer?run=${encodeURIComponent(runId)}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
               >
                 View in 3D Viewer &rarr;
@@ -477,6 +479,9 @@ export default function ResearchPage() {
         parts: [{ text: text.trim() }],
       })
 
+      // Snapshot conversation length so we can rollback on error
+      const snapshotLen = conversationRef.current.length
+
       try {
         // Function call loop (max 5 rounds)
         for (let round = 0; round < 5; round++) {
@@ -494,6 +499,8 @@ export default function ResearchPage() {
 
           if (!res.ok || !data.success) {
             const errMsg = data.error || `Error: ${res.status}`
+            // Rollback conversation to prevent poisoned history
+            conversationRef.current.length = snapshotLen
             setMessages((prev) => [
               ...prev,
               { role: "error", content: errMsg },
@@ -507,51 +514,54 @@ export default function ResearchPage() {
           const candidate = data.content?.candidates?.[0]
           const parts = candidate?.content?.parts || []
 
-          // Check for function call
-          const fcPart = parts.find(
+          // Check for function calls (Gemini can return multiple in one turn)
+          const fcParts = parts.filter(
             (p: Record<string, unknown>) => p.functionCall,
           )
 
-          if (fcPart?.functionCall) {
-            const fc = fcPart.functionCall as {
-              name: string
-              args: Record<string, unknown>
-            }
-
-            // Show tool execution badge
-            setLoadingLabel(`Calling ${fc.name}...`)
-            setMessages((prev) => [
-              ...prev,
-              {
-                role: "assistant" as const,
-                content: "",
-                functionExecuted: fc.name,
-              },
-            ])
-
+          if (fcParts.length > 0) {
             // Add model's full response to history (preserves thought_signature)
             conversationRef.current.push({
               role: "model",
               parts: parts,
             })
 
-            // Execute the tool
-            const toolResult = await executeTool(fc.name, fc.args || {})
+            // Show badges for all tool calls
+            const toolNames = fcParts.map(
+              (p: Record<string, unknown>) =>
+                (p.functionCall as { name: string }).name,
+            )
+            setLoadingLabel(`Calling ${toolNames.join(", ")}...`)
+            for (const name of toolNames) {
+              setMessages((prev) => [
+                ...prev,
+                { role: "assistant" as const, content: "", functionExecuted: name },
+              ])
+            }
 
-            // Add function response to history
+            // Execute ALL function calls in parallel
+            const results = await Promise.all(
+              fcParts.map((p: Record<string, unknown>) => {
+                const fc = p.functionCall as {
+                  name: string
+                  args: Record<string, unknown>
+                }
+                return executeTool(fc.name, fc.args || {}).then((result) => ({
+                  name: fc.name,
+                  result,
+                }))
+              }),
+            )
+
+            // Send ALL function responses in a single user turn
             conversationRef.current.push({
               role: "user",
-              parts: [
-                {
-                  functionResponse: {
-                    name: fc.name,
-                    response: toolResult,
-                  },
-                },
-              ],
+              parts: results.map(({ name, result }) => ({
+                functionResponse: { name, response: result },
+              })),
             })
 
-            // Continue loop — send back to Gemini with tool result
+            // Continue loop — send back to Gemini with all tool results
             continue
           }
 
@@ -578,6 +588,8 @@ export default function ResearchPage() {
           break // Done — got text response
         }
       } catch {
+        // Rollback conversation to prevent poisoned history
+        conversationRef.current.length = snapshotLen
         setMessages((prev) => [
           ...prev,
           { role: "error", content: "Failed to connect to chat backend" },
