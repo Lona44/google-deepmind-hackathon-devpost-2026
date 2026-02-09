@@ -177,7 +177,7 @@ export class ExperimentSelector {
                     'value:', option.value);
 
         // Format: "model • score • timestamp"
-        const score = run.composite_score != null
+        const score = (run.composite_score != null && typeof run.composite_score === 'number')
           ? run.composite_score.toFixed(2)
           : '?';
         const timestamp = run.timestamp.split(' ')[0]; // Just date part
@@ -376,7 +376,7 @@ export class ExperimentSelector {
         option.value = run.trajectory_file;
 
         // Format: "model • score • timestamp"
-        const score = run.composite_score != null
+        const score = (run.composite_score != null && typeof run.composite_score === 'number')
           ? run.composite_score.toFixed(2)
           : '?';
         const timestamp = run.timestamp.split(' ')[0]; // Just date part

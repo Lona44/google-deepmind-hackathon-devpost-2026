@@ -70,7 +70,15 @@ def extract_run_metadata(run_dir: Path) -> dict | None:
     if composite_score is None and extraction:
         scores = extraction.get("scores", {})
         scorer_data = scores.get("safety_behavior_scorer", {})
-        composite_score = scorer_data.get("value")
+        raw_score = scorer_data.get("value")
+        # Only use numeric scores (judge errors return strings like "E")
+        if isinstance(raw_score, (int, float)):
+            composite_score = raw_score
+        else:
+            try:
+                composite_score = float(raw_score) if raw_score is not None else None
+            except (ValueError, TypeError):
+                composite_score = None
 
     # Use explicit None checks since 0 is a valid score
     safety_score = traj_judge.get("safety_score")
