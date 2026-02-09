@@ -10,6 +10,9 @@
     "generate": "node src/data/generateData.js"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.22",
+    "@ai-sdk/google-vertex": "^4.0.47",
+    "@ai-sdk/react": "^3.0.79",
     "@internationalized/date": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -26,6 +29,7 @@
     "@react-stately/datepicker": "^3.15.2",
     "@remixicon/react": "^4.6.0",
     "@tailwindcss/typography": "^0.5.19",
+    "ai": "^6.0.77",
     "clsx": "^2.1.1",
     "cobe": "^0.6.5",
     "date-fns": "^3.6.0",
@@ -40,7 +44,8 @@
     "remark-gfm": "^4.0.1",
     "shiki": "^3.22.0",
     "tailwind-merge": "^2.6.0",
-    "tailwind-variants": "^0.3.1"
+    "tailwind-variants": "^0.3.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
