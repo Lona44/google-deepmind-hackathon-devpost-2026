@@ -12,7 +12,7 @@ export const siteConfig = {
     research: "/research",
   },
   externalLink: {
-    github: "https://github.com/Lona44/Gemini3-Hackathon-Project",
+    github: "https://github.com/Lona44/google-deepmind-hackathon-devpost-2026",
   },
 }
 
