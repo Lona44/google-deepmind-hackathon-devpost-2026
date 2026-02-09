@@ -2,9 +2,9 @@
 import { siteConfig } from "@/app/siteConfig"
 import { cx, focusRing } from "@/lib/utils"
 import {
+  RiEyeLine,
+  RiFlaskLine,
   RiHome2Line,
-  RiLinkM,
-  RiListCheck,
   RiSettings5Line,
 } from "@remixicon/react"
 import Link from "next/link"
@@ -17,35 +17,17 @@ import {
 import { UserProfileDesktop, UserProfileMobile } from "./UserProfile"
 
 const navigation = [
-  { name: "Overview", href: siteConfig.baseLinks.overview, icon: RiHome2Line },
-  { name: "Details", href: siteConfig.baseLinks.details, icon: RiListCheck },
+  { name: "Dashboard", href: siteConfig.baseLinks.overview, icon: RiHome2Line },
+  {
+    name: "Research",
+    href: siteConfig.baseLinks.research,
+    icon: RiFlaskLine,
+  },
+  { name: "Viewer", href: siteConfig.baseLinks.viewer, icon: RiEyeLine },
   {
     name: "Settings",
     href: siteConfig.baseLinks.settings,
     icon: RiSettings5Line,
-  },
-] as const
-
-const shortcuts = [
-  {
-    name: "Add new user",
-    href: "#",
-    icon: RiLinkM,
-  },
-  {
-    name: "Workspace usage",
-    href: "#",
-    icon: RiLinkM,
-  },
-  {
-    name: "Cost spend control",
-    href: "#",
-    icon: RiLinkM,
-  },
-  {
-    name: "Overview – Rows written",
-    href: "#",
-    icon: RiLinkM,
   },
 ] as const
 
@@ -86,33 +68,6 @@ export function Sidebar() {
                 </li>
               ))}
             </ul>
-            <div>
-              <span className="text-xs font-medium leading-6 text-gray-500">
-                Shortcuts
-              </span>
-              <ul aria-label="shortcuts" role="list" className="space-y-0.5">
-                {shortcuts.map((item) => (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className={cx(
-                        pathname === item.href || pathname.startsWith(item.href)
-                          ? "text-indigo-600 dark:text-indigo-400"
-                          : "text-gray-700 hover:text-gray-900 dark:text-gray-400 hover:dark:text-gray-50",
-                        "flex items-center gap-x-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition hover:bg-gray-100 hover:dark:bg-gray-900",
-                        focusRing,
-                      )}
-                    >
-                      <item.icon
-                        className="size-4 shrink-0"
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </nav>
           <div className="mt-auto">
             <UserProfileDesktop />

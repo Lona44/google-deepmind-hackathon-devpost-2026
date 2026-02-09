@@ -9,6 +9,7 @@ export const siteConfig = {
     details: "/details",
     settings: "/settings",
     viewer: "/viewer",
+    research: "/research",
   },
   externalLink: {
     github: "https://github.com/Lona44/Gemini3-Hackathon-Project",

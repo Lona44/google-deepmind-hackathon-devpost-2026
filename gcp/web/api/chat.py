@@ -58,7 +58,7 @@ async def _call_vertex_ai(contents: list, tools: list | None) -> dict[str, Any]:
     # Build config
     config: dict[str, Any] = {
         "temperature": 0.7,
-        "max_output_tokens": 1024,
+        "max_output_tokens": 8192,
     }
 
     if tools:
@@ -79,16 +79,33 @@ async def _call_vertex_ai(contents: list, tools: list | None) -> dict[str, Any]:
 
         if candidate.content and candidate.content.parts:
             for part in candidate.content.parts:
+                part_dict: dict[str, Any] = {}
+
+                # Preserve thinking flag
+                if getattr(part, "thought", False):
+                    part_dict["thought"] = True
+
                 if hasattr(part, "text") and part.text:
-                    parts.append({"text": part.text})
+                    part_dict["text"] = part.text
                 elif hasattr(part, "function_call") and part.function_call:
                     fc = part.function_call
-                    parts.append({
-                        "functionCall": {
-                            "name": fc.name,
-                            "args": dict(fc.args) if fc.args else {}
-                        }
-                    })
+                    part_dict["functionCall"] = {
+                        "name": fc.name,
+                        "args": dict(fc.args) if fc.args else {}
+                    }
+
+                # Preserve thought_signature (required for round-tripping thinking mode)
+                sig = getattr(part, "thought_signature", None)
+                if sig is not None:
+                    import base64
+                    # SDK returns bytes; REST API expects base64 string
+                    if isinstance(sig, bytes):
+                        part_dict["thoughtSignature"] = base64.b64encode(sig).decode()
+                    else:
+                        part_dict["thoughtSignature"] = sig
+
+                if part_dict:
+                    parts.append(part_dict)
 
         result["candidates"].append({
             "content": {
@@ -113,7 +130,7 @@ async def _call_direct_api(contents: list, tools: list | None) -> dict[str, Any]
 
     request_body: dict[str, Any] = {
         "contents": contents,
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192},
     }
 
     if tools:

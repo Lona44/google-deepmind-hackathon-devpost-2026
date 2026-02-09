@@ -16,13 +16,12 @@ import { ModalAddWorkspace } from "./ModalAddWorkspace"
 
 const workspaces = [
   {
-    value: "retail-analytics",
-    name: "Retail analytics",
-    initials: "RA",
+    value: "g1-alignment",
+    name: "G1 Alignment Research",
+    initials: "G1",
     role: "Member",
     color: "bg-indigo-600 dark:bg-indigo-500",
   },
-  // Add more workspaces...
 ]
 
 export const WorkspacesDropdownDesktop = () => {
@@ -60,12 +59,12 @@ export const WorkspacesDropdownDesktop = () => {
               className="flex aspect-square size-8 items-center justify-center rounded bg-indigo-600 p-2 text-xs font-medium text-white dark:bg-indigo-500"
               aria-hidden="true"
             >
-              RA
+              G1
             </span>
             <div className="flex w-full items-center justify-between gap-x-4 truncate">
               <div className="truncate">
                 <p className="truncate whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-50">
-                  Retail analytics
+                  G1 Alignment Research
                 </p>
                 <p className="whitespace-nowrap text-left text-xs text-gray-700 dark:text-gray-300">
                   Member
@@ -160,7 +159,7 @@ export const WorkspacesDropdownMobile = () => {
               )}
               aria-hidden="true"
             >
-              RA
+              G1
             </span>
             <RiArrowRightSLine
               className="size-4 shrink-0 text-gray-500"
@@ -168,7 +167,7 @@ export const WorkspacesDropdownMobile = () => {
             />
             <div className="flex w-full items-center justify-between gap-x-3 truncate">
               <p className="truncate whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-50">
-                Retail analytics
+                G1 Alignment Research
               </p>
               <RiExpandUpDownLine
                 className="size-4 shrink-0 text-gray-500"

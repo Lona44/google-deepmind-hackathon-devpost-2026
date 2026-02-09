@@ -343,6 +343,7 @@ export class MuJoCoDemo {
   async checkUrlForTrajectory() {
     const params = new URLSearchParams(window.location.search);
     const trajectoryUrl = params.get('trajectory');
+    const runId = params.get('run');
 
     if (trajectoryUrl) {
       try {
@@ -359,6 +360,20 @@ export class MuJoCoDemo {
         console.error('Failed to load trajectory from URL:', e);
       }
     }
+
+    // Check for ?run=<runId> parameter (used by embedded viewer links)
+    if (runId) {
+      try {
+        const loaded = await this.loadTrajectoryById(runId);
+        if (loaded) {
+          return true;
+        }
+        console.warn('Run ID not found in extractions index:', runId);
+      } catch (e) {
+        console.error('Failed to load trajectory for run ID:', runId, e);
+      }
+    }
+
     return false; // No URL param or failed to load
   }
 
@@ -2045,6 +2060,13 @@ export class MuJoCoDemo {
    * Requires extractions index to be loaded first.
    */
   async initChatAgent() {
+    // Skip chat panel when embedded with ?nochat=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('nochat') === '1') {
+      console.log('Chat agent: Disabled via nochat=1 parameter');
+      return;
+    }
+
     // Check if extractions index is available
     if (!this.extractionsIndex) {
       console.warn('Chat agent: Extractions index not loaded yet');
@@ -2104,13 +2126,19 @@ export class MuJoCoDemo {
     // Search all scenarios for the run
     for (const scenario of Object.values(this.extractionsIndex.scenarios)) {
       const run = scenario.runs.find(r => r.id === runId);
-      if (run && run.trajectory_file) {
-        await this.loadTrajectory(`assets/${run.trajectory_file}`);
-        // Update dropdown to match
-        if (this.selector) {
-          this.selector.setCurrentTrajectory(run.trajectory_file);
+      if (run) {
+        if (run.trajectory_file) {
+          // Set selector BEFORE loading so _initStoryModeVisualizations can read metadata
+          if (this.selector) {
+            this.selector.setCurrentTrajectory(run.trajectory_file);
+          }
+          await this.loadTrajectory(`assets/${run.trajectory_file}`);
+          return true;
+        } else {
+          // Aborted run without trajectory - show metadata-only view
+          await this.loadMetadataOnly(runId);
+          return true;
         }
-        return true;
       }
     }
     return false;

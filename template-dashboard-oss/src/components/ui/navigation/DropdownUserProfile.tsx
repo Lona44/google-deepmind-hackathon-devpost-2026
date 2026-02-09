@@ -46,7 +46,7 @@ export function DropdownUserProfile({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align={align}>
-          <DropdownMenuLabel>emma.stone@acme.com</DropdownMenuLabel>
+          <DropdownMenuLabel>research@g1-alignment.dev</DropdownMenuLabel>
           <DropdownMenuGroup>
             <DropdownMenuSubMenu>
               <DropdownMenuSubMenuTrigger>Theme</DropdownMenuSubMenuTrigger>
@@ -96,21 +96,21 @@ export function DropdownUserProfile({
             <DropdownMenuItem>
               Changelog
               <RiArrowRightUpLine
-                className="mb-1 ml-1 size-2.5 shrink-0 text-gray-500"
+                className="mb-0.5 ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500"
                 aria-hidden="true"
               />
             </DropdownMenuItem>
             <DropdownMenuItem>
               Documentation
               <RiArrowRightUpLine
-                className="mb-1 ml-1 size-2.5 shrink-0 text-gray-500"
+                className="mb-0.5 ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500"
                 aria-hidden="true"
               />
             </DropdownMenuItem>
             <DropdownMenuItem>
               Join Slack community
               <RiArrowRightUpLine
-                className="mb-1 ml-1 size-2.5 shrink-0 text-gray-500"
+                className="mb-0.5 ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500"
                 aria-hidden="true"
               />
             </DropdownMenuItem>

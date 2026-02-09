@@ -12,5 +12,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/viewer"],
+  matcher: ["/viewer", "/research"],
 }

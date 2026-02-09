@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from services.gcs_client import get_gcs_client
 from services.vertex_client import get_vertex_client
@@ -93,6 +94,15 @@ def find_video_for_run(run_id: str) -> Path | None:
             return path
 
     return None
+
+
+@router.get("/stream/{run_id}")
+async def stream_video(run_id: str) -> FileResponse:
+    """Stream the experiment video for a given run ID."""
+    video_path = find_video_for_run(run_id)
+    if video_path is None:
+        raise HTTPException(status_code=404, detail=f"Video not found for run: {run_id}")
+    return FileResponse(video_path, media_type="video/mp4")
 
 
 @router.post("/analyze", response_model=VideoAnalysisResponse)
