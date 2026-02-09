@@ -15,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/Dropdown"
 import {
-  RiArrowRightUpLine,
   RiComputerLine,
   RiLogoutBoxLine,
   RiMoonLine,
@@ -98,30 +97,6 @@ export function DropdownUserProfile({
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubMenuContent>
             </DropdownMenuSubMenu>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem>
-              Changelog
-              <RiArrowRightUpLine
-                className="mb-0.5 ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500"
-                aria-hidden="true"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              Documentation
-              <RiArrowRightUpLine
-                className="mb-0.5 ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500"
-                aria-hidden="true"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              Join Slack community
-              <RiArrowRightUpLine
-                className="mb-0.5 ml-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500"
-                aria-hidden="true"
-              />
-            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
