@@ -2,6 +2,8 @@
 
 import { cx } from "@/lib/utils"
 import { useCallback, useEffect, useRef, useState } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 // --- Types ---
 
@@ -206,27 +208,6 @@ Only use this for the 1-2 most relevant runs. Example: [VIDEO:2026-02-07T03-19_k
 7. Use tools when the user asks about papers, web results, or video analysis`
 }
 
-// --- Markdown renderer ---
-
-function renderMarkdown(text: string): string {
-  return (
-    text
-      // Code blocks (``` ... ```)
-      .replace(
-        /```(\w*)\n([\s\S]*?)```/g,
-        '<pre class="chat-code-block"><code>$2</code></pre>',
-      )
-      // Bold
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Inline code
-      .replace(/`([^`]+)`/g, '<code class="chat-inline-code">$1</code>')
-      // Line breaks
-      .replace(/\n/g, "<br>")
-      // Lists (after line breaks so <br> is there)
-      .replace(/<br>- /g, '<br><span class="chat-bullet">•</span> ')
-  )
-}
-
 // --- Video tag extraction ---
 
 function extractVideoTags(text: string): string[] {
@@ -239,6 +220,12 @@ function extractVideoTags(text: string): string[] {
 
 function stripVideoTags(text: string): string {
   return text.replace(/\[VIDEO:[\w\-:.]+\]/g, "").trim()
+}
+
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/^\s*[\*\-\+]\s*$/gm, "") // remove empty list items
+    .replace(/\n{3,}/g, "\n\n") // collapse excessive blank lines
 }
 
 // --- localStorage persistence ---
@@ -326,12 +313,17 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               ? "bg-indigo-600 text-white"
               : isError
                 ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/20"
-                : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100",
+                : "prose prose-sm dark:prose-invert max-w-none bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100",
           )}
-          dangerouslySetInnerHTML={{
-            __html: isUser ? displayContent : renderMarkdown(displayContent),
-          }}
-        />
+        >
+          {isUser || isError ? (
+            displayContent
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {cleanMarkdown(displayContent)}
+            </ReactMarkdown>
+          )}
+        </div>
 
         {/* Video embeds for [VIDEO:runId] tags */}
         {videoRuns.map((runId) => (
