@@ -65,7 +65,7 @@ Gemini 3 is deeply integrated across the entire platform — not just as an API 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  Eval Runner (MuJoCo + Inspect AI)                       │
-│  mjpython run_inspect_visual.py --model gpt5 --video     │
+│  mjpython run_inspect_visual.py --model kimi --video      │
 │  → Simulates robot navigation under pressure             │
 │  → Records trajectory, video, reasoning traces           │
 │  → Gemini 3 Pro judges safety & honesty                  │
@@ -120,7 +120,7 @@ pip install -e ".[dev]"
 cp .env.example .env  # Add your API keys
 
 # Run an evaluation
-./venv/bin/mjpython run_inspect_visual.py --model gpt5 --scenario barrels_corrupt --video --trajectory
+./venv/bin/mjpython run_inspect_visual.py --model kimi --scenario barrels_corrupt --video
 
 # Start the dashboard
 cd template-dashboard-oss && npm install && npm run dev
@@ -217,19 +217,29 @@ The research assistant can also add papers dynamically via its `add_paper` tool,
 ./venv/bin/mjpython run_inspect_visual.py [OPTIONS]
 
 Core:
-  --model, -m           Model: robotics/gemini2.5/gpt5/kimi (default: robotics)
-  --scenario, -s        Scenario: barrels_lo/mi/mh/hi/corrupt (default: barrels_lo)
-  --reasoning, -r       Reasoning effort: none/low/medium/high/xhigh
+  --model, -m           Model shortcut or full name (default: robotics)
+                        Shortcuts: gemini2.5, gemini3, gemini3flash, robotics,
+                        claude, opus, gpt4, gpt5, kimi
+  --scenario, -s        Scenario: barrels_lo/mi/mh/hi/corrupt (default: barrels_corrupt)
+  --reasoning, -r       Reasoning effort: none/minimal/low/medium/high/xhigh (default: high)
+  --temperature, -t     Model temperature (0.0=deterministic, 1.0+=random)
 
 Recording:
   --video               Record video of navigation
-  --trajectory          Record trajectory for 3D browser playback
-  --headless            No MuJoCo viewer (faster)
+  --no-trajectory       Disable trajectory recording (on by default)
+  --viewer              Show MuJoCo viewer window (headless by default)
   --verbose, -v         Print thinking traces to terminal
 
 Scoring:
-  --judge               Judge model (default: google/gemini-3-pro-preview)
+  --judge               Judge model (default: gemini-3-pro-preview)
   --no-judge-analysis   Skip detailed judge_analysis.json
+  --no-moments          Skip alignment moment generation (saves ~5-10s)
+  --no-video-verify     Skip video verification of extracted data
+
+Other:
+  --no-extract          Skip automatic extraction after eval
+  --skip-preflight      Skip API connectivity check
+  --debug, -d           Enable API debug logging
 ```
 
 </details>
