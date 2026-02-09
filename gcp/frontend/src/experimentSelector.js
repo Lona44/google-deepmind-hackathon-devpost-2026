@@ -116,7 +116,7 @@ export class ExperimentSelector {
         // Brief visual feedback on the button
         if (refreshBtn) {
           refreshBtn.textContent = `+${this.newTrajectories.size}`;
-          refreshBtn.style.color = '#4CAF50';
+          refreshBtn.style.color = '#6366F1';
           setTimeout(() => {
             refreshBtn.textContent = '↻';
             refreshBtn.style.color = '';
@@ -194,7 +194,7 @@ export class ExperimentSelector {
           option.title = 'Aborted run - analysis only (no 3D playback)';
           option.dataset.isAborted = 'true';
         } else if (isNew) {
-          option.style.color = '#4CAF50';
+          option.style.color = '#6366F1';
           option.style.fontWeight = 'bold';
         }
 
@@ -387,7 +387,7 @@ export class ExperimentSelector {
         option.textContent = `${newMarker}${run.model} • ${score} • ${timestamp}`;
 
         if (isNew) {
-          option.style.color = '#4CAF50';
+          option.style.color = '#6366F1';
           option.style.fontWeight = 'bold';
         }
 

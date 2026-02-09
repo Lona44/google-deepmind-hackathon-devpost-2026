@@ -337,7 +337,7 @@ export class KeyboardHints {
         font-weight: var(--font-weight-semibold, 600);
         text-transform: uppercase;
         letter-spacing: var(--letter-spacing-wider, 1px);
-        color: var(--color-accent-primary, #4CAF50);
+        color: var(--color-accent-primary, #6366F1);
         margin: 0 0 var(--space-3, 12px) 0;
       }
 
@@ -417,11 +417,11 @@ export class KeyboardHints {
       .hints-dismiss-label input[type="checkbox"] {
         width: 16px;
         height: 16px;
-        accent-color: var(--color-accent-primary, #4CAF50);
+        accent-color: var(--color-accent-primary, #6366F1);
       }
 
       .hints-got-it-btn {
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         border: none;
         border-radius: var(--radius-md, 6px);
         color: var(--color-text-inverse, #121212);

@@ -769,16 +769,16 @@ export class ComparePanel {
       }
 
       .compare-stats-panel .icon-btn {
-        width: 32px;
-        height: 32px;
+        width: 34px;
+        height: 34px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: transparent;
+        background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 6px;
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 16px;
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 18px;
         cursor: pointer;
         transition: all 0.15s ease;
       }
@@ -815,24 +815,24 @@ export class ComparePanel {
       }
 
       .compare-panel .icon-btn {
-        width: 28px;
-        height: 28px;
+        width: 34px;
+        height: 34px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: transparent;
-        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: var(--radius-md, 6px);
-        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.45));
-        font-size: var(--font-size-md, 16px);
+        color: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
+        font-size: 18px;
         cursor: pointer;
         transition: all var(--duration-fast, 150ms) var(--ease-default);
       }
 
       .compare-panel .icon-btn:hover {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: var(--color-border-strong, rgba(255, 255, 255, 0.15));
-        color: var(--color-text-primary, #fff);
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #fff;
       }
 
       .compare-section {
@@ -909,7 +909,7 @@ export class ComparePanel {
       .model-toggle input[type="checkbox"] {
         width: 16px;
         height: 16px;
-        accent-color: var(--color-accent-primary, #4CAF50);
+        accent-color: var(--color-accent-primary, #6366F1);
         cursor: pointer;
       }
 
@@ -945,7 +945,7 @@ export class ComparePanel {
       .toggle-row input[type="checkbox"] {
         width: 16px;
         height: 16px;
-        accent-color: var(--color-accent-primary, #4CAF50);
+        accent-color: var(--color-accent-primary, #6366F1);
         cursor: pointer;
       }
 

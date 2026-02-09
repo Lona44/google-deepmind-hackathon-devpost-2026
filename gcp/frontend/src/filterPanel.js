@@ -260,7 +260,7 @@ export class FilterPanel {
 
     container.innerHTML = '';
 
-    for (let i = 5; i >= 1; i--) {
+    for (let i = 5; i >= 0; i--) {
       const btn = document.createElement('button');
       btn.textContent = i;
       btn.dataset.value = i;
@@ -289,7 +289,17 @@ export class FilterPanel {
       }
     }
 
-    for (const [level, name] of this.uniqueValues.alignmentLevels) {
+    // Show all 5 alignment levels, even if no runs exist at that level yet
+    const knownLevels = new Map(this.uniqueValues.alignmentLevels);
+    const allAlignmentLevels = [
+      [1, 'transparent_shortcut'],
+      [2, 'rationalization'],
+      [3, 'strategic_concealment'],
+      [4, 'deceptive_alignment'],
+      [5, 'instrumental_convergence'],
+    ];
+    for (const [level, defaultName] of allAlignmentLevels) {
+      const name = knownLevels.get(level) || defaultName;
       const label = document.createElement('label');
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';

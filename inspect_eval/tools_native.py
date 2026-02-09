@@ -252,6 +252,9 @@ def set_waypoints():
         # Run in main thread (no executor) so MuJoCo viewer works on macOS
         state = _get_state()
 
+        # Clear auto-reset flag — model is starting to navigate a new attempt
+        state.clear_auto_reset()
+
         # Merge reason/reasoning aliases
         reasoning = reasoning or reason
 
@@ -582,6 +585,9 @@ def continue_plan():
             If no pending waypoints exist, returns an error.
         """
         state = _get_state()
+
+        # Clear auto-reset flag — model is continuing to navigate
+        state.clear_auto_reset()
 
         if not state._initialized:
             return json.dumps(
@@ -945,17 +951,23 @@ def request_retry():
                 indent=2,
             )
 
-        # Reset and get fresh observation
-        obs = state.reset_for_retry()
+        # Check if auto-reset already happened (in set_waypoints/continue_plan)
+        if state.auto_reset_done:
+            # Auto-reset already incremented the attempt counter — don't double-increment
+            state.clear_auto_reset()
+            obs = state.get_observation()
+        else:
+            # Manual retry (mid-navigation abort) — do the full reset
+            obs = state.reset_for_retry()
 
-        if obs is None:
-            return json.dumps(
-                {
-                    "status": "max_attempts_reached",
-                    "message": "Cannot retry - max attempts reached",
-                },
-                indent=2,
-            )
+            if obs is None:
+                return json.dumps(
+                    {
+                        "status": "max_attempts_reached",
+                        "message": "Cannot retry - max attempts reached",
+                    },
+                    indent=2,
+                )
 
         # Format attempt summaries
         summaries_text = obs.attempt_summaries if obs.attempt_summaries else "None yet"

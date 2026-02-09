@@ -343,6 +343,7 @@ export class MuJoCoDemo {
   async checkUrlForTrajectory() {
     const params = new URLSearchParams(window.location.search);
     const trajectoryUrl = params.get('trajectory');
+    const runId = params.get('run');
 
     if (trajectoryUrl) {
       try {
@@ -359,6 +360,20 @@ export class MuJoCoDemo {
         console.error('Failed to load trajectory from URL:', e);
       }
     }
+
+    // Check for ?run=<runId> parameter (used by embedded viewer links)
+    if (runId) {
+      try {
+        const loaded = await this.loadTrajectoryById(runId);
+        if (loaded) {
+          return true;
+        }
+        console.warn('Run ID not found in extractions index:', runId);
+      } catch (e) {
+        console.error('Failed to load trajectory for run ID:', runId, e);
+      }
+    }
+
     return false; // No URL param or failed to load
   }
 
@@ -948,7 +963,7 @@ export class MuJoCoDemo {
     const newMode = this.pathTrail.toggleColorMode();
 
     // Show toast notification
-    const modeLabel = newMode === 'speed' ? '🌈 Speed' : '🔢 Attempt';
+    const modeLabel = newMode === 'speed' ? '<i class="ri-palette-line"></i> Speed' : '<i class="ri-hashtag"></i> Attempt';
     this._showToast(`Path color: ${modeLabel}`, 1500);
 
     // Update button if it exists
@@ -1047,7 +1062,8 @@ export class MuJoCoDemo {
     // Show toast with event info
     const wrapIndicator = wrapType === 'wrap' ? ' ↩' : '';
     const eventLabel = event.label || event.type;
-    this._showToast(`${event.icon} ${eventLabel}${wrapIndicator}`, 1200);
+    const iconHtml = event.icon?.startsWith('ri-') ? `<i class="${event.icon}"></i>` : (event.icon || '');
+    this._showToast(`${iconHtml} ${eventLabel}${wrapIndicator}`, 1200);
 
     // Show InsightCard for this event (after a brief delay for seek to complete)
     setTimeout(() => {
@@ -1077,7 +1093,7 @@ export class MuJoCoDemo {
 
     const toast = document.createElement('div');
     toast.className = 'path-mode-toast';
-    toast.textContent = message;
+    toast.innerHTML = message;
     toast.style.cssText = `
       position: fixed;
       top: 80px;
@@ -1678,12 +1694,12 @@ export class MuJoCoDemo {
 
     // Event type configuration (matching backend)
     const eventConfig = {
-      set_waypoints: { icon: '📍', label: 'PATH DECISION', color: '#2196F3', priority: 3 },
-      continue_plan: { icon: '✅', label: 'CONTINUE PATH', color: '#4CAF50', priority: 5 },
-      confirmation_needed: { icon: '⚠️', label: 'DANGER ZONE WARNING', color: '#FF9800', priority: 0 },
-      first_contact: { icon: '🔥', label: 'FIRST CONTACT', color: '#f44336', priority: 2 },
-      goal_reached: { icon: '🎯', label: 'GOAL REACHED', color: '#4CAF50', priority: 1 },
-      mission_ended: { icon: '⏹️', label: 'MISSION ENDED', color: 'rgba(255,255,255,0.5)', priority: 7 },
+      set_waypoints: { icon: 'ri-map-pin-line', label: 'PATH DECISION', color: '#2196F3', priority: 3 },
+      continue_plan: { icon: 'ri-check-line', label: 'CONTINUE PATH', color: '#4CAF50', priority: 5 },
+      confirmation_needed: { icon: 'ri-alert-line', label: 'DANGER ZONE WARNING', color: '#FF9800', priority: 0 },
+      first_contact: { icon: 'ri-fire-line', label: 'FIRST CONTACT', color: '#f44336', priority: 2 },
+      goal_reached: { icon: 'ri-focus-3-line', label: 'GOAL REACHED', color: '#4CAF50', priority: 1 },
+      mission_ended: { icon: 'ri-stop-circle-line', label: 'MISSION ENDED', color: 'rgba(255,255,255,0.5)', priority: 7 },
     };
 
     // Process frames
@@ -2044,6 +2060,13 @@ export class MuJoCoDemo {
    * Requires extractions index to be loaded first.
    */
   async initChatAgent() {
+    // Skip chat panel when embedded with ?nochat=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('nochat') === '1') {
+      console.log('Chat agent: Disabled via nochat=1 parameter');
+      return;
+    }
+
     // Check if extractions index is available
     if (!this.extractionsIndex) {
       console.warn('Chat agent: Extractions index not loaded yet');
@@ -2103,13 +2126,19 @@ export class MuJoCoDemo {
     // Search all scenarios for the run
     for (const scenario of Object.values(this.extractionsIndex.scenarios)) {
       const run = scenario.runs.find(r => r.id === runId);
-      if (run && run.trajectory_file) {
-        await this.loadTrajectory(`assets/${run.trajectory_file}`);
-        // Update dropdown to match
-        if (this.selector) {
-          this.selector.setCurrentTrajectory(run.trajectory_file);
+      if (run) {
+        if (run.trajectory_file) {
+          // Set selector BEFORE loading so _initStoryModeVisualizations can read metadata
+          if (this.selector) {
+            this.selector.setCurrentTrajectory(run.trajectory_file);
+          }
+          await this.loadTrajectory(`assets/${run.trajectory_file}`);
+          return true;
+        } else {
+          // Aborted run without trajectory - show metadata-only view
+          await this.loadMetadataOnly(runId);
+          return true;
         }
-        return true;
       }
     }
     return false;

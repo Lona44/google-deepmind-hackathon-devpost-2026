@@ -41,7 +41,7 @@ export class DetailsPanel {
       <div class="details-header">
         <span class="details-model-name" id="details-model-name">Model</span>
         <button class="details-close-btn" id="details-close-btn" title="Close (Escape)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
         </button>
@@ -93,7 +93,7 @@ export class DetailsPanel {
         <div class="details-section details-collapsible" id="judge-section-collapsible">
           <button class="collapsible-header" id="judge-collapsible-toggle">
             <span>Judge Analysis</span>
-            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
             </svg>
           </button>
@@ -123,7 +123,7 @@ export class DetailsPanel {
         <div class="details-section details-collapsible" id="reasoning-section-collapsible">
           <button class="collapsible-header" id="reasoning-collapsible-toggle">
             <span>AI Reasoning</span>
-            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
             </svg>
           </button>
@@ -487,11 +487,11 @@ export class DetailsPanel {
       }
 
       .details-close-btn {
-        background: transparent;
-        border: none;
-        color: var(--color-text-tertiary, rgba(255, 255, 255, 0.5));
-        width: 32px;
-        height: 32px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
+        width: 34px;
+        height: 34px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -501,8 +501,9 @@ export class DetailsPanel {
       }
 
       .details-close-btn:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: var(--color-text-primary, #fff);
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #fff;
       }
 
       .details-body {
@@ -547,13 +548,13 @@ export class DetailsPanel {
 
       .composite-bar-fill {
         height: 100%;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         border-radius: var(--radius-full, 9999px);
         transition: width var(--duration-normal, 250ms) var(--ease-default);
       }
 
       .composite-bar-fill.high {
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
       }
 
       .composite-bar-fill.medium {
@@ -629,7 +630,7 @@ export class DetailsPanel {
 
       .battery-bar-fill-mini {
         height: 100%;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         transition: width var(--duration-normal, 250ms) var(--ease-default);
       }
 
@@ -654,22 +655,30 @@ export class DetailsPanel {
         justify-content: space-between;
         align-items: center;
         width: 100%;
-        padding: var(--space-3, 12px) 0;
-        background: transparent;
-        border: none;
-        color: var(--color-text-secondary, rgba(255, 255, 255, 0.7));
+        padding: var(--space-3, 12px) var(--space-2, 8px);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius-md, 6px);
+        color: var(--color-text-primary, rgba(255, 255, 255, 0.9));
         font-size: var(--font-size-md, 16px);
         font-weight: var(--font-weight-medium, 500);
         cursor: pointer;
-        transition: color var(--duration-fast, 150ms) var(--ease-default);
+        transition: all var(--duration-fast, 150ms) var(--ease-default);
       }
 
       .details-collapsible .collapsible-header:hover {
-        color: var(--color-text-primary, #fff);
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.15);
       }
 
       .details-collapsible .chevron {
         transition: transform var(--duration-fast, 150ms) var(--ease-default);
+        opacity: 0.8;
+      }
+
+      .details-collapsible .collapsible-header:hover .chevron {
+        opacity: 1;
       }
 
       .details-collapsible.expanded .chevron {
@@ -697,7 +706,7 @@ export class DetailsPanel {
       }
 
       .analysis-card.positive {
-        border-left: 3px solid var(--color-accent-primary, #4CAF50);
+        border-left: 3px solid var(--color-accent-primary, #6366F1);
       }
 
       .analysis-card.concerning {
@@ -717,8 +726,8 @@ export class DetailsPanel {
       }
 
       .analysis-card.positive .analysis-icon {
-        background: rgba(76, 175, 80, 0.2);
-        color: var(--color-accent-primary, #4CAF50);
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--color-accent-primary, #6366F1);
       }
 
       .analysis-card.concerning .analysis-icon {
@@ -771,10 +780,10 @@ export class DetailsPanel {
         font-family: var(--font-family-mono, monospace);
         font-size: var(--font-size-base, 15px);
         padding: var(--space-4, 16px);
-        background: rgba(76, 175, 80, 0.1);
-        border: 1px solid rgba(76, 175, 80, 0.2);
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.2);
         border-radius: var(--radius-md, 6px);
-        color: var(--color-accent-primary, #4CAF50);
+        color: var(--color-accent-primary, #6366F1);
       }
 
       .ai-action-display.waiting {

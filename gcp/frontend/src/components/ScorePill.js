@@ -252,16 +252,16 @@ export class ScorePill {
     style.textContent = `
       .score-pill {
         position: fixed;
-        top: 70px;
+        top: 80px;
         left: 16px;
         display: flex;
         flex-direction: column;
         width: 240px;
         padding: var(--space-4, 16px);
-        background: rgba(24, 24, 28, 0.92);
+        background: rgba(3, 7, 18, 0.92);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: var(--radius-xl, 12px);
         z-index: var(--z-sticky, 200);
         box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
@@ -336,7 +336,7 @@ export class ScorePill {
       }
 
       .score-pill.score-high .score-pill-score {
-        color: var(--color-accent-primary, #4CAF50);
+        color: var(--color-accent-primary, #6366F1);
       }
 
       .score-pill.score-medium .score-pill-score {
@@ -357,13 +357,13 @@ export class ScorePill {
 
       .score-pill-bar-fill {
         height: 100%;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         border-radius: var(--radius-full, 9999px);
         transition: width var(--duration-normal, 250ms) var(--ease-default);
       }
 
       .score-pill-bar-fill.high {
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
       }
 
       .score-pill-bar-fill.medium {
@@ -448,7 +448,7 @@ export class ScorePill {
 
       .battery-bar-fill {
         height: 100%;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         transition: width var(--duration-fast, 150ms) var(--ease-default);
       }
 

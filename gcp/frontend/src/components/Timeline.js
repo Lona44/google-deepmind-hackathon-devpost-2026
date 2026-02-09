@@ -9,6 +9,18 @@
  * - battery_depleted: Battery ran out
  */
 
+/**
+ * Render an icon string - supports both Remix Icon classes (ri-*) and legacy emoji text.
+ * @param {string} icon - Icon string (e.g., "ri-map-pin-line" or "📍")
+ * @returns {string} HTML string
+ */
+function renderIcon(icon) {
+  if (icon && icon.startsWith('ri-')) {
+    return `<i class="${icon}"></i>`;
+  }
+  return icon || '';
+}
+
 export class Timeline {
   constructor(controller, demo = null) {
     this.controller = controller;
@@ -126,7 +138,7 @@ export class Timeline {
       const signalBadge = signal ? `<span class="signal-badge" title="${signal.replace(/_/g, ' ')}"></span>` : '';
       const actualGroupSize = evt._groupedEvents?.length || 1;
       const groupBadge = actualGroupSize > 1 ? `<span class="group-badge">${actualGroupSize}</span>` : '';
-      marker.innerHTML = `<span class="marker-icon">${evt.icon}</span>${signalBadge}${groupBadge}`;
+      marker.innerHTML = `<span class="marker-icon">${renderIcon(evt.icon)}</span>${signalBadge}${groupBadge}`;
 
       // Click to seek directly to frame_index (no tolerance needed!)
       // InsightCard handles the popup display via main.js _updateInsightCard()
@@ -176,7 +188,7 @@ export class Timeline {
       eventsHtml += `
         <div class="tooltip-event ${isFirst ? 'primary' : 'secondary'}">
           <div class="tooltip-header">
-            <span class="tooltip-icon">${e.icon}</span>
+            <span class="tooltip-icon">${renderIcon(e.icon)}</span>
             <span class="tooltip-label">${e.label}</span>
             ${signalHtml}
           </div>
@@ -240,7 +252,7 @@ export class Timeline {
 
     this.reasoningToast.innerHTML = `
       <div class="toast-header">
-        <span class="toast-icon">${evt.icon}</span>
+        <span class="toast-icon">${renderIcon(evt.icon)}</span>
         <span class="toast-title">${evt.label}</span>
         <span class="toast-time">@ ${timeStr}</span>
         <button class="toast-close" id="toast-close-btn" title="Close (Escape)">
@@ -252,7 +264,7 @@ export class Timeline {
       <div class="toast-action">
         <div class="toast-summary">${evt.summary || ''}</div>
         ${evt.quote ? `<blockquote class="toast-quote">"${evt.quote}"</blockquote>` : ''}
-        ${evt.signal ? `<div class="toast-signal">🎯 ${evt.signal.replace(/_/g, ' ')}</div>` : ''}
+        ${evt.signal ? `<div class="toast-signal"><i class="ri-focus-3-line"></i> ${evt.signal.replace(/_/g, ' ')}</div>` : ''}
       </div>
       ${reasoning ? `
         <details class="toast-reasoning-details">
@@ -318,17 +330,17 @@ export class Timeline {
 
     // Event type to marker config
     const eventConfig = {
-      waypoint_decision: { icon: '📍', color: 'var(--color-accent-secondary, #2196F3)', label: 'Waypoint Decision' },
-      ai_decision: { icon: '🧠', color: 'var(--color-accent-secondary, #2196F3)', label: 'AI Decision' },
-      continue_plan: { icon: '✅', color: 'var(--color-accent-success, #4CAF50)', label: 'Continue Plan' },
-      set_waypoints: { icon: '📍', color: 'var(--color-accent-secondary, #2196F3)', label: 'Set Waypoints' },
-      confirmation_needed: { icon: '⚠️', color: 'var(--color-accent-warning, #FF9800)', label: 'Danger Zone Warning' },
-      first_contact: { icon: '🔥', color: 'var(--color-accent-danger, #f44336)', label: 'First Contact' },
-      attempt_reset: { icon: '🔄', color: 'var(--color-accent-warning, #FF9800)', label: 'Attempt Reset' },
-      violation: { icon: '⚠️', color: 'var(--color-accent-danger, #f44336)', label: 'Violation' },
-      goal_reached: { icon: '🎯', color: 'var(--color-accent-primary, #4CAF50)', label: 'Goal Reached' },
-      battery_depleted: { icon: '🔋', color: 'var(--color-accent-danger, #f44336)', label: 'Battery Depleted' },
-      mission_ended: { icon: '⏹️', color: 'var(--color-text-tertiary, rgba(255,255,255,0.5))', label: 'Mission Ended' }
+      waypoint_decision: { icon: 'ri-map-pin-line', color: 'var(--color-accent-secondary, #2196F3)', label: 'Waypoint Decision' },
+      ai_decision: { icon: 'ri-brain-line', color: 'var(--color-accent-secondary, #2196F3)', label: 'AI Decision' },
+      continue_plan: { icon: 'ri-check-line', color: 'var(--color-accent-success, #4CAF50)', label: 'Continue Plan' },
+      set_waypoints: { icon: 'ri-map-pin-line', color: 'var(--color-accent-secondary, #2196F3)', label: 'Set Waypoints' },
+      confirmation_needed: { icon: 'ri-alert-line', color: 'var(--color-accent-warning, #FF9800)', label: 'Danger Zone Warning' },
+      first_contact: { icon: 'ri-fire-line', color: 'var(--color-accent-danger, #f44336)', label: 'First Contact' },
+      attempt_reset: { icon: 'ri-refresh-line', color: 'var(--color-accent-warning, #FF9800)', label: 'Attempt Reset' },
+      violation: { icon: 'ri-alert-line', color: 'var(--color-accent-danger, #f44336)', label: 'Violation' },
+      goal_reached: { icon: 'ri-focus-3-line', color: 'var(--color-accent-primary, #6366F1)', label: 'Goal Reached' },
+      battery_depleted: { icon: 'ri-battery-line', color: 'var(--color-accent-danger, #f44336)', label: 'Battery Depleted' },
+      mission_ended: { icon: 'ri-stop-circle-line', color: 'var(--color-text-tertiary, rgba(255,255,255,0.5))', label: 'Mission Ended' }
     };
 
     // Priority values (lower = higher priority, confirmation_needed always wins)
@@ -478,7 +490,7 @@ export class Timeline {
       marker.dataset.eventIndex = index;
       marker.dataset.time = point.time;
       marker.dataset.type = point.type || 'unknown';
-      marker.innerHTML = `<span class="marker-icon">${config.icon}</span>`;
+      marker.innerHTML = `<span class="marker-icon">${renderIcon(config.icon)}</span>`;
 
       // Click to seek and show reasoning toast
       marker.addEventListener('click', (e) => {
@@ -581,7 +593,7 @@ export class Timeline {
 
     this.tooltip.innerHTML = `
       <div class="tooltip-header">
-        <span class="tooltip-icon">${config.icon}</span>
+        <span class="tooltip-icon">${renderIcon(config.icon)}</span>
         <span class="tooltip-label">${config.label}</span>
       </div>
       <div class="tooltip-time">${timeStr}</div>
@@ -630,7 +642,7 @@ export class Timeline {
 
     this.reasoningToast.innerHTML = `
       <div class="toast-header">
-        <span class="toast-icon">${config.icon}</span>
+        <span class="toast-icon">${renderIcon(config.icon)}</span>
         <span class="toast-title">${config.label}</span>
         <span class="toast-time">@ ${timeStr}</span>
         <button class="toast-close" id="toast-close-btn" title="Close (Escape)">
@@ -769,7 +781,7 @@ export class Timeline {
         top: 0;
         left: 0;
         height: 100%;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         border-radius: var(--radius-full, 9999px);
         pointer-events: none;
         z-index: 1;
@@ -852,7 +864,7 @@ export class Timeline {
         -webkit-appearance: none;
         width: 14px;
         height: 14px;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         border-radius: 50%;
         cursor: pointer;
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
@@ -874,7 +886,7 @@ export class Timeline {
       .timeline-slider::-moz-range-thumb {
         width: 14px;
         height: 14px;
-        background: var(--color-accent-primary, #4CAF50);
+        background: var(--color-accent-primary, #6366F1);
         border-radius: 50%;
         cursor: pointer;
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
@@ -1151,8 +1163,8 @@ export class Timeline {
       }
 
       .toast-action {
-        background: rgba(76, 175, 80, 0.1);
-        border: 1px solid rgba(76, 175, 80, 0.2);
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.2);
         border-radius: var(--radius-md, 6px);
         padding: var(--space-3, 12px);
         margin-bottom: var(--space-3, 12px);
@@ -1161,7 +1173,7 @@ export class Timeline {
       .toast-action code {
         font-family: var(--font-family-mono, monospace);
         font-size: var(--font-size-sm, 12px);
-        color: var(--color-accent-primary, #4CAF50);
+        color: var(--color-accent-primary, #6366F1);
       }
 
       .toast-reasoning-details {
@@ -1202,7 +1214,7 @@ export class Timeline {
       }
 
       .toast-reasoning-content strong {
-        color: var(--color-accent-primary, #4CAF50);
+        color: var(--color-accent-primary, #6366F1);
       }
 
       .toast-reasoning-content code {

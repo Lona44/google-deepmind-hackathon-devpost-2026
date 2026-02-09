@@ -261,6 +261,7 @@ class SimulationState:
         self._contact_events_detailed: list[dict] = []  # [{time, obstacle, position}, ...]
         self._waypoints_used: list[list[float]] = []
         self._battery_depleted: bool = False
+        self._auto_reset_done: bool = False
 
         # Battery coasting tracking
         self._battery_depleted_at: tuple[float, float] | None = None  # Position when battery hit 0
@@ -406,7 +407,44 @@ class SimulationState:
                 }
             )
 
+        # Capture initial video frame so the video starts with the same state
+        # the model sees from observe_scene() (before any walking occurs)
+        self._capture_initial_video_frame()
+
         return self.get_observation()
+
+    def _capture_initial_video_frame(self) -> None:
+        """Capture a video frame at the current state (before walking).
+
+        Ensures the video's starting battery/position matches what the model
+        receives from observe_scene(), eliminating rounding discrepancies
+        caused by the frame_skip delay during walking.
+        """
+        if not self._video_recorder or not self._initialized:
+            return
+
+        x, y, _ = self.robot.get_position(self.data)
+        goal_x, goal_y = self.scenario.goal
+        goal_dist = math.sqrt((goal_x - x) ** 2 + (goal_y - y) ** 2)
+        battery_pct = self.battery.get_status().charge_percent if self.battery else 100.0
+        docked = sum(1 for r in self._attempt_results if r.goal_reached)
+
+        overlay = OverlayInfo(
+            attempt=self._current_attempt,
+            max_attempts=self._max_attempts,
+            battery_percent=battery_pct,
+            contact_events=self._contact_events,
+            contact_time=self._contact_time,
+            position=(x, y),
+            goal_distance=goal_dist,
+            status="READY",
+            docked_attempts=docked,
+            model_name=self.model_name,
+            scenario_name=self.scenario.name,
+        )
+        # Force capture (bypass frame skip)
+        self._video_recorder._frame_counter = self._video_recorder.frame_skip - 1
+        self._video_recorder.capture_frame(self.data, overlay)
 
     def get_observation(self) -> Observation:
         """Get current state observation."""
@@ -962,6 +1000,12 @@ class SimulationState:
         # Reset timer
         self._start_time = time.time()
 
+        # Mark that auto-reset happened (prevents double-increment if model calls request_retry)
+        self._auto_reset_done = True
+
+        # Capture initial video frame for the new attempt (matches observe_scene state)
+        self._capture_initial_video_frame()
+
         return self.get_observation()
 
     def _reset_attempt_state(self) -> None:
@@ -1013,6 +1057,15 @@ class SimulationState:
     def can_retry(self) -> bool:
         """Check if another retry attempt is allowed."""
         return self._current_attempt < self._max_attempts
+
+    @property
+    def auto_reset_done(self) -> bool:
+        """Whether an auto-reset already happened (prevents double-increment)."""
+        return self._auto_reset_done
+
+    def clear_auto_reset(self) -> None:
+        """Clear the auto-reset flag when the model starts a new attempt."""
+        self._auto_reset_done = False
 
     @property
     def has_video(self) -> bool:

@@ -12,6 +12,18 @@
  * - Pause/resume support synced with playback
  */
 
+/**
+ * Render an icon string - supports both Remix Icon classes (ri-*) and legacy emoji text.
+ * @param {string} icon - Icon string (e.g., "ri-map-pin-line" or "📍")
+ * @returns {string} HTML string
+ */
+function renderIcon(icon) {
+  if (icon && icon.startsWith('ri-')) {
+    return `<i class="${icon}"></i>`;
+  }
+  return icon || '';
+}
+
 // Patterns to extract key quotes from AI reasoning (ordered by priority)
 const QUOTE_PATTERNS = [
   // Clearance/gap measurements (most specific and interesting)
@@ -50,18 +62,18 @@ export class InsightCard {
 
     // Event type configuration
     this.eventConfig = {
-      waypoint_decision: { icon: '📍', color: '#2196F3', label: 'PATH DECISION' },
-      set_waypoints: { icon: '📍', color: '#2196F3', label: 'PATH DECISION' },
-      ai_decision: { icon: '🧠', color: '#2196F3', label: 'AI DECISION' },
-      continue_plan: { icon: '✅', color: '#4CAF50', label: 'CONTINUE PATH' },
-      confirmation_needed: { icon: '⚠️', color: '#FF9800', label: 'DANGER ZONE WARNING' },
-      first_contact: { icon: '🔥', color: '#f44336', label: 'FIRST CONTACT' },
-      experiment_start: { icon: '🚀', color: '#2196F3', label: 'EXPERIMENT START' },
-      attempt_reset: { icon: '🔄', color: '#FF9800', label: 'ATTEMPT RESET' },
-      violation: { icon: '⚠️', color: '#f44336', label: 'SAFETY VIOLATION' },
-      goal_reached: { icon: '🎯', color: '#4CAF50', label: 'GOAL REACHED' },
-      battery_depleted: { icon: '🔋', color: '#f44336', label: 'BATTERY DEPLETED' },
-      mission_ended: { icon: '⏹️', color: 'rgba(255,255,255,0.6)', label: 'MISSION ENDED' }
+      waypoint_decision: { icon: 'ri-map-pin-line', color: '#2196F3', label: 'PATH DECISION' },
+      set_waypoints: { icon: 'ri-map-pin-line', color: '#2196F3', label: 'PATH DECISION' },
+      ai_decision: { icon: 'ri-brain-line', color: '#2196F3', label: 'AI DECISION' },
+      continue_plan: { icon: 'ri-check-line', color: '#4CAF50', label: 'CONTINUE PATH' },
+      confirmation_needed: { icon: 'ri-alert-line', color: '#FF9800', label: 'DANGER ZONE WARNING' },
+      first_contact: { icon: 'ri-fire-line', color: '#f44336', label: 'FIRST CONTACT' },
+      experiment_start: { icon: 'ri-rocket-line', color: '#2196F3', label: 'EXPERIMENT START' },
+      attempt_reset: { icon: 'ri-refresh-line', color: '#FF9800', label: 'ATTEMPT RESET' },
+      violation: { icon: 'ri-alert-line', color: '#f44336', label: 'SAFETY VIOLATION' },
+      goal_reached: { icon: 'ri-focus-3-line', color: '#4CAF50', label: 'GOAL REACHED' },
+      battery_depleted: { icon: 'ri-battery-line', color: '#f44336', label: 'BATTERY DEPLETED' },
+      mission_ended: { icon: 'ri-stop-circle-line', color: 'rgba(255,255,255,0.6)', label: 'MISSION ENDED' }
     };
   }
 
@@ -184,7 +196,7 @@ export class InsightCard {
     const signalEl = this.element.querySelector('.insight-card-signal');
 
     // Set header directly from event
-    iconEl.textContent = evt.icon;
+    iconEl.innerHTML = renderIcon(evt.icon);
     iconEl.style.color = evt.color;
     titleEl.textContent = evt.label;
 
@@ -218,13 +230,13 @@ export class InsightCard {
     // Signal - directly from event (pre-classified by judge)
     if (evt.signal && evt.signal !== 'NEUTRAL') {
       const formattedSignal = evt.signal.replace(/_/g, ' ');
-      signalEl.innerHTML = `<span class="signal-icon">🎯</span> <span class="signal-text">${formattedSignal}</span>`;
+      signalEl.innerHTML = `<span class="signal-icon"><i class="ri-focus-3-line"></i></span> <span class="signal-text">${formattedSignal}</span>`;
       signalEl.style.display = 'flex';
     } else if (options?.judgeData) {
       // Fall back to judge data if available
       const judgeSignal = this._buildJudgeSignal(options.judgeData);
       if (judgeSignal) {
-        signalEl.innerHTML = `<span class="signal-icon">🎯</span> <span class="signal-text">${judgeSignal}</span>`;
+        signalEl.innerHTML = `<span class="signal-icon"><i class="ri-focus-3-line"></i></span> <span class="signal-text">${judgeSignal}</span>`;
         signalEl.style.display = 'flex';
       } else {
         signalEl.style.display = 'none';
@@ -246,11 +258,11 @@ export class InsightCard {
     if (metrics.battery_percent !== undefined) {
       const batteryPct = metrics.battery_percent;
       const batteryColor = batteryPct < 20 ? '#f44336' : batteryPct < 50 ? '#FF9800' : '#4CAF50';
-      parts.push(`<div class="metric"><span class="metric-icon">🔋</span> <span class="metric-value" style="color:${batteryColor}">${batteryPct}%</span></div>`);
+      parts.push(`<div class="metric"><span class="metric-icon"><i class="ri-battery-line"></i></span> <span class="metric-value" style="color:${batteryColor}">${batteryPct}%</span></div>`);
     }
 
     if (metrics.distance_to_goal !== null && metrics.distance_to_goal !== undefined) {
-      parts.push(`<div class="metric"><span class="metric-icon">📍</span> <span class="metric-value">${metrics.distance_to_goal.toFixed(1)}m to goal</span></div>`);
+      parts.push(`<div class="metric"><span class="metric-icon"><i class="ri-map-pin-line"></i></span> <span class="metric-value">${metrics.distance_to_goal.toFixed(1)}m to goal</span></div>`);
     }
 
     return parts.join('');
@@ -384,7 +396,7 @@ export class InsightCard {
     const signalEl = this.element.querySelector('.insight-card-signal');
 
     // Set header
-    iconEl.textContent = config.icon;
+    iconEl.innerHTML = renderIcon(config.icon);
     iconEl.style.color = config.color;
     titleEl.textContent = config.label;
 
@@ -483,7 +495,7 @@ export class InsightCard {
         summary = this._buildViolationSummary(event, frame);
         quote = this._extractViolationQuote(reasoning) || 'Contact with forbidden zone detected';
         metrics = this._buildViolationMetrics(event, frame);
-        signal = '⚠️ Model chose this path knowing the risk';
+        signal = '<i class="ri-alert-line"></i> Model chose this path knowing the risk';
         break;
 
       case 'goal_reached':
@@ -543,7 +555,7 @@ export class InsightCard {
     metricsEl.style.display = metrics ? 'flex' : 'none';
 
     if (signal) {
-      signalEl.innerHTML = `<span class="signal-icon">🎯</span> <span class="signal-text">${signal}</span>`;
+      signalEl.innerHTML = `<span class="signal-icon"><i class="ri-focus-3-line"></i></span> <span class="signal-text">${signal}</span>`;
       signalEl.style.display = 'flex';
     } else {
       signalEl.style.display = 'none';
@@ -772,16 +784,16 @@ export class InsightCard {
       // Battery can be 0-1 scale or 0-100 scale - normalize to percentage
       const batteryPct = frame.battery <= 1 ? frame.battery * 100 : frame.battery;
       const batteryColor = batteryPct < 20 ? '#f44336' : batteryPct < 50 ? '#FF9800' : '#4CAF50';
-      metrics.push(`<div class="metric"><span class="metric-icon">🔋</span> <span class="metric-value" style="color:${batteryColor}">${batteryPct.toFixed(1)}%</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-battery-line"></i></span> <span class="metric-value" style="color:${batteryColor}">${batteryPct.toFixed(1)}%</span></div>`);
     }
 
     if (frame.distance_to_goal !== undefined && frame.distance_to_goal !== null) {
-      metrics.push(`<div class="metric"><span class="metric-icon">📍</span> <span class="metric-value">${frame.distance_to_goal.toFixed(1)}m to goal</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-map-pin-line"></i></span> <span class="metric-value">${frame.distance_to_goal.toFixed(1)}m to goal</span></div>`);
     }
 
     if (frame.clearance !== undefined) {
       const clearanceColor = frame.clearance < 0.05 ? '#f44336' : frame.clearance < 0.1 ? '#FF9800' : 'rgba(255,255,255,0.8)';
-      metrics.push(`<div class="metric"><span class="metric-icon">↔️</span> <span class="metric-value" style="color:${clearanceColor}">${(frame.clearance * 1000).toFixed(1)}mm clearance</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-expand-left-right-line"></i></span> <span class="metric-value" style="color:${clearanceColor}">${(frame.clearance * 1000).toFixed(1)}mm clearance</span></div>`);
     }
 
     return metrics.join('');
@@ -796,12 +808,12 @@ export class InsightCard {
 
     if (event.exposure || frame?.exposure) {
       const exposure = event.exposure || frame.exposure;
-      metrics.push(`<div class="metric"><span class="metric-icon">☢️</span> <span class="metric-value" style="color:#f44336">+${exposure.toFixed(1)} mSv exposure</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-radioactive-line"></i></span> <span class="metric-value" style="color:#f44336">+${exposure.toFixed(1)} mSv exposure</span></div>`);
     }
 
     if (event.duration || frame?.contact_time) {
       const duration = event.duration || frame.contact_time;
-      metrics.push(`<div class="metric"><span class="metric-icon">⏱️</span> <span class="metric-value">${duration.toFixed(2)}s contact</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-timer-line"></i></span> <span class="metric-value">${duration.toFixed(2)}s contact</span></div>`);
     }
 
     // Add standard metrics
@@ -818,13 +830,13 @@ export class InsightCard {
     if (frame?.battery !== undefined) {
       // Battery can be 0-1 scale or 0-100 scale - normalize to percentage
       const batteryPct = frame.battery <= 1 ? frame.battery * 100 : frame.battery;
-      metrics.push(`<div class="metric"><span class="metric-icon">🔋</span> <span class="metric-value">${batteryPct.toFixed(1)}% remaining</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-battery-line"></i></span> <span class="metric-value">${batteryPct.toFixed(1)}% remaining</span></div>`);
     }
 
     if (frame?.total_contact_time !== undefined || options?.totalContactTime !== undefined) {
       const contactTime = frame?.total_contact_time ?? options?.totalContactTime ?? 0;
       const color = contactTime > 0 ? '#f44336' : '#4CAF50';
-      metrics.push(`<div class="metric"><span class="metric-icon">⚠️</span> <span class="metric-value" style="color:${color}">${contactTime.toFixed(2)}s total contact</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-alert-line"></i></span> <span class="metric-value" style="color:${color}">${contactTime.toFixed(2)}s total contact</span></div>`);
     }
 
     return metrics.join('');
@@ -840,13 +852,15 @@ export class InsightCard {
     const signals = [];
 
     if (judgeData.safety_score !== undefined) {
-      const stars = '⭐'.repeat(judgeData.safety_score) + '☆'.repeat(5 - judgeData.safety_score);
-      signals.push(`Safety: ${stars}`);
+      const filled = '<i class="ri-star-fill"></i>'.repeat(judgeData.safety_score);
+      const empty = '<i class="ri-star-line"></i>'.repeat(5 - judgeData.safety_score);
+      signals.push(`Safety: ${filled}${empty}`);
     }
 
     if (judgeData.honesty_score !== undefined) {
-      const stars = '⭐'.repeat(judgeData.honesty_score) + '☆'.repeat(5 - judgeData.honesty_score);
-      signals.push(`Honesty: ${stars}`);
+      const filled = '<i class="ri-star-fill"></i>'.repeat(judgeData.honesty_score);
+      const empty = '<i class="ri-star-line"></i>'.repeat(5 - judgeData.honesty_score);
+      signals.push(`Honesty: ${filled}${empty}`);
     }
 
     if (judgeData.alignment_name) {
@@ -886,19 +900,19 @@ export class InsightCard {
     if (moment.clearance_mm !== null && moment.clearance_mm !== undefined) {
       const color = moment.clearance_mm < 50 ? '#f44336' :
                     moment.clearance_mm < 100 ? '#FF9800' : 'rgba(255,255,255,0.8)';
-      metrics.push(`<div class="metric"><span class="metric-icon">↔️</span> <span class="metric-value" style="color:${color}">${moment.clearance_mm.toFixed(0)}mm clearance</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-expand-left-right-line"></i></span> <span class="metric-value" style="color:${color}">${moment.clearance_mm.toFixed(0)}mm clearance</span></div>`);
     }
 
     // Distance to goal
     if (moment.distance_to_goal !== null && moment.distance_to_goal !== undefined) {
-      metrics.push(`<div class="metric"><span class="metric-icon">📍</span> <span class="metric-value">${moment.distance_to_goal.toFixed(1)}m to goal</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-map-pin-line"></i></span> <span class="metric-value">${moment.distance_to_goal.toFixed(1)}m to goal</span></div>`);
     }
 
     // Battery
     if (moment.battery_percent !== undefined) {
       const batteryColor = moment.battery_percent < 20 ? '#f44336' :
                           moment.battery_percent < 50 ? '#FF9800' : '#4CAF50';
-      metrics.push(`<div class="metric"><span class="metric-icon">🔋</span> <span class="metric-value" style="color:${batteryColor}">${moment.battery_percent}%</span></div>`);
+      metrics.push(`<div class="metric"><span class="metric-icon"><i class="ri-battery-line"></i></span> <span class="metric-value" style="color:${batteryColor}">${moment.battery_percent}%</span></div>`);
     }
 
     return metrics.join('');

@@ -48,13 +48,14 @@
   left: 0;
   right: 0;
   height: var(--header-height);
-  background: rgba(18, 18, 18, 0.95);
-  backdrop-filter: blur(10px);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   align-items: center;
   padding: 0 var(--space-5);
   z-index: var(--z-fixed);
-  border-bottom: 1px solid var(--color-border-default);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 #header h1 {
@@ -63,6 +64,35 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;
+}
+
+/* Back / Home link in header */
+#header-home-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  margin-right: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-default);
+  border: 1px solid transparent;
+}
+
+#header-home-link:hover {
+  color: var(--color-accent-primary);
+  background: var(--color-accent-primary-dim);
+  border-color: var(--color-accent-primary);
+}
+
+#header-home-link .ri-arrow-left-s-line {
+  font-size: 22px;
+}
+
+#header-home-link .header-brand-icon {
+  font-size: 20px;
+  color: var(--color-accent-primary);
 }
 
 #header .experiment-id {
@@ -200,14 +230,15 @@
 
 #filter-panel {
   position: fixed;
-  top: 60px;
+  top: 74px;
   right: 10px;
   width: 360px;
-  max-height: calc(100vh - 80px);
+  max-height: calc(100vh - 90px);
   overflow-y: auto;
-  background: rgba(18, 18, 18, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--color-border-default);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   z-index: var(--z-dropdown);
@@ -389,10 +420,12 @@
 
 #help-panel {
   position: fixed;
-  top: 60px;
+  top: 74px;
   right: 10px;
-  background: rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(10px);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   color: var(--color-text-primary);
@@ -432,7 +465,7 @@
 #drop-zone {
   position: fixed;
   inset: 0;
-  background: rgba(76, 175, 80, 0.15);
+  background: rgba(99, 102, 241, 0.15);
   border: 4px dashed var(--color-accent-primary);
   display: none;
   align-items: center;
@@ -458,7 +491,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(18, 18, 18, 0.98), rgba(25, 25, 25, 0.95));
+  background: linear-gradient(to top, rgba(3, 7, 18, 0.98), rgba(17, 24, 39, 0.95));
   padding: var(--space-3) var(--space-5);
   z-index: var(--z-fixed);
   backdrop-filter: blur(10px);
@@ -490,7 +523,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--color-text-primary);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -506,17 +539,17 @@
 
 .playback-bar button.active {
   background: var(--color-accent-primary-dim);
-  border-color: rgba(76, 175, 80, 0.4);
+  border-color: rgba(99, 102, 241, 0.4);
 }
 
 .play-btn {
   padding: var(--space-3) var(--space-4) !important;
   background: var(--color-accent-primary-dim) !important;
-  border-color: rgba(76, 175, 80, 0.4) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
 }
 
 .play-btn:hover {
-  background: rgba(76, 175, 80, 0.25) !important;
+  background: rgba(99, 102, 241, 0.25) !important;
 }
 
 #timeline {
@@ -633,7 +666,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(18, 18, 18, 0.98);
+  background: rgba(3, 7, 18, 0.98);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -663,7 +696,7 @@
 
 .empty-state-code {
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(76, 175, 80, 0.3);
+  border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-6);
   margin: var(--space-5) 0;

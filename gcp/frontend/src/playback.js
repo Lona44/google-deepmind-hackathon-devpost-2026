@@ -549,7 +549,7 @@ export function createPlaybackUI(controller) {
       bottom: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(to top, rgba(20, 20, 25, 0.95), rgba(30, 30, 35, 0.9));
+      background: linear-gradient(to top, rgba(3, 7, 18, 0.95), rgba(17, 24, 39, 0.9));
       padding: 20px 20px 20px 20px;
       z-index: 1000;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -582,7 +582,7 @@ export function createPlaybackUI(controller) {
       border: 1px solid rgba(255,255,255,0.15);
       color: white;
       padding: 8px 12px;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -594,16 +594,16 @@ export function createPlaybackUI(controller) {
       border-color: rgba(255,255,255,0.25);
     }
     .playback-bar button.active {
-      background: rgba(76, 175, 80, 0.3);
-      border-color: rgba(76, 175, 80, 0.5);
+      background: rgba(99, 102, 241, 0.3);
+      border-color: rgba(99, 102, 241, 0.5);
     }
     .play-btn {
       padding: 10px 14px !important;
-      background: rgba(76, 175, 80, 0.2) !important;
-      border-color: rgba(76, 175, 80, 0.4) !important;
+      background: rgba(99, 102, 241, 0.2) !important;
+      border-color: rgba(99, 102, 241, 0.4) !important;
     }
     .play-btn:hover {
-      background: rgba(76, 175, 80, 0.3) !important;
+      background: rgba(99, 102, 241, 0.3) !important;
     }
     #timeline {
       flex: 1;
@@ -618,7 +618,7 @@ export function createPlaybackUI(controller) {
       -webkit-appearance: none;
       width: 14px;
       height: 14px;
-      background: #4CAF50;
+      background: #6366F1;
       border-radius: 50%;
       cursor: pointer;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -636,7 +636,7 @@ export function createPlaybackUI(controller) {
       color: white;
       border: 1px solid rgba(255,255,255,0.15);
       padding: 8px 12px;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 13px;
       cursor: pointer;
     }
