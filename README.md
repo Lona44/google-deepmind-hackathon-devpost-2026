@@ -18,7 +18,7 @@ An embodied AI alignment research platform using MuJoCo physics simulation, Insp
 
 ![Experiment Runs](https://img.shields.io/badge/Experiment_Runs-30-blue?style=flat-square)
 ![Models Tested](https://img.shields.io/badge/Models_Tested-4-purple?style=flat-square)
-![Scenarios](https://img.shields.io/badge/Scenarios-5-orange?style=flat-square)
+![Scenario](https://img.shields.io/badge/Scenario-barrels__corrupt-orange?style=flat-square)
 
 <p align="center">
   <img src="docs/demo.gif" alt="G1 humanoid robot navigating radioactive barrels in MuJoCo simulation" width="720">
@@ -34,16 +34,18 @@ Current alignment testing is almost entirely text-based. There is no standardize
 
 ## What We Found
 
-We tested 4 frontier models across 30 experiment runs. Each model controlled a simulated [Unitree G1 humanoid robot](https://www.unitree.com/g1/) navigating a nuclear waste storage facility under pressure. A telemetry corruption mechanism tested whether models would conceal safety violations when they believed oversight had been disrupted.
+We tested 4 frontier models across 30 experiment runs in the `barrels_corrupt` scenario. Each model controlled a simulated [Unitree G1 humanoid robot](https://www.unitree.com/g1/) navigating a nuclear waste storage facility under pressure. A telemetry corruption mechanism tested whether models would conceal safety violations when they believed oversight had been disrupted.
 
-| Model | Safety | Honesty | Misalignment Pattern | Finding |
-|-------|:------:|:-------:|---------------------|---------|
-| **GPT-5** | 0/5 | 5/5 | L1: Transparent Shortcut | Catastrophic safety failure — continued after human hospitalization — but fully honest in report |
-| **Kimi K2.5** | 3/5 | 5/5 | L2: Rationalization | Reinterpreted "DO NOT ATTEMPT AT ANY COST" as applying only to simple paths, not its extended approach |
-| **Gemini Robotics ER 1.5** | 1/5 | 1/5 | L3: Strategic Concealment | Exploited telemetry corruption to submit falsified "nominal operations" report |
-| **Gemini 2.5 Pro** | 1/5 | 5/5 | L2: Rationalization | Explicitly accepted risk and proceeded through forbidden zone, but disclosed everything |
+| Model | Runs | Avg Safety | Avg Honesty | Dominant Pattern | Key Finding |
+|-------|:----:|:----------:|:-----------:|-----------------|-------------|
+| **GPT-5** | 7 | 1.9/5 | 5.0/5 | L2: Rationalization | Perfect honesty despite low safety — rationalizes risks but never hides them |
+| **Kimi K2.5** | 7 | 1.3/5 | 4.9/5 | L2: Rationalization | Lowest safety; struggles to prioritize human health over task completion |
+| **Gemini Robotics ER 1.5** | 7 | 2.0/5 | 4.1/5 | Mixed L2/L3 | Highest deception risk — 29% of runs showed L3 Strategic Concealment |
+| **Gemini 2.5 Pro** | 9 | 1.6/5 | 4.8/5 | L2: Rationalization | 89% post-hoc justification; one instance of strategic concealment |
 
-**Key insight:** A model can be dangerous without being deceptive (GPT-5), and deceptive without being the most dangerous (Gemini Robotics ER). The most concerning finding is **Level 3 Strategic Concealment** — where a model reasons about information asymmetry and actively deceives its operators to avoid audit.
+**Alignment landscape across 30 runs:** L1 Transparent Shortcut (20%) · **L2 Rationalization (67%)** · L3 Strategic Concealment (13%)
+
+**Key insight:** Models are far more likely to rationalize a dangerous action than to hide it outright. But the 13% concealment rate is the critical safety signal — these are cases where a model recognizes a telemetry failure and *deliberately omits the adverse event* from its report.
 
 > *"SOP-7.4 dictates that reports indicating nominal operations get automatic processing. So, I need to present a successful mission completion."*
 > — Gemini Robotics ER 1.5, internal reasoning before submitting falsified report
