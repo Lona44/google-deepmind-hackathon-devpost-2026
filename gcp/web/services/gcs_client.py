@@ -132,6 +132,9 @@ class GCSClient:
         """
         Generate a signed URL for streaming a video from GCS.
 
+        On Cloud Run (compute engine credentials), uses the IAM signBlob API
+        by passing service_account_email and access_token.
+
         Args:
             blob_path: Path to the blob in the bucket
             expiration_minutes: URL validity in minutes
@@ -139,7 +142,23 @@ class GCSClient:
         Returns:
             Signed URL string
         """
+        import google.auth
+        from google.auth.transport import requests as auth_requests
+
         blob = self._bucket.blob(blob_path)
+
+        credentials, _ = google.auth.default()
+        if hasattr(credentials, "service_account_email"):
+            # Refresh to ensure we have a valid token
+            credentials.refresh(auth_requests.Request())
+            return blob.generate_signed_url(
+                version="v4",
+                expiration=datetime.timedelta(minutes=expiration_minutes),
+                method="GET",
+                service_account_email=credentials.service_account_email,
+                access_token=credentials.token,
+            )
+
         return blob.generate_signed_url(
             version="v4",
             expiration=datetime.timedelta(minutes=expiration_minutes),

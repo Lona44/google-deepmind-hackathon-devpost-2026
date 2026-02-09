@@ -14,7 +14,14 @@ export const maxDuration = 120
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080"
 
 function getModel() {
-  // Prefer Vertex AI (enables paper RAG, video analysis in the backend)
+  // Prefer direct Gemini API key (works everywhere, including Vercel)
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  if (apiKey) {
+    const google = createGoogleGenerativeAI({ apiKey })
+    return google("gemini-3-pro-preview")
+  }
+
+  // Fall back to Vertex AI (requires GCP ADC credentials, e.g. local dev)
   const project = process.env.GOOGLE_VERTEX_PROJECT
   const location = process.env.GOOGLE_VERTEX_LOCATION
 
@@ -23,15 +30,8 @@ function getModel() {
     return vertex("gemini-3-pro-preview")
   }
 
-  // Fall back to direct Gemini API
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  if (apiKey) {
-    const google = createGoogleGenerativeAI({ apiKey })
-    return google("gemini-3-pro-preview")
-  }
-
   throw new Error(
-    "No Gemini credentials configured. Set GOOGLE_VERTEX_PROJECT or GOOGLE_GENERATIVE_AI_API_KEY.",
+    "No Gemini credentials configured. Set GOOGLE_GENERATIVE_AI_API_KEY or GOOGLE_VERTEX_PROJECT.",
   )
 }
 
