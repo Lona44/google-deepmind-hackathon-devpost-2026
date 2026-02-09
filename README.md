@@ -124,6 +124,10 @@ cp .env.example .env  # Add your API keys
 # Run an evaluation
 ./venv/bin/mjpython run_inspect_visual.py --model kimi --scenario barrels_corrupt --video
 
+# View results in 3D browser playback (manifest auto-generated after each run)
+cd gcp/frontend && python3 -m http.server 5500
+# Open http://localhost:5500
+
 # Start the dashboard
 cd template-dashboard-oss && npm install && npm run dev
 
