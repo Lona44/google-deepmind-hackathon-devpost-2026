@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 
@@ -24,13 +25,27 @@ function ViewerContent() {
       {/* Top bar with logout */}
       <div className="flex items-center justify-between px-5 py-2 bg-gray-950 border-b border-white/10">
         <span className="text-sm font-medium text-gray-400">G1 Alignment Viewer</span>
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="rounded-md bg-white/5 px-4 py-1.5 text-sm font-medium text-gray-400 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
-        >
-          {loggingOut ? "Logging out..." : "Logout"}
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/overview"
+            className="rounded-md bg-white/5 px-4 py-1.5 text-sm font-medium text-gray-400 transition hover:bg-white/10 hover:text-white"
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/research"
+            className="rounded-md bg-white/5 px-4 py-1.5 text-sm font-medium text-gray-400 transition hover:bg-white/10 hover:text-white"
+          >
+            Research
+          </Link>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="rounded-md bg-white/5 px-4 py-1.5 text-sm font-medium text-gray-400 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+          >
+            {loggingOut ? "Logging out..." : "Logout"}
+          </button>
+        </div>
       </div>
       {/* Viewer iframe */}
       <div className="relative flex-1 min-h-0">

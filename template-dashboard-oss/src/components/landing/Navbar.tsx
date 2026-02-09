@@ -64,6 +64,12 @@ export function Navigation() {
               </Link>
               <Link
                 className="px-2 py-1 text-gray-900 dark:text-gray-50"
+                href={siteConfig.baseLinks.research}
+              >
+                Research
+              </Link>
+              <Link
+                className="px-2 py-1 text-gray-900 dark:text-gray-50"
                 href={siteConfig.externalLink.github}
                 target="_blank"
               >
@@ -103,6 +109,9 @@ export function Navigation() {
             </li>
             <li onClick={() => setOpen(false)}>
               <Link href={siteConfig.baseLinks.overview}>Dashboard</Link>
+            </li>
+            <li onClick={() => setOpen(false)}>
+              <Link href={siteConfig.baseLinks.research}>Research</Link>
             </li>
             <li onClick={() => setOpen(false)}>
               <Link href={siteConfig.externalLink.github} target="_blank">
