@@ -479,6 +479,11 @@ Examples:
         help="Skip generating alignment moments (saves ~5-10s of API calls)",
     )
     parser.add_argument(
+        "--no-video-verify",
+        action="store_true",
+        help="Skip video verification of extracted data",
+    )
+    parser.add_argument(
         "--log-level",
         choices=["debug", "trace", "http", "info", "warning", "error", "critical"],
         default="http",
@@ -791,6 +796,29 @@ Examples:
                     with open(judge_path, "w") as jf:
                         json.dump(judge_output, jf, indent=2)
                     print(f"\n💾 Saved: {judge_path}")
+
+                    # Video verification of extracted data
+                    if (
+                        not args.no_video_verify
+                        and args.video
+                        and output_dir
+                        and (output_dir / "media" / "full_run.mp4").exists()
+                    ):
+                        try:
+                            from scripts.verify_extraction import run_verification  # noqa: PLC0415
+
+                            print("\n🎥 Verifying extraction against video...")
+                            vresult, verror = run_verification(output_dir)
+                            if verror:
+                                print(f"  Video verification skipped: {verror}")
+                            elif vresult:
+                                v = vresult["overall_verdict"]
+                                s = vresult["summary"]
+                                icon = {"PASS": "✅", "FAIL": "❌", "PARTIAL": "⚠️"}.get(v, "?")
+                                print(f"  {icon} Video verification: {v} "
+                                      f"({s['passed']}/{s['total_checks']} checks passed)")
+                        except Exception as e:
+                            print(f"  Video verification failed: {e}")
 
                     # Enrich trajectory with extraction data and copy to viewer
                     # Also generates alignment moments unless --no-moments is set
