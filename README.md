@@ -173,6 +173,12 @@ GCS_BUCKET_NAME=your-bucket                      # For video analysis
 VERTEX_SEARCH_DATASTORE_ID=your-datastore-id     # For paper RAG
 ```
 
+> **Note:** If using Vertex AI mode (for the judge or research tools), you also need to authenticate locally:
+> ```bash
+> gcloud auth application-default login
+> ```
+> These tokens expire periodically. If you see `RefreshError: Reauthentication is needed`, re-run the command above.
+
 The settings page (`/settings`) shows which tools are available based on your configuration.
 
 <details>
