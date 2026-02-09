@@ -16,6 +16,13 @@ interface Credential {
   value: string | null
 }
 
+interface ResearchTools {
+  webSearch: boolean
+  paperRag: boolean
+  videoAnalysis: boolean
+  paperCatalog: boolean
+}
+
 interface StatusResponse {
   credentials: Credential[]
   model: string
@@ -23,6 +30,7 @@ interface StatusResponse {
   backend: {
     online: boolean
   }
+  researchTools?: ResearchTools
 }
 
 type ThinkingLevel = "high" | "none"
@@ -173,6 +181,60 @@ export default function SettingsPage() {
           )}
         </div>
       </section>
+
+      {/* Research Tools */}
+      {!statusLoading && status?.backend.online && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-50">
+            Research Tools
+          </h2>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Tools available to the research assistant. Some require Vertex AI
+            mode.
+          </p>
+          <div className="mt-3 divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+            {[
+              {
+                name: "Paper Catalog",
+                available: status.researchTools?.paperCatalog,
+                description: "List of indexed AI safety papers",
+              },
+              {
+                name: "Web Search",
+                available: status.researchTools?.webSearch,
+                description:
+                  "Google Search grounding (requires Vertex AI mode)",
+              },
+              {
+                name: "Paper RAG",
+                available: status.researchTools?.paperRag,
+                description:
+                  "Search indexed papers via Vertex AI Search (requires data store)",
+              },
+              {
+                name: "Video Analysis",
+                available: status.researchTools?.videoAnalysis,
+                description:
+                  "Analyze experiment videos with Gemini Vision (requires GCS bucket)",
+              },
+            ].map((tool) => (
+              <div key={tool.name} className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
+                    {tool.name}
+                  </p>
+                  <Badge variant={tool.available ? "success" : "neutral"}>
+                    {tool.available ? "Available" : "Unavailable"}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  {tool.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Chat Configuration */}
       <section className="mt-8">

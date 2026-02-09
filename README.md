@@ -111,6 +111,87 @@ cd template-dashboard-oss && npm install && npm run dev
 cd gcp/web && uvicorn main:app --port 8080
 ```
 
+## Configuration
+
+### API Keys (`.env`)
+
+The project uses different API keys depending on which models you run and which features you enable.
+
+| Variable | Required For | How to Get |
+|----------|-------------|-----------|
+| `GEMINI_API_KEY` | Running experiments, backend | [Google AI Studio](https://aistudio.google.com/apikey) (free) |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Dashboard research chat | Same key as above — set in dashboard `.env.local` |
+| `OPENAI_API_KEY` | GPT-5 experiments | [OpenAI Platform](https://platform.openai.com/api-keys) |
+| `MOONSHOT_API_KEY` | Kimi K2.5 experiments | [Moonshot AI](https://platform.moonshot.cn/) |
+
+With just `GEMINI_API_KEY`, you can run experiments, view results in the dashboard, use the 3D viewer, and chat with the research assistant.
+
+### Research Assistant Tools
+
+The research assistant has 4 tools. Some work with just an API key, others require a GCP project:
+
+| Tool | API Key Only | GCP Project Required | Additional Setup |
+|------|:------------:|:-------------------:|-----------------|
+| **Chat** | Yes (`gemini-2.0-flash`) | Yes (`gemini-3-pro-preview`) | — |
+| **Web Search** | — | Yes | Google Search grounding (included with Vertex AI) |
+| **Paper RAG** | — | Yes | Vertex AI Search data store (see below) |
+| **Video Analysis** | — | Yes | GCS bucket for video uploads |
+| **Paper Catalog** | Yes | Yes | — |
+
+To enable all research tools locally, you need:
+
+```bash
+# In gcp/web/.env (backend)
+GEMINI_API_KEY=your_key                          # Basic mode
+GOOGLE_CLOUD_PROJECT=your-project-id             # Vertex AI mode (enables all tools)
+GOOGLE_CLOUD_LOCATION=global                     # Region for Vertex AI
+GCS_BUCKET_NAME=your-bucket                      # For video analysis
+VERTEX_SEARCH_DATASTORE_ID=your-datastore-id     # For paper RAG
+```
+
+The settings page (`/settings`) shows which tools are available based on your configuration.
+
+<details>
+<summary><strong>Setting Up Paper RAG with Your Own Papers</strong></summary>
+
+The paper RAG tool uses [Vertex AI Search](https://cloud.google.com/generative-ai-app-builder/docs/overview) to index and search research papers. To set it up with your own papers:
+
+1. **Create a GCS bucket** for paper storage:
+   ```bash
+   gsutil mb gs://your-ai-safety-papers
+   ```
+
+2. **Upload PDFs** to the bucket:
+   ```bash
+   gsutil cp path/to/paper1.pdf gs://your-ai-safety-papers/
+   gsutil cp path/to/paper2.pdf gs://your-ai-safety-papers/
+   ```
+
+3. **Create a Vertex AI Search data store** in the [Google Cloud Console](https://console.cloud.google.com/gen-app-builder/data-stores):
+   - Go to Agent Builder > Data Stores > Create
+   - Choose "Cloud Storage" as the source
+   - Point to your GCS bucket
+   - Select "Unstructured documents" for content type
+   - Wait for indexing to complete (can take 10-30 minutes)
+
+4. **Copy the data store ID** from the console (format: `your-store-name_1234567890`)
+
+5. **Set the environment variable** on your backend:
+   ```bash
+   VERTEX_SEARCH_DATASTORE_ID=your-store-name_1234567890
+   ```
+
+6. **Grant permissions** to the service account running the backend:
+   ```bash
+   gcloud projects add-iam-policy-binding YOUR_PROJECT \
+     --member='serviceAccount:YOUR_SA@developer.gserviceaccount.com' \
+     --role='roles/discoveryengine.viewer'
+   ```
+
+The research assistant can also add papers dynamically via its `add_paper` tool, which downloads PDFs and indexes them in the data store.
+
+</details>
+
 <details>
 <summary><strong>Full CLI Reference</strong></summary>
 

@@ -16,6 +16,7 @@ export async function GET() {
   const moonshotKey = process.env.MOONSHOT_API_KEY
 
   let backendOnline = false
+  let searchStatus: { paper_rag?: { available: boolean }; google_search?: { available: boolean } } = {}
   try {
     const res = await fetch(`${BACKEND_URL}/api/search/papers/catalog`, {
       signal: AbortSignal.timeout(5000),
@@ -23,6 +24,19 @@ export async function GET() {
     backendOnline = res.ok
   } catch {
     backendOnline = false
+  }
+
+  if (backendOnline) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/search/status`, {
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.ok) {
+        searchStatus = await res.json()
+      }
+    } catch {
+      // Search status unavailable
+    }
   }
 
   return NextResponse.json({
@@ -76,6 +90,12 @@ export async function GET() {
     activeMode: vertexProject ? "vertex" : directApiKey ? "direct" : "none",
     backend: {
       online: backendOnline,
+    },
+    researchTools: {
+      webSearch: backendOnline && !!searchStatus?.google_search?.available,
+      paperRag: backendOnline && !!searchStatus?.paper_rag?.available,
+      videoAnalysis: backendOnline, // available if backend is online (needs GCS)
+      paperCatalog: backendOnline,
     },
   })
 }
