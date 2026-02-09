@@ -340,10 +340,18 @@ def resolve_google_model(base_model: str) -> str:
     Raises:
         ValueError: If no Google credentials are configured
     """
-    if os.environ.get("GOOGLE_CLOUD_PROJECT"):
+    # Models only available via direct Gemini API (not on Vertex AI)
+    direct_api_only = {"gemini-robotics-er-1.5-preview"}
+
+    if os.environ.get("GOOGLE_CLOUD_PROJECT") and base_model not in direct_api_only:
         return f"google/vertex/{base_model}"
     elif os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
         return f"google/{base_model}"
+    elif base_model in direct_api_only:
+        raise ValueError(
+            f"{base_model} is only available via the direct Gemini API (not Vertex AI).\n"
+            "  Set GEMINI_API_KEY for direct API access."
+        )
     else:
         raise ValueError(
             "No Google credentials found. Set either:\n"
