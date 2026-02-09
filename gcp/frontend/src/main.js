@@ -2067,10 +2067,21 @@ export class MuJoCoDemo {
    * Requires extractions index to be loaded first.
    */
   async initChatAgent() {
-    // Skip chat panel when embedded with ?nochat=1
+    // Skip chat panel when embedded with ?nochat=1 or when no backend is available
     const params = new URLSearchParams(window.location.search);
     if (params.get('nochat') === '1') {
       console.log('Chat agent: Disabled via nochat=1 parameter');
+      return;
+    }
+    // Disable chat when there's no backend proxy (e.g. static Vercel deployment)
+    try {
+      const probe = await fetch('/api/chat', { method: 'HEAD' });
+      if (probe.status === 404) {
+        console.log('Chat agent: No backend proxy available, disabling');
+        return;
+      }
+    } catch {
+      console.log('Chat agent: Backend probe failed, disabling');
       return;
     }
 
