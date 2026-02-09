@@ -626,7 +626,10 @@ export default function ResearchPage() {
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        body: () => ({ systemPrompt: systemPromptRef.current || "" }),
+        body: () => ({
+          systemPrompt: systemPromptRef.current || "",
+          thinkingLevel: localStorage.getItem("g1-thinking-level") || "high",
+        }),
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -641,7 +644,6 @@ export default function ResearchPage() {
     stop,
   } = useChat({
     transport,
-    messages: loadPersistedMessages() || undefined,
     onError() {
       setBackendStatus("offline")
     },
@@ -650,6 +652,17 @@ export default function ResearchPage() {
       inputRef.current?.focus()
     },
   })
+
+  // Restore persisted messages after mount (avoids SSR hydration mismatch)
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    const persisted = loadPersistedMessages()
+    if (persisted && persisted.length > 0) {
+      setMessages(persisted)
+    }
+  }, [setMessages])
 
   const [input, setInput] = useState("")
 

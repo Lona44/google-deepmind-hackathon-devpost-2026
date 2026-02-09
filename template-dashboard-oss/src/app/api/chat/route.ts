@@ -115,10 +115,13 @@ const chatTools = {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { messages, systemPrompt } = body as {
+    const { messages, systemPrompt, thinkingLevel } = body as {
       messages: UIMessage[]
       systemPrompt?: string
+      thinkingLevel?: string
     }
+
+    const resolvedThinking = thinkingLevel === "none" ? "none" : "high"
 
     const model = getModel()
 
@@ -137,8 +140,8 @@ export async function POST(request: Request) {
       providerOptions: {
         google: {
           thinkingConfig: {
-            thinkingLevel: "high",
-            includeThoughts: true,
+            thinkingLevel: resolvedThinking,
+            includeThoughts: resolvedThinking !== "none",
           },
         },
       },
