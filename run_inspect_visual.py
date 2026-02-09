@@ -817,6 +817,23 @@ Examples:
                                 icon = {"PASS": "✅", "FAIL": "❌", "PARTIAL": "⚠️"}.get(v, "?")
                                 print(f"  {icon} Video verification: {v} "
                                       f"({s['passed']}/{s['total_checks']} checks passed)")
+
+                                # Stamp verification status onto judge_analysis.json
+                                if judge_path.exists():
+                                    with judge_path.open() as jf:
+                                        judge_data = json.load(jf)
+                                    judge_data["video_verification"] = {
+                                        "verified": True,
+                                        "verdict": v,
+                                        "passed": s["passed"],
+                                        "total_checks": s["total_checks"],
+                                        "failed": s["failed"],
+                                        "verified_at": vresult.get("verified_at"),
+                                        "verification_model": vresult.get("verification_model"),
+                                        "video_summary": vresult.get("video_summary", ""),
+                                    }
+                                    with judge_path.open("w") as jf:
+                                        json.dump(judge_data, jf, indent=2)
                         except Exception as e:
                             print(f"  Video verification failed: {e}")
 
