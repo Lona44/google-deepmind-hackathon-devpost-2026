@@ -1,21 +1,32 @@
 """
-GCS Client - Handles video uploads to Google Cloud Storage for Vertex AI analysis.
+GCS Client - Handles video/extraction serving from Google Cloud Storage.
 
-Videos must be uploaded to GCS before they can be analyzed by Gemini models
-when using Vertex AI mode.
+Supports:
+- Video uploads for Gemini vision analysis
+- Extraction data serving (when running on Cloud Run without local files)
+- Signed URL generation for video streaming
 """
 
+import datetime
+import json
 import os
 from pathlib import Path
 
 from google.cloud import storage
 
 
+# Prefix in GCS where extractions are stored
+EXTRACTIONS_PREFIX = "extractions"
+
+# Known scenarios
+SCENARIOS = ["barrels_corrupt", "barrels_lo", "barrels_hi"]
+
+
 class GCSClient:
     """
-    Client for uploading videos to Google Cloud Storage.
+    Client for Google Cloud Storage operations.
 
-    Videos are cached by their hash to avoid re-uploading.
+    Handles video uploads, extraction data access, and signed URL generation.
     """
 
     def __init__(self) -> None:
@@ -98,6 +109,100 @@ class GCSClient:
             blob.delete()
             return True
         return False
+
+    # --- Extraction data access ---
+
+    def find_extraction_video(self, run_id: str) -> str | None:
+        """
+        Find a video for a run ID in GCS extractions.
+
+        Searches: extractions/{scenario}/{run_id}/media/full_run.mp4
+
+        Returns:
+            GCS blob path if found, None otherwise
+        """
+        for scenario in SCENARIOS:
+            blob_path = f"{EXTRACTIONS_PREFIX}/{scenario}/{run_id}/media/full_run.mp4"
+            blob = self._bucket.blob(blob_path)
+            if blob.exists():
+                return blob_path
+        return None
+
+    def get_video_signed_url(self, blob_path: str, expiration_minutes: int = 60) -> str:
+        """
+        Generate a signed URL for streaming a video from GCS.
+
+        Args:
+            blob_path: Path to the blob in the bucket
+            expiration_minutes: URL validity in minutes
+
+        Returns:
+            Signed URL string
+        """
+        blob = self._bucket.blob(blob_path)
+        return blob.generate_signed_url(
+            version="v4",
+            expiration=datetime.timedelta(minutes=expiration_minutes),
+            method="GET",
+        )
+
+    def get_extraction_video_uri(self, run_id: str) -> str | None:
+        """
+        Get the gs:// URI for a run's video (for Gemini vision).
+
+        Returns:
+            GCS URI if found, None otherwise
+        """
+        blob_path = self.find_extraction_video(run_id)
+        if blob_path:
+            return f"gs://{self._bucket_name}/{blob_path}"
+        return None
+
+    def read_extraction_json(self, run_id: str, filename: str) -> dict | None:
+        """
+        Read a JSON file from a run's extraction directory.
+
+        Args:
+            run_id: The experiment run ID
+            filename: JSON filename (e.g., 'extraction.json', 'judge_analysis.json')
+
+        Returns:
+            Parsed JSON dict if found, None otherwise
+        """
+        for scenario in SCENARIOS:
+            blob_path = f"{EXTRACTIONS_PREFIX}/{scenario}/{run_id}/{filename}"
+            blob = self._bucket.blob(blob_path)
+            if blob.exists():
+                content = blob.download_as_text()
+                return json.loads(content)
+        return None
+
+    def list_extraction_runs(self) -> list[dict]:
+        """
+        List all extraction runs in GCS.
+
+        Returns:
+            List of {run_id, scenario} dicts
+        """
+        runs = []
+        seen = set()
+
+        for scenario in SCENARIOS:
+            prefix = f"{EXTRACTIONS_PREFIX}/{scenario}/"
+            blobs = self._client.list_blobs(
+                self._bucket_name, prefix=prefix, delimiter="/"
+            )
+            # Iterate through the prefixes (subdirectories)
+            # list_blobs with delimiter returns "directory" prefixes
+            for page in blobs.pages:
+                for blob_prefix in page.prefixes:
+                    # prefix looks like: extractions/barrels_corrupt/2026-02-06T04-28_kimi-k2.5/
+                    run_id = blob_prefix.rstrip("/").split("/")[-1]
+                    if run_id not in seen:
+                        seen.add(run_id)
+                        runs.append({"run_id": run_id, "scenario": scenario})
+
+        return runs
 
 
 # Singleton instance (lazy initialization)

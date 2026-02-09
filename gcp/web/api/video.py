@@ -97,12 +97,29 @@ def find_video_for_run(run_id: str) -> Path | None:
 
 
 @router.get("/stream/{run_id}")
-async def stream_video(run_id: str) -> FileResponse:
-    """Stream the experiment video for a given run ID."""
+async def stream_video(run_id: str):
+    """Stream the experiment video for a given run ID.
+
+    Tries local filesystem first, falls back to GCS signed URL redirect.
+    """
+    # Try local first
     video_path = find_video_for_run(run_id)
-    if video_path is None:
-        raise HTTPException(status_code=404, detail=f"Video not found for run: {run_id}")
-    return FileResponse(video_path, media_type="video/mp4")
+    if video_path is not None:
+        return FileResponse(video_path, media_type="video/mp4")
+
+    # Fall back to GCS
+    try:
+        gcs_client = get_gcs_client()
+        blob_path = gcs_client.find_extraction_video(run_id)
+        if blob_path:
+            signed_url = gcs_client.get_video_signed_url(blob_path)
+            from fastapi.responses import RedirectResponse
+
+            return RedirectResponse(url=signed_url)
+    except ValueError:
+        pass  # GCS not configured
+
+    raise HTTPException(status_code=404, detail=f"Video not found for run: {run_id}")
 
 
 @router.post("/analyze", response_model=VideoAnalysisResponse)
@@ -124,25 +141,31 @@ async def analyze_video(request: VideoAnalysisRequest) -> VideoAnalysisResponse:
             detail="Video analysis not available. Requires Vertex AI mode with GCS bucket configured.",
         )
 
-    # Find local video
+    # Find video: try local first, then GCS
+    video_uri = None
     video_path = find_video_for_run(request.run_id)
-    if video_path is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Video not found for run: {request.run_id}",
-        )
 
-    # Upload to GCS
     try:
         gcs_client = get_gcs_client()
-        video_uri = gcs_client.upload_video(video_path, f"{request.run_id}_full_run.mp4")
+        if video_path is not None:
+            # Local file exists — upload to GCS for Gemini vision
+            video_uri = gcs_client.upload_video(video_path, f"{request.run_id}_full_run.mp4")
+        else:
+            # No local file — check if already in GCS extractions
+            video_uri = gcs_client.get_extraction_video_uri(request.run_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to upload video: {e}",
+            detail=f"Failed to access video: {e}",
         ) from e
+
+    if not video_uri:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Video not found for run: {request.run_id}",
+        )
 
     # Analyze with Gemini
     try:
@@ -212,30 +235,84 @@ async def get_video_status(run_id: str) -> dict[str, Any]:
     Check if a video exists and its upload status.
 
     Returns:
-        - exists: Whether local video file exists
+        - exists: Whether video is available (local or GCS)
         - uploaded: Whether video is in GCS
         - video_uri: GCS URI if uploaded
     """
     video_path = find_video_for_run(run_id)
-    exists = video_path is not None
+    local_exists = video_path is not None
 
     # Check GCS status
     uploaded = False
     video_uri = None
+    gcs_extraction_uri = None
 
-    client = get_vertex_client()
-    if client.capabilities.video_analysis and exists:
+    try:
+        gcs_client = get_gcs_client()
+        # Check videos/ prefix (uploaded for analysis)
+        video_uri = gcs_client.get_video_uri(f"{run_id}_full_run.mp4")
+        uploaded = video_uri is not None
+
+        # Also check extractions/ prefix
+        if not uploaded:
+            gcs_extraction_uri = gcs_client.get_extraction_video_uri(run_id)
+    except ValueError:
+        pass  # GCS not configured
+
+    return {
+        "run_id": run_id,
+        "exists": local_exists or uploaded or gcs_extraction_uri is not None,
+        "uploaded": uploaded or gcs_extraction_uri is not None,
+        "video_uri": video_uri or gcs_extraction_uri,
+        "local_path": str(video_path) if video_path else None,
+    }
+
+
+@router.get("/extractions")
+async def list_extractions() -> dict[str, Any]:
+    """
+    List all available extraction runs.
+
+    Checks local filesystem first, then GCS.
+    """
+    project_root = Path(__file__).parent.parent.parent.parent
+    runs = []
+    seen = set()
+
+    # Check local extractions
+    scenarios = ["barrels_corrupt", "barrels_lo", "barrels_hi"]
+    for scenario in scenarios:
+        scenario_dir = project_root / "extractions" / scenario
+        if scenario_dir.is_dir():
+            for run_dir in sorted(scenario_dir.iterdir()):
+                if run_dir.is_dir() and run_dir.name not in seen:
+                    seen.add(run_dir.name)
+                    has_video = (run_dir / "media" / "full_run.mp4").exists()
+                    runs.append({
+                        "run_id": run_dir.name,
+                        "scenario": scenario,
+                        "source": "local",
+                        "has_video": has_video,
+                    })
+
+    # Also check GCS if configured
+    if not runs:
         try:
             gcs_client = get_gcs_client()
-            video_uri = gcs_client.get_video_uri(f"{run_id}_full_run.mp4")
-            uploaded = video_uri is not None
+            gcs_runs = gcs_client.list_extraction_runs()
+            for run in gcs_runs:
+                if run["run_id"] not in seen:
+                    seen.add(run["run_id"])
+                    runs.append({
+                        "run_id": run["run_id"],
+                        "scenario": run["scenario"],
+                        "source": "gcs",
+                        "has_video": True,  # Assume videos exist in GCS
+                    })
         except ValueError:
             pass  # GCS not configured
 
     return {
-        "run_id": run_id,
-        "exists": exists,
-        "uploaded": uploaded,
-        "video_uri": video_uri,
-        "local_path": str(video_path) if video_path else None,
+        "total": len(runs),
+        "runs": sorted(runs, key=lambda r: r["run_id"], reverse=True),
     }
