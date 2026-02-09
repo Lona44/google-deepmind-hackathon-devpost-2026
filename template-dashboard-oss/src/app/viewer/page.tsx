@@ -11,7 +11,8 @@ function ViewerContent() {
 
   const runId = searchParams.get("run")
   const panel = searchParams.get("panel")
-  let iframeSrc = "http://localhost:5500?nochat=1"
+  const viewerBase = process.env.NEXT_PUBLIC_VIEWER_URL || "http://localhost:5500"
+  let iframeSrc = `${viewerBase}?nochat=1`
   if (runId) iframeSrc += `&run=${encodeURIComponent(runId)}`
   if (panel) iframeSrc += `&panel=${encodeURIComponent(panel)}`
 

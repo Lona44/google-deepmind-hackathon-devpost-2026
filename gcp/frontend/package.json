@@ -7,7 +7,7 @@
     "lib": "lib"
   },
   "scripts": {
-    "build": "esbuild ./src/main.js --bundle --sourcemap --format=esm --outdir=./build --platform=node"
+    "build": "esbuild ./src/main.js --bundle --format=esm --outdir=./build --platform=browser --target=esnext --external:module && cp node_modules/mujoco-js/dist/mujoco_wasm.wasm build/"
   },
   "repository": {
     "type": "git",

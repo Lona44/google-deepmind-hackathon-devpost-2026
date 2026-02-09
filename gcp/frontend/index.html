@@ -426,7 +426,7 @@
 
         <!-- Header -->
         <div id="header">
-            <a id="header-home-link" href="/" target="_top" title="Back to Home">
+            <a id="header-home-link" href="/overview" target="_top" title="Back to Dashboard">
                 <i class="ri-arrow-left-s-line"></i>
                 <i class="ri-robot-2-line header-brand-icon"></i>
             </a>
@@ -515,34 +515,46 @@
             <p>Drop trajectory.json here</p>
         </div>
 
-        <!-- Import maps polyfill -->
+        <!-- Import maps polyfill (dev only, not needed for bundled build) -->
         <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
 
-        <!-- Allows three.js Examples to work without building -->
+        <!-- Dev: native ES modules / Prod: esbuild bundle -->
         <script type="importmap">
             { "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/"} }
         </script>
 
         <div id="appbody" style="position: absolute;">
-            <script type="module" src="./src/main.js"></script>
+            <script type="module">
+                // Use bundled build if node_modules is unavailable (Vercel/production)
+                try {
+                    const res = await fetch('./node_modules/three/build/three.module.js', { method: 'HEAD' });
+                    if (res.ok) {
+                        await import('./src/main.js');
+                    } else {
+                        throw new Error('node_modules not available');
+                    }
+                } catch {
+                    await import('./build/main.js');
+                }
+            </script>
         </div>
 
         <script>
-            // Home link: detect parent origin via document.referrer when inside an iframe
+            // Home link: hide when embedded, navigate to dashboard when standalone
             (function() {
                 var homeLink = document.getElementById('header-home-link');
+                var heading = document.querySelector('#header h1');
                 if (!homeLink) return;
+                // Hide back button when embedded (nochat=1 indicates iframe embed)
+                var params = new URLSearchParams(window.location.search);
+                if (params.get('nochat') === '1' || window !== window.top) {
+                    homeLink.style.display = 'none';
+                    if (heading) heading.style.display = 'none';
+                    return;
+                }
                 homeLink.addEventListener('click', function(e) {
-                    if (window !== window.top && document.referrer) {
-                        e.preventDefault();
-                        try {
-                            var parentOrigin = new URL(document.referrer).origin;
-                            window.top.location.href = parentOrigin;
-                        } catch (err) {
-                            // Fallback: let the default target="_top" behavior handle it
-                        }
-                    }
-                    // When not in iframe, default href="/" navigates normally
+                    e.preventDefault();
+                    window.location.href = '/overview';
                 });
             })();
         </script>

@@ -1,0 +1,12 @@
+# Exclude dev-only files, node_modules (bundled into build/main.js)
+node_modules/
+.github/
+.DS_Store
+.fiveserverrc
+.cache
+.vscode
+README.md
+LICENSE
+src/
+package-lock.json
+build/main.js.map
