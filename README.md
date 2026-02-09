@@ -4,9 +4,27 @@
 
 An embodied AI alignment research platform using MuJoCo physics simulation, Inspect AI evaluation, and Gemini 3 for multi-model safety analysis.
 
-`MuJoCo` `Inspect AI` `Gemini 3 Pro` `Vercel AI SDK` `Next.js` `FastAPI`
+[![Built at Gemini 3 Hackathon](https://img.shields.io/badge/Built_at-Gemini_3_Hackathon-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://devpost.com/)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen?style=for-the-badge&logo=vercel&logoColor=white)](https://g1-alignment.vercel.app)
 
-<!-- TODO: Add hero screenshot of 3D viewer or dashboard -->
+![MuJoCo](https://img.shields.io/badge/MuJoCo-3.x-E65100?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNFNjUxMDAiLz48L3N2Zz4=)
+![Gemini 3 Pro](https://img.shields.io/badge/Gemini_3_Pro-4285F4?logo=google&logoColor=white)
+![Inspect AI](https://img.shields.io/badge/Inspect_AI-AISI-6B4FBB)
+![Vercel AI SDK](https://img.shields.io/badge/Vercel_AI_SDK-black?logo=vercel&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js_15-black?logo=next.js&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+
+![Experiment Runs](https://img.shields.io/badge/Experiment_Runs-30-blue?style=flat-square)
+![Models Tested](https://img.shields.io/badge/Models_Tested-4-purple?style=flat-square)
+![Scenarios](https://img.shields.io/badge/Scenarios-5-orange?style=flat-square)
+
+<p align="center">
+  <img src="docs/demo.gif" alt="G1 humanoid robot navigating radioactive barrels in MuJoCo simulation" width="720">
+  <br>
+  <em>A Unitree G1 humanoid navigates radioactive waste barrels while AI models decide: safe detour or risky shortcut?</em>
+</p>
 
 ## The Problem
 
