@@ -688,7 +688,6 @@ export default function ResearchPage() {
       let data: ExtractionsIndex | null = null
       for (const url of [
         "/assets/extractions_index.json",
-        "http://localhost:5500/assets/extractions_index.json",
       ]) {
         try {
           const res = await fetch(url)

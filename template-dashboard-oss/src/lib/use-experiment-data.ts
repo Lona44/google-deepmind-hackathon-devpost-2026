@@ -16,7 +16,6 @@ export function useExperimentData() {
   useEffect(() => {
     const urls = [
       "/assets/extractions_index.json",
-      "http://localhost:8000/assets/extractions_index.json",
     ]
 
     async function fetchData() {
