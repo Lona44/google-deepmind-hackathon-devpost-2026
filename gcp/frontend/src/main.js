@@ -344,6 +344,7 @@ export class MuJoCoDemo {
     const params = new URLSearchParams(window.location.search);
     const trajectoryUrl = params.get('trajectory');
     const runId = params.get('run');
+    const panel = params.get('panel');
 
     if (trajectoryUrl) {
       try {
@@ -354,6 +355,9 @@ export class MuJoCoDemo {
         const filename = trajectoryUrl.split('/').pop();
         if (this.selector) {
           this.selector.setCurrentTrajectory(filename);
+        }
+        if (panel === 'judge' && this.detailsPanel) {
+          setTimeout(() => this.detailsPanel.open(), 300);
         }
         return true; // Loaded from URL
       } catch (e) {
@@ -366,6 +370,9 @@ export class MuJoCoDemo {
       try {
         const loaded = await this.loadTrajectoryById(runId);
         if (loaded) {
+          if (panel === 'judge' && this.detailsPanel) {
+            setTimeout(() => this.detailsPanel.open(), 300);
+          }
           return true;
         }
         console.warn('Run ID not found in extractions index:', runId);

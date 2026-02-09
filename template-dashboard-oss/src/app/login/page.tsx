@@ -24,7 +24,7 @@ export default function LoginPage() {
       })
 
       if (res.ok) {
-        window.location.href = "/viewer"
+        window.location.href = "/overview"
         return
       } else {
         const data = await res.json()
