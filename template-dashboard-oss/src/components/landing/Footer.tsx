@@ -24,7 +24,7 @@ const navigation = {
     { name: "About", href: "#", external: false },
     { name: "Contributing", href: "https://github.com/Lona44/Gemini3-Hackathon-Project", external: true },
     { name: "License", href: "#", external: false },
-    { name: "Contact", href: "#", external: false },
+    { name: "Contact", href: "https://www.approxiomresearch.com/resume", external: true },
   ],
 }
 
