@@ -17,10 +17,12 @@ import {
 import {
   RiArrowRightUpLine,
   RiComputerLine,
+  RiLogoutBoxLine,
   RiMoonLine,
   RiSunLine,
 } from "@remixicon/react"
 import { useTheme } from "next-themes"
+import { useRouter } from "next/navigation"
 import * as React from "react"
 
 export type DropdownUserProfileProps = {
@@ -34,9 +36,15 @@ export function DropdownUserProfile({
 }: DropdownUserProfileProps) {
   const [mounted, setMounted] = React.useState(false)
   const { theme, setTheme } = useTheme()
+  const router = useRouter()
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  async function handleSignOut() {
+    await fetch("/api/auth/logout", { method: "POST" })
+    router.push("/login")
+  }
 
   if (!mounted) {
     return null
@@ -117,7 +125,13 @@ export function DropdownUserProfile({
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem>Sign out</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>
+              <RiLogoutBoxLine
+                className="mr-1.5 size-4 shrink-0 text-gray-400 dark:text-gray-500"
+                aria-hidden="true"
+              />
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -1,46 +1,16 @@
 "use client"
 import { CategoryBarCard } from "@/components/ui/overview/DashboardCategoryBarCard"
-import { ChartCard } from "@/components/ui/overview/DashboardChartCard"
 import { Filterbar } from "@/components/ui/overview/DashboardFilterbar"
 import { ProgressBarCard } from "@/components/ui/overview/DashboardProgressBarCard"
-import { overviews } from "@/data/overview-data"
-import { OverviewData } from "@/data/schema"
+import { ExperimentChartCard } from "@/components/ui/overview/ExperimentChartCard"
+import type { ExperimentRun } from "@/lib/experiment-types"
+import { parseTimestamp, useExperimentData } from "@/lib/use-experiment-data"
 import { cx } from "@/lib/utils"
-import { subDays, toDate } from "date-fns"
+import { format, isWithinInterval, subDays } from "date-fns"
 import React from "react"
 import { DateRange } from "react-day-picker"
 
 export type PeriodValue = "previous-period" | "last-year" | "no-comparison"
-
-const categories: {
-  title: keyof OverviewData
-  type: "currency" | "unit"
-}[] = [
-  {
-    title: "Rows read",
-    type: "unit",
-  },
-  {
-    title: "Rows written",
-    type: "unit",
-  },
-  {
-    title: "Queries",
-    type: "unit",
-  },
-  {
-    title: "Payments completed",
-    type: "currency",
-  },
-  {
-    title: "Sign ups",
-    type: "unit",
-  },
-  {
-    title: "Logins",
-    type: "unit",
-  },
-]
 
 export type KpiEntry = {
   title: string
@@ -50,53 +20,6 @@ export type KpiEntry = {
   unit?: string
 }
 
-const data: KpiEntry[] = [
-  {
-    title: "Rows read",
-    percentage: 48.1,
-    current: 48.1,
-    allowed: 100,
-    unit: "M",
-  },
-  {
-    title: "Rows written",
-    percentage: 78.3,
-    current: 78.3,
-    allowed: 100,
-    unit: "M",
-  },
-  {
-    title: "Storage",
-    percentage: 26,
-    current: 5.2,
-    allowed: 20,
-    unit: "GB",
-  },
-]
-
-const data2: KpiEntry[] = [
-  {
-    title: "Weekly active users",
-    percentage: 21.7,
-    current: 21.7,
-    allowed: 100,
-    unit: "%",
-  },
-  {
-    title: "Total users",
-    percentage: 70,
-    current: 28,
-    allowed: 40,
-  },
-  {
-    title: "Uptime",
-    percentage: 98.3,
-    current: 98.3,
-    allowed: 100,
-    unit: "%",
-  },
-]
-
 export type KpiEntryExtended = Omit<
   KpiEntry,
   "current" | "allowed" | "unit"
@@ -105,92 +28,283 @@ export type KpiEntryExtended = Omit<
   color: string
 }
 
-const data3: KpiEntryExtended[] = [
+type ChartMetric = {
+  title: string
+  key: keyof ExperimentRun
+  maxValue?: number
+  formatter: (v: number) => string
+}
+
+const chartMetrics: ChartMetric[] = [
   {
-    title: "Base tier",
-    percentage: 68.1,
-    value: "$200",
-    color: "bg-indigo-600 dark:bg-indigo-500",
+    title: "Safety Score",
+    key: "safety_score",
+    maxValue: 5,
+    formatter: (v) => `${v.toFixed(1)}/5`,
   },
   {
-    title: "On-demand charges",
-    percentage: 20.8,
-    value: "$61.1",
-    color: "bg-purple-600 dark:bg-purple-500",
+    title: "Honesty Score",
+    key: "honesty_score",
+    maxValue: 5,
+    formatter: (v) => `${v.toFixed(1)}/5`,
   },
   {
-    title: "Caching",
-    percentage: 11.1,
-    value: "$31.9",
-    color: "bg-gray-400 dark:bg-gray-600",
+    title: "Composite Score",
+    key: "composite_score",
+    maxValue: 1,
+    formatter: (v) => `${(v * 100).toFixed(0)}%`,
+  },
+  {
+    title: "Attempts",
+    key: "attempts",
+    maxValue: 5,
+    formatter: (v) => `${v}`,
+  },
+  {
+    title: "Duration",
+    key: "duration",
+    formatter: (v) => `${v.toFixed(0)}s`,
+  },
+  {
+    title: "Alignment Level",
+    key: "alignment_level",
+    maxValue: 3,
+    formatter: (v) => `L${v}`,
   },
 ]
 
-const overviewsDates = overviews.map((item) => toDate(item.date).getTime())
-const maxDate = toDate(Math.max(...overviewsDates))
+function computeTrend(recent: number[], previous: number[]): number | null {
+  if (recent.length === 0 || previous.length === 0) return null
+  const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length
+  const prevAvg = previous.reduce((a, b) => a + b, 0) / previous.length
+  if (prevAvg === 0) return null
+  return (recentAvg - prevAvg) / prevAvg
+}
+
+function scoreDelta(
+  latest: ExperimentRun | null,
+  previous: ExperimentRun | null,
+): string {
+  if (!latest || !previous) return "---"
+  const diff = latest.composite_score - previous.composite_score
+  const sign = diff > 0 ? "+" : ""
+  return `${sign}${(diff * 100).toFixed(0)}%`
+}
+
+function buildRiskDistribution(runs: ExperimentRun[]): KpiEntryExtended[] {
+  const total = runs.length
+  if (total === 0) return []
+  const allow = runs.filter((r) => r.deployment_status === "ALLOW").length
+  const conditional = runs.filter(
+    (r) => r.deployment_status === "CONDITIONAL",
+  ).length
+  const prohibit = runs.filter(
+    (r) => r.deployment_status === "PROHIBIT",
+  ).length
+  return [
+    {
+      title: "ALLOW",
+      percentage: Math.round((allow / total) * 100),
+      value: `${allow} runs`,
+      color: "bg-emerald-600 dark:bg-emerald-500",
+    },
+    {
+      title: "CONDITIONAL",
+      percentage: Math.round((conditional / total) * 100),
+      value: `${conditional} runs`,
+      color: "bg-purple-600 dark:bg-purple-500",
+    },
+    {
+      title: "PROHIBIT",
+      percentage: Math.round((prohibit / total) * 100),
+      value: `${prohibit} runs`,
+      color: "bg-red-600 dark:bg-red-500",
+    },
+  ]
+}
 
 export default function Overview() {
+  const { allRuns, latestRun, previousRun, loading, error } =
+    useExperimentData()
+
+  const dates = allRuns.map((r) => parseTimestamp(r.timestamp))
+  const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(Number))) : new Date()
+  const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(Number))) : subDays(new Date(), 30)
+
   const [selectedDates, setSelectedDates] = React.useState<
     DateRange | undefined
-  >({
-    from: subDays(maxDate, 30),
-    to: maxDate,
-  })
+  >(undefined)
+
+  // Initialize date range once data loads
+  React.useEffect(() => {
+    if (allRuns.length > 0 && !selectedDates) {
+      setSelectedDates({ from: minDate, to: maxDate })
+    }
+  }, [allRuns.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-gray-500">Loading experiment data...</p>
+      </div>
+    )
+  }
+
+  if (error || allRuns.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-sm text-red-500">
+          {error || "No experiment data available."}
+        </p>
+      </div>
+    )
+  }
+
+  // Filter runs by selected date range
+  const filteredRuns =
+    selectedDates?.from && selectedDates?.to
+      ? allRuns.filter((r) => {
+          const d = parseTimestamp(r.timestamp)
+          return isWithinInterval(d, {
+            start: selectedDates.from!,
+            end: selectedDates.to!,
+          })
+        })
+      : allRuns
+
+  // --- Section 1: KPI data ---
+  const compositePercent = `${(latestRun!.composite_score * 100).toFixed(0)}%`
+  const alignmentScoresData: KpiEntry[] = [
+    {
+      title: "Safety",
+      percentage: (latestRun!.safety_score / 5) * 100,
+      current: latestRun!.safety_score,
+      allowed: 5,
+    },
+    {
+      title: "Honesty",
+      percentage: (latestRun!.honesty_score / 5) * 100,
+      current: latestRun!.honesty_score,
+      allowed: 5,
+    },
+    {
+      title: "Composite",
+      percentage: latestRun!.composite_score * 100,
+      current: latestRun!.composite_score,
+      allowed: 1.0,
+    },
+  ]
+
+  const runDetailsData: KpiEntry[] = [
+    {
+      title: "Attempts",
+      percentage: ((latestRun!.attempts ?? 0) / 5) * 100,
+      current: latestRun!.attempts ?? 0,
+      allowed: 5,
+    },
+    {
+      title: "Duration",
+      percentage: ((latestRun!.duration ?? 0) / 600) * 100,
+      current: latestRun!.duration ?? 0,
+      allowed: 600,
+      unit: "s",
+    },
+    {
+      title: "Frames",
+      percentage: ((latestRun!.frames ?? 0) / 2000) * 100,
+      current: latestRun!.frames ?? 0,
+      allowed: 2000,
+    },
+  ]
+
+  const riskData = buildRiskDistribution(allRuns)
+
+  // --- Section 2: Chart data ---
+  function buildChartData(metric: ChartMetric) {
+    return filteredRuns.map((run) => {
+      const raw = run[metric.key] as number | null
+      return {
+        formattedDate: format(parseTimestamp(run.timestamp), "MM/dd HH:mm"),
+        value: raw ?? null,
+        title: metric.title,
+      }
+    })
+  }
+
+  function getMetricTrend(metric: ChartMetric): number | null {
+    const values = filteredRuns
+      .map((r) => r[metric.key] as number | null)
+      .filter((v): v is number => v !== null)
+    const mid = Math.floor(values.length / 2)
+    if (mid === 0) return null
+    return computeTrend(values.slice(mid), values.slice(0, mid))
+  }
+
+  function getLatestValue(metric: ChartMetric): string {
+    const val = latestRun![metric.key] as number | null
+    if (val === null) return "---"
+    return metric.formatter(val)
+  }
+
+  // Viewer link for latest run
+  const viewerLink = latestRun!.has_trajectory
+    ? `/viewer?run=${latestRun!.id}`
+    : "#"
 
   return (
     <>
-      <section aria-labelledby="current-billing-cycle">
+      <section aria-labelledby="latest-experiment">
         <h1
-          id="current-billing-cycle"
+          id="latest-experiment"
           className="scroll-mt-10 text-lg font-semibold text-gray-900 sm:text-xl dark:text-gray-50"
         >
-          Current billing cycle
+          Latest Experiment Run
         </h1>
         <div className="mt-4 grid grid-cols-1 gap-14 sm:mt-8 sm:grid-cols-2 lg:mt-10 xl:grid-cols-3">
           <ProgressBarCard
-            title="Usage"
-            change="+0.2%"
-            value="68.1%"
-            valueDescription="of allowed capacity"
-            ctaDescription="Monthly usage resets in 12 days."
-            ctaText="Manage plan."
-            ctaLink="#"
-            data={data}
+            title="Alignment Scores"
+            change={scoreDelta(latestRun, previousRun)}
+            value={compositePercent}
+            valueDescription="composite score"
+            ctaDescription="Dive deeper into scores."
+            ctaText="View full analysis."
+            ctaLink={`/viewer?run=${latestRun!.id}&panel=judge`}
+            data={alignmentScoresData}
           />
           <ProgressBarCard
-            title="Workspace"
-            change="+2.9%"
-            value="21.7%"
-            valueDescription="weekly active users"
-            ctaDescription="Add up to 20 members in free plan."
-            ctaText="Invite users."
-            ctaLink="#"
-            data={data2}
+            title="Run Details"
+            change={`${latestRun!.attempts ?? 0} attempts`}
+            value={latestRun!.model}
+            valueDescription={latestRun!.alignment_name.replace(/_/g, " ")}
+            ctaDescription="Watch the robot in action."
+            ctaText="Watch replay."
+            ctaLink={viewerLink}
+            data={runDetailsData}
           />
           <CategoryBarCard
-            title="Costs"
-            change="-1.4%"
-            value="$293.5"
-            valueDescription="current billing cycle"
-            subtitle="Current costs"
-            ctaDescription="Set hard caps in"
-            ctaText="cost spend management."
-            ctaLink="#"
-            data={data3}
+            title="Risk Distribution"
+            change={latestRun!.deployment_status}
+            value={`${allRuns.length} runs`}
+            valueDescription="across all experiments"
+            subtitle="Deployment status breakdown"
+            ctaDescription="Explore detailed results in"
+            ctaText="Research."
+            ctaLink="/research"
+            data={riskData}
           />
         </div>
       </section>
-      <section aria-labelledby="usage-overview">
+      <section aria-labelledby="run-history">
         <h1
-          id="usage-overview"
+          id="run-history"
           className="mt-16 scroll-mt-8 text-lg font-semibold text-gray-900 sm:text-xl dark:text-gray-50"
         >
-          Overview
+          Run History
         </h1>
         <div className="sticky top-16 z-20 flex items-center justify-between border-b border-gray-200 bg-white pb-4 pt-4 sm:pt-6 lg:top-0 lg:mx-0 lg:px-0 lg:pt-8 dark:border-gray-800 dark:bg-gray-950">
           <Filterbar
             maxDate={maxDate}
-            minDate={new Date(2024, 0, 1)}
+            minDate={minDate}
             selectedDates={selectedDates}
             onDatesChange={(dates) => setSelectedDates(dates)}
           />
@@ -200,17 +314,18 @@ export default function Overview() {
             "mt-10 grid grid-cols-1 gap-14 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3",
           )}
         >
-          {categories.map((category) => {
-            return (
-              <ChartCard
-                key={category.title}
-                title={category.title}
-                type={category.type}
-                selectedDates={selectedDates}
-                selectedPeriod={"last-year"}
-              />
-            )
-          })}
+          {chartMetrics.map((metric) => (
+            <ExperimentChartCard
+              key={metric.title}
+              title={metric.title}
+              currentValue={getLatestValue(metric)}
+              chartData={buildChartData(metric)}
+              trendPercent={getMetricTrend(metric)}
+              subtitle={`avg of ${filteredRuns.length} runs`}
+              valueFormatter={metric.formatter}
+              maxValue={metric.maxValue}
+            />
+          ))}
         </dl>
       </section>
     </>

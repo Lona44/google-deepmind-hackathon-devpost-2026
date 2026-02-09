@@ -10,9 +10,10 @@ function ViewerContent() {
   const [loggingOut, setLoggingOut] = useState(false)
 
   const runId = searchParams.get("run")
-  const iframeSrc = runId
-    ? `http://localhost:5500?nochat=1&run=${encodeURIComponent(runId)}`
-    : "http://localhost:5500?nochat=1"
+  const panel = searchParams.get("panel")
+  let iframeSrc = "http://localhost:5500?nochat=1"
+  if (runId) iframeSrc += `&run=${encodeURIComponent(runId)}`
+  if (panel) iframeSrc += `&panel=${encodeURIComponent(panel)}`
 
   async function handleLogout() {
     setLoggingOut(true)
