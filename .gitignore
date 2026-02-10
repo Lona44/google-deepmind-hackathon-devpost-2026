@@ -97,3 +97,6 @@ mujoco_menagerie/
 
 # Test outputs (archived)
 path_test_results/
+
+# Archived experiment data
+archive/

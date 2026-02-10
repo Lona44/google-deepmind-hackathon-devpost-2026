@@ -246,7 +246,7 @@ GEMINI_API_KEY=AIza...
 ### Vertex AI Tier (full features)
 ```bash
 # GCP
-GOOGLE_CLOUD_PROJECT=modelproof-platform
+GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_LOCATION=global
 
 # Vertex AI Search
@@ -314,13 +314,13 @@ Credits last: **~4+ years** at this rate
 
 1. Enable APIs:
 ```bash
-gcloud services enable discoveryengine.googleapis.com --project=modelproof-platform
-gcloud services enable storage.googleapis.com --project=modelproof-platform
+gcloud services enable discoveryengine.googleapis.com --project=your-project-id
+gcloud services enable storage.googleapis.com --project=your-project-id
 ```
 
 2. Create GCS bucket:
 ```bash
-gsutil mb -p modelproof-platform gs://g1-experiment-videos
+gsutil mb -p your-project-id gs://g1-experiment-videos
 ```
 
 3. Install dependencies:

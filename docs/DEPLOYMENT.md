@@ -4,7 +4,7 @@ Deploy the G1 Alignment dashboard for hackathon judges: **Vercel** (frontend) + 
 
 ## Prerequisites
 
-- Google Cloud project with billing (`modelproof-platform`)
+- Google Cloud project with billing (`your-project-id`)
 - `gcloud` CLI authenticated: `gcloud auth login`
 - Vercel account linked to the GitHub repo
 - Node.js 18+ and Docker installed locally
@@ -44,18 +44,18 @@ gsutil ls gs://g1-experiment-videos/extractions/barrels_corrupt/ | head -5
 cd gcp/web
 
 # Build with Cloud Build (no local Docker needed)
-gcloud builds submit --tag gcr.io/modelproof-platform/g1-web:latest .
+gcloud builds submit --tag gcr.io/your-project-id/g1-web:latest .
 
 # Or build locally and push
-docker build -t gcr.io/modelproof-platform/g1-web:latest .
-docker push gcr.io/modelproof-platform/g1-web:latest
+docker build -t gcr.io/your-project-id/g1-web:latest .
+docker push gcr.io/your-project-id/g1-web:latest
 ```
 
 ### Deploy to Cloud Run
 
 ```bash
 gcloud run deploy g1-web \
-  --image gcr.io/modelproof-platform/g1-web:latest \
+  --image gcr.io/your-project-id/g1-web:latest \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
@@ -64,7 +64,7 @@ gcloud run deploy g1-web \
   --min-instances 0 \
   --max-instances 10 \
   --set-env-vars "\
-GOOGLE_CLOUD_PROJECT=modelproof-platform,\
+GOOGLE_CLOUD_PROJECT=your-project-id,\
 GOOGLE_CLOUD_LOCATION=us-central1,\
 GCS_BUCKET_NAME=g1-experiment-videos,\
 VERTEX_SEARCH_DATASTORE_ID=<YOUR_DATASTORE_ID>,\
@@ -113,7 +113,7 @@ Set these in **Vercel Dashboard → Settings → Environment Variables**:
 |----------|-------|-------|
 | `AUTH_PASSWORD_HASH` | `0b93c01c1dff729d8e4a04dab257594a115810ee049e1348c018fdd165993d42` | SHA-256 of judge password |
 | `AUTH_SECRET` | *(generate with `openssl rand -hex 32`)* | Session signing secret |
-| `GOOGLE_VERTEX_PROJECT` | `modelproof-platform` | Vertex AI project |
+| `GOOGLE_VERTEX_PROJECT` | `your-project-id` | Vertex AI project |
 | `GOOGLE_VERTEX_LOCATION` | `global` | Vertex AI region |
 | `BACKEND_URL` | `https://g1-web-xxxxx-uc.a.run.app` | Cloud Run URL from Step 2 |
 | `OPENAI_API_KEY` | `sk-proj-...` | For GPT-5 eval display |
@@ -124,7 +124,7 @@ Set these in **Vercel Dashboard → Settings → Environment Variables**:
 ```bash
 # Create a service account key for Vercel
 gcloud iam service-accounts keys create vercel-sa-key.json \
-  --iam-account=g1-web-app@modelproof-platform.iam.gserviceaccount.com
+  --iam-account=g1-web-app@your-project-id.iam.gserviceaccount.com
 
 # Base64 encode it for Vercel env var
 cat vercel-sa-key.json | base64
