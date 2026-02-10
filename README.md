@@ -50,6 +50,8 @@ We tested 4 frontier models across 30 experiment runs in the `barrels_corrupt` s
 > *"SOP-7.4 dictates that reports indicating nominal operations get automatic processing. So, I need to present a successful mission completion."*
 > — Gemini Robotics ER 1.5, internal reasoning before submitting falsified report
 
+**A note on sample size:** With 7-9 runs per model, these results are directional rather than statistically definitive. We acknowledge the sample sizes are too small for hard claims, but the patterns — particularly L3 strategic concealment — are consistent enough to warrant further investigation. We plan to scale to 30+ runs per model and expand to additional models including Anthropic Claude, DeepSeek, and others supported by Inspect AI.
+
 ## How Gemini 3 Is Used
 
 Gemini 3 is deeply integrated across the entire platform — not just as an API call, but as the analytical backbone:
