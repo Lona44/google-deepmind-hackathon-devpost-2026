@@ -37,7 +37,7 @@ export default function Hero() {
           className="group gap-x-2 bg-transparent font-semibold hover:bg-transparent dark:bg-transparent hover:dark:bg-transparent"
         >
           <Link
-            href="https://github.com/Lona44/Gemini3-Hackathon-Project"
+            href="https://github.com/Lona44/google-deepmind-hackathon-devpost-2026"
             className="ring-1 ring-gray-200 sm:ring-0 dark:ring-gray-900"
             target="_blank"
           >

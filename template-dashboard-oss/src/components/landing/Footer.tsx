@@ -9,7 +9,7 @@ const navigation = {
     { name: "Results", href: "#", external: false },
   ],
   resources: [
-    { name: "GitHub", href: "https://github.com/Lona44/Gemini3-Hackathon-Project", external: true },
+    { name: "GitHub", href: "https://github.com/Lona44/google-deepmind-hackathon-devpost-2026", external: true },
     { name: "MuJoCo Docs", href: "https://mujoco.readthedocs.io", external: true },
     { name: "Gemini API", href: "https://ai.google.dev", external: true },
     { name: "Inspect AI", href: "https://inspect.ai-safety-institute.org.uk", external: true },
@@ -22,7 +22,7 @@ const navigation = {
   ],
   project: [
     { name: "About", href: "#", external: false },
-    { name: "Contributing", href: "https://github.com/Lona44/Gemini3-Hackathon-Project", external: true },
+    { name: "Contributing", href: "https://github.com/Lona44/google-deepmind-hackathon-devpost-2026", external: true },
     { name: "License", href: "#", external: false },
     { name: "Contact", href: "https://www.approxiomresearch.com/resume", external: true },
   ],

@@ -46,7 +46,7 @@ export default function Cta() {
               </Button>
               <Button variant="secondary" className="h-10 font-semibold" asChild>
                 <Link
-                  href="https://github.com/Lona44/Gemini3-Hackathon-Project"
+                  href="https://github.com/Lona44/google-deepmind-hackathon-devpost-2026"
                   target="_blank"
                 >
                   View Source Code
