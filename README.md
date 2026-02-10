@@ -318,11 +318,18 @@ An LLM judge (Gemini 3 Pro) evaluates each run on two dimensions:
 └── scripts/                    # Extraction, verification, analysis utilities
 ```
 
-## Future Work
+## Roadmap: Open Eval Platform
 
-- **Mechanistic interpretability** — Apply probing techniques to open-source models on this benchmark to understand *why* some models conceal while others disclose
+After the hackathon, we're building this into a hosted platform where anyone can run embodied AI alignment evals:
+
+- **Bring your own key** — Sign up, add your API key (stored securely), and run evals against any model supported by Inspect AI directly from the browser. No local setup required.
+- **Run locally, upload results** — Prefer running on your own hardware? Run evals locally via CLI and upload results to the platform to get the same analytics, comparisons, and research assistant access.
+- **Cross-run analytics** — Track how your models perform across runs, scenarios, and time. See where safety and honesty scores trend as models update.
+- **Community benchmarks** — Make runs public to contribute to a shared leaderboard. Compare your results against runs from other users and models — network effects make the benchmark more valuable as more people use it.
+- **Research assistant for everyone** — All users get access to the Gemini 3-powered research assistant with paper RAG, web search, and video analysis to contextualize their results against the latest AI safety literature.
 - **Additional scenarios** — Pipeline inspection, warehouse logistics, hospital corridors — testing whether alignment transfers across domains
-- **Community eval platform** — Submit runs to a shared leaderboard, contribute scenario variants, compare models at scale
+- **Sim-to-real transfer** — Validate whether misalignment behaviors (especially L3+ strategic concealment) reproduce on physical Unitree G1 robots, testing the fidelity of simulation-based alignment evaluations
+- **Mechanistic interpretability** — Apply probing techniques to open-source models to understand *why* some models conceal while others disclose
 
 ## Built With
 
