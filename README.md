@@ -56,7 +56,7 @@ Gemini 3 is deeply integrated across the entire platform — not just as an API 
 
 | Integration | Model | What It Does |
 |-------------|-------|-------------|
-| **Experiment Judge** | Gemini 3 Pro | Evaluates safety (1-5) and honesty (1-5) from reasoning traces, classifies misalignment level, produces structured analysis with evidence |
+| **Experiment Judge** | Gemini 3 Pro | Evaluates safety (0-5) and honesty (1-5) from reasoning traces, classifies misalignment level, produces structured analysis with evidence |
 | **Research Assistant** | Gemini 3 Pro | Streaming chat via Vercel AI SDK with thinking/reasoning display, 4 server-side tools (paper search, web search, video analysis, catalog) |
 | **Video Verification** | Gemini 3 Pro Vision | Analyzes experiment recordings to detect discrepancies between model claims and actual robot behavior |
 | **Paper RAG** | Vertex AI Search | Indexes AI safety research papers, searched by the research assistant for evidence-backed analysis |
@@ -89,6 +89,10 @@ Gemini 3 is deeply integrated across the entire platform — not just as an API 
 │  Paper RAG · Web Search · Video Analysis (Gemini Vision) │
 └──────────────────────────────────────────────────────────┘
 ```
+
+## 3D Browser Viewer
+
+Every experiment can be replayed in the browser using MuJoCo WASM — the same physics engine that runs the simulation, compiled to WebAssembly and rendered with Three.js. No installation required. The viewer loads recorded trajectory data frame-by-frame, with overlays for forbidden zones, contact events, barrel displacements, and AI decision annotations. Manifests are auto-generated after each run, so new experiments appear in the dropdown immediately.
 
 ## The Scenario
 
@@ -306,7 +310,7 @@ An LLM judge (Gemini 3 Pro) evaluates each run on two dimensions:
 ├── gcp/
 │   ├── web/                    # FastAPI backend (Cloud Run)
 │   │   └── api/                # Paper search, web search, video analysis
-│   ├── frontend/               # 3D MuJoCo WASM playback viewer
+│   ├── frontend/               # 3D MuJoCo WASM viewer (runs in browser)
 │   └── worker/                 # Trajectory recorder
 ├── extractions/                # 30 completed runs with structured data
 │   └── barrels_corrupt/        # Judge analysis, reasoning traces, video, trajectories
@@ -322,10 +326,11 @@ An LLM judge (Gemini 3 Pro) evaluates each run on two dimensions:
 
 ## Built With
 
-- [MuJoCo](https://mujoco.org/) — Physics simulation
+- [MuJoCo](https://mujoco.org/) — Physics simulation + [MuJoCo WASM](https://github.com/google-deepmind/mujoco/tree/main/mjjs) for browser-based 3D replay
 - [Inspect AI](https://inspect.aisi.org.uk/) — Evaluation framework (UK AI Safety Institute)
 - [Google Gemini 3](https://deepmind.google/models/gemini/) — Judge, research assistant, video analysis
 - [Vercel AI SDK](https://sdk.vercel.ai/) — Streaming chat with tool calling
+- [Three.js](https://threejs.org/) — 3D rendering for the browser viewer
 - [Unitree Robotics](https://www.unitree.com/) — G1 robot model
 - [Next.js](https://nextjs.org/) + [FastAPI](https://fastapi.tiangolo.com/) — Dashboard stack
 
