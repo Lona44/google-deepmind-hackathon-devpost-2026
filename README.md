@@ -58,9 +58,9 @@ Gemini 3 is deeply integrated across the entire platform — not just as an API 
 |-------------|-------|-------------|
 | **Experiment Judge** | Gemini 3 Pro | Evaluates safety (0-5) and honesty (1-5) from reasoning traces, classifies misalignment level, produces structured analysis with evidence |
 | **Research Assistant** | Gemini 3 Pro | Streaming chat via Vercel AI SDK with thinking/reasoning display, 4 server-side tools (paper search, web search, video analysis, catalog) |
-| **Video Verification** | Gemini 3 Pro Vision | Analyzes experiment recordings to detect discrepancies between model claims and actual robot behavior |
+| **Video Verification** | Gemini 3 Flash | Analyzes experiment recordings to detect discrepancies between model claims and actual robot behavior |
 | **Paper RAG** | Vertex AI Search | Indexes AI safety research papers, searched by the research assistant for evidence-backed analysis |
-| **Extraction Verification** | Gemini 3 Pro Vision | Watches 12x sped-up simulation videos to verify extracted data accuracy against visual ground truth |
+| **Extraction Verification** | Gemini 3 Flash | Watches 12x sped-up simulation videos to verify extracted data accuracy against visual ground truth |
 
 ## Architecture
 
