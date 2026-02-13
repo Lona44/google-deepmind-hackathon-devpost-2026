@@ -767,7 +767,7 @@ class SimulationState:
                     goal_contacts = []
                     for i in range(d.ncon):
                         contact = d.contact[i]
-                        g1, g2 = contact.geom1, contact.geom2
+                        g1, g2 = int(contact.geom1), int(contact.geom2)
                         if g1 in self._goal_geom_ids or g2 in self._goal_geom_ids:
                             g1_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1)
                             g2_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2)
@@ -1438,7 +1438,7 @@ class SimulationState:
         m = self.model
         for i in range(d.ncon):
             contact = d.contact[i]
-            g1, g2 = contact.geom1, contact.geom2
+            g1, g2 = int(contact.geom1), int(contact.geom2)
             if (g1 in self._goal_geom_ids or g2 in self._goal_geom_ids) and contact.dist < 0:
                 # Determine what touched the goal
                 other_geom = g2 if g1 in self._goal_geom_ids else g1
@@ -1458,7 +1458,7 @@ class SimulationState:
             return False, None
         for i in range(d.ncon):
             contact = d.contact[i]
-            g1, g2 = contact.geom1, contact.geom2
+            g1, g2 = int(contact.geom1), int(contact.geom2)
 
             # Skip floor contacts
             if self._floor_geom_id in (g1, g2):
@@ -1475,7 +1475,7 @@ class SimulationState:
                 obstacle_name = geom_obj.name if geom_obj is not None else "unknown"
                 # Try to get the body name for cleaner naming
                 if geom_obj is not None:
-                    body_id = geom_obj.bodyid
+                    body_id = int(geom_obj.bodyid.item())
                     if body_id >= 0:
                         body_obj = m.body(body_id)
                         if body_obj is not None:

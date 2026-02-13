@@ -1,0 +1,31 @@
+services:
+  # One-shot eval runner — use: docker compose run eval --model gemini2.5 --scenario barrels_corrupt
+  eval:
+    build: .
+    env_file: .env
+    environment:
+      - G1_HEADLESS=true
+      - G1_RECORD_TRAJECTORY=true
+      # Force direct API mode (no gcloud credentials in Docker)
+      - GOOGLE_CLOUD_PROJECT=
+    volumes:
+      - ./extractions:/app/extractions
+      - ./gcp/frontend/assets:/app/gcp/frontend/assets
+      - ./logs:/app/logs
+
+  # 3D MuJoCo WASM viewer — http://localhost:5500
+  viewer:
+    build: ./gcp/frontend
+    ports:
+      - "5500:80"
+    volumes:
+      - ./gcp/frontend/assets:/usr/share/nginx/html/assets
+
+  # Next.js dashboard — http://localhost:3000
+  dashboard:
+    build: ./template-dashboard-oss
+    ports:
+      - "3000:3000"
+    environment:
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GEMINI_API_KEY}
+      - NEXT_PUBLIC_VIEWER_URL=http://localhost:5500

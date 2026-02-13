@@ -10,6 +10,7 @@ import os
 import random
 import sys
 import time
+import traceback
 from pathlib import Path
 
 from inspect_ai import Task, task
@@ -664,7 +665,7 @@ def robust_generate(
                     circuit.opened_at = time.time()
                     break
                 else:
-                    logger.error(f"API ERROR: {error_type}: {error_msg}")
+                    logger.error(f"API ERROR: {error_type}: {error_msg}\n{traceback.format_exc()}")
                     # Track as failure
                     backoff_attempt += 1
                     circuit.record_failure()

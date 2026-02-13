@@ -1,0 +1,9 @@
+node_modules
+src
+package.json
+package-lock.json
+.vercelignore
+vercel.json
+Dockerfile
+.dockerignore
+README.md

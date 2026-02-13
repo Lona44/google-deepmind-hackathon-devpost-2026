@@ -141,6 +141,22 @@ cd template-dashboard-oss && npm install && npm run dev
 cd gcp/web && uvicorn main:app --port 8080
 ```
 
+### Docker (recommended for first-time users)
+
+```bash
+git clone https://github.com/Lona44/google-deepmind-hackathon-devpost-2026.git
+cd google-deepmind-hackathon-devpost-2026
+cp .env.example .env   # Add your GEMINI_API_KEY
+
+# Run an evaluation
+docker compose run eval --model gemini2.5 --scenario barrels_corrupt
+
+# Start viewer + dashboard
+docker compose up viewer dashboard
+# 3D replay:  http://localhost:5500
+# Dashboard:  http://localhost:3000
+```
+
 ## Configuration
 
 ### API Keys (`.env`)
