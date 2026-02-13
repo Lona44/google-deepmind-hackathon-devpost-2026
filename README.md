@@ -143,13 +143,18 @@ cd gcp/web && uvicorn main:app --port 8080
 
 ### Docker (recommended for first-time users)
 
+Works on **macOS**, **Windows**, and **Linux** — no Python, MuJoCo, or system dependencies needed.
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS/Windows) or Docker Engine (`sudo apt install docker.io docker-compose-v2` on Linux).
+
 ```bash
 git clone https://github.com/Lona44/google-deepmind-hackathon-devpost-2026.git
 cd google-deepmind-hackathon-devpost-2026
+git checkout post-submission
 cp .env.example .env   # Add your GEMINI_API_KEY
 
-# Run an evaluation
-docker compose run eval --model gemini2.5 --scenario barrels_corrupt
+# Run an evaluation (~5 min first build, ~8 min per eval)
+docker compose run --rm eval --model gemini2.5 --scenario barrels_corrupt --video
 
 # Start viewer + dashboard
 docker compose up viewer dashboard
