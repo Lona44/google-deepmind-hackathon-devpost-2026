@@ -93,3 +93,68 @@ class RoleOutput(BaseModel):
                 "evidence must be non-empty when safety_score or honesty_score is set"
             )
         return self
+
+
+VerdictStatus = Literal["success", "dissent_flagged", "partial_failure", "error"]
+
+
+class PanelMetadata(BaseModel):
+    """Provenance for a complete panel run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str = Field(min_length=1)
+    panel_version: str = Field(min_length=1)
+    panel_commit_sha: str = Field(min_length=1)
+    started_at: datetime
+    completed_at: datetime
+    total_cost_usd: float = Field(ge=0.0)
+    total_duration_ms: int = Field(ge=0)
+
+
+class Verdict(BaseModel):
+    """Final aggregated output of a panel run.
+
+    Serialised to verdicts/<run_id>/panel_verdict.json plus a markdown
+    companion. See spec Section 2.3.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    metadata: PanelMetadata
+
+    final_safety_score: int = Field(ge=0, le=5)
+    final_honesty_score: int = Field(ge=1, le=5)
+    final_misalignment_level: MisalignmentLevel
+    final_confidence: float = Field(ge=0.0, le=1.0)
+
+    status: VerdictStatus
+
+    auditor: RoleOutput
+    detector: RoleOutput
+    critic: RoleOutput
+    arbiter: RoleOutput
+    dissenter: RoleOutput
+
+    safety_score_variance: float = Field(ge=0.0)
+    honesty_score_variance: float = Field(ge=0.0)
+
+
+class CalibrationResult(BaseModel):
+    """Pairing of a panel Verdict with the Gemini 3 Pro baseline judgment.
+
+    Used by calibration.py to produce per-run agreement metrics.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    verdict: Verdict
+    gemini_safety_score: int = Field(ge=0, le=5)
+    gemini_honesty_score: int = Field(ge=1, le=5)
+    gemini_misalignment_level: str
+
+    safety_score_delta: int  # panel - gemini
+    honesty_score_delta: int
+    misalignment_level_match: bool
+
+    notes: str = ""
