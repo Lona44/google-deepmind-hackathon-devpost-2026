@@ -16,11 +16,13 @@ import subprocess
 from datetime import datetime, timezone
 from statistics import variance
 
+from judge_panel._role_helpers import make_failed_role_output
 from judge_panel.cost_tracker import CostCapExceededError, PerExperimentTracker
 from judge_panel.models import OpenRouterClient
 from judge_panel.roles import arbiter, auditor, critic, detector, dissenter
 from judge_panel.types import (
     PanelMetadata,
+    RoleName,
     RoleOutput,
     Verdict,
     VerdictStatus,
@@ -45,11 +47,8 @@ def _compute_status(
     critic_out: RoleOutput,
     arbiter_out: RoleOutput,
     dissenter_out: RoleOutput,
-    cost_cap_hit: bool,
 ) -> VerdictStatus:
     """Map role outcomes to a VerdictStatus per spec Section 4.6."""
-    if cost_cap_hit:
-        return "error"
     if arbiter_out.error is not None:
         return "error"
     if auditor_out.error is not None and detector_out.error is not None:
@@ -59,6 +58,31 @@ def _compute_status(
     if critic_out.error is not None or dissenter_out.error is not None:
         return "partial_failure"
     return "success"
+
+
+def _unwrap_l1_result(
+    result: RoleOutput | BaseException,
+    role_name: RoleName,
+    model_name: str,
+) -> RoleOutput:
+    """Post-process a result from Layer 1's `asyncio.gather(return_exceptions=True)`.
+
+    - `CostCapExceededError` is re-raised (intentional abort signal).
+    - Other exceptions are wrapped as a failed RoleOutput so the cascade can
+      continue and the Verdict can carry the failure detail.
+    - A regular RoleOutput is returned as-is.
+    """
+    if isinstance(result, CostCapExceededError):
+        raise result
+    if isinstance(result, BaseException):
+        return make_failed_role_output(
+            role=role_name,
+            model=model_name,
+            prompt_sha="unknown",
+            error_kind="unexpected_exception",
+            error_message=f"{type(result).__name__}: {result}",
+        )
+    return result
 
 
 def _git_sha() -> str:
@@ -92,59 +116,64 @@ async def run_panel(
         cost_tracker: optional PerExperimentTracker; constructed from env if None.
 
     Returns:
-        Verdict whose status reflects partial failures; raises
-        CostCapExceededError if the per-experiment cap is exceeded.
+        Verdict whose status reflects partial failures from Layer 2+ or unexpected
+        Layer 1 exceptions (wrapped as failed RoleOutputs).
+
+    Raises:
+        CostCapExceededError if the per-experiment cost cap is exceeded
+        mid-cascade. Other role failures return a Verdict with appropriate
+        status (the cascade always completes if cost is available).
     """
     if cost_tracker is None:
         cost_tracker = PerExperimentTracker.from_env()
 
     started_at = datetime.now(timezone.utc)
-    cost_cap_hit = False
 
-    try:
-        # Layer 1: parallel — Auditor + Detector are independent.
-        auditor_out, detector_out = await asyncio.gather(
-            auditor.run(
-                behavioral_data,
-                prior_outputs=[],
-                client=client,
-                cost_tracker=cost_tracker,
-            ),
-            detector.run(
-                behavioral_data,
-                prior_outputs=[],
-                client=client,
-                cost_tracker=cost_tracker,
-            ),
-        )
-
-        # Layer 2: Critic — sees Layer 1.
-        critic_out = await critic.run(
+    # Layer 1: parallel — Auditor + Detector are independent.
+    # `return_exceptions=True` ensures a programming bug in one role does not
+    # cancel the sibling and crash the panel; unexpected exceptions become
+    # failed RoleOutputs. CostCapExceededError is re-raised in _unwrap_l1_result.
+    l1_results = await asyncio.gather(
+        auditor.run(
             behavioral_data,
-            prior_outputs=[auditor_out, detector_out],
+            prior_outputs=[],
             client=client,
             cost_tracker=cost_tracker,
-        )
-
-        # Layer 3: Arbiter — sees Layers 1 + 2.
-        arbiter_out = await arbiter.run(
+        ),
+        detector.run(
             behavioral_data,
-            prior_outputs=[auditor_out, detector_out, critic_out],
+            prior_outputs=[],
             client=client,
             cost_tracker=cost_tracker,
-        )
+        ),
+        return_exceptions=True,
+    )
+    auditor_out = _unwrap_l1_result(l1_results[0], "auditor", auditor.MODEL)
+    detector_out = _unwrap_l1_result(l1_results[1], "detector", detector.MODEL)
 
-        # Layer 4: Dissenter — sees only the Arbiter.
-        dissenter_out = await dissenter.run(
-            behavioral_data,
-            prior_outputs=[arbiter_out],
-            client=client,
-            cost_tracker=cost_tracker,
-        )
+    # Layer 2: Critic — sees Layer 1.
+    critic_out = await critic.run(
+        behavioral_data,
+        prior_outputs=[auditor_out, detector_out],
+        client=client,
+        cost_tracker=cost_tracker,
+    )
 
-    except CostCapExceededError:
-        cost_cap_hit = True
-        raise
+    # Layer 3: Arbiter — sees Layers 1 + 2.
+    arbiter_out = await arbiter.run(
+        behavioral_data,
+        prior_outputs=[auditor_out, detector_out, critic_out],
+        client=client,
+        cost_tracker=cost_tracker,
+    )
+
+    # Layer 4: Dissenter — sees only the Arbiter.
+    dissenter_out = await dissenter.run(
+        behavioral_data,
+        prior_outputs=[arbiter_out],
+        client=client,
+        cost_tracker=cost_tracker,
+    )
 
     completed_at = datetime.now(timezone.utc)
 
@@ -184,7 +213,6 @@ async def run_panel(
         critic_out,
         arbiter_out,
         dissenter_out,
-        cost_cap_hit,
     )
 
     return Verdict(

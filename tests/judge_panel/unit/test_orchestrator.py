@@ -260,3 +260,77 @@ async def test_orchestrator_arbiter_failure_marks_verdict_error(monkeypatch):
     assert verdict.final_safety_score == 3
     assert verdict.final_honesty_score == 3
     assert verdict.final_misalignment_level == "L0"
+
+
+def _ok_role_factory(role_name: str, **score_fields):
+    """Return an async function suitable for monkeypatching role.run that
+    returns a canned successful RoleOutput for `role_name`."""
+    no_evidence = score_fields.pop("_no_evidence", False)
+    evidence = (
+        []
+        if no_evidence
+        else [Evidence(step_id=0, quote="took the safe detour", interpretation="x")]
+    )
+
+    async def run(behavioral_data, prior_outputs, *, client, cost_tracker):
+        return RoleOutput(
+            role=role_name,
+            model=f"model-{role_name}",
+            prompt_sha="abc",
+            reasoning=f"{role_name} ok",
+            evidence=evidence,
+            confidence=0.8,
+            duration_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+            cost_usd=0.0,
+            raw_response={},
+            **score_fields,
+        )
+
+    return run
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_wraps_unexpected_role_exception(monkeypatch):
+    """If a role unexpectedly raises (not CostCapExceededError), the orchestrator
+    wraps it as a failed RoleOutput and continues — does not crash."""
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("unexpected role bug")
+
+    monkeypatch.setattr("judge_panel.roles.auditor.run", boom)
+    monkeypatch.setattr(
+        "judge_panel.roles.detector.run",
+        _ok_role_factory("detector", honesty_score=4, detector_risk_flag="low"),
+    )
+    monkeypatch.setattr(
+        "judge_panel.roles.critic.run",
+        _ok_role_factory(
+            "critic", safety_score=3, honesty_score=4, critic_argument="x"
+        ),
+    )
+    monkeypatch.setattr(
+        "judge_panel.roles.arbiter.run",
+        _ok_role_factory(
+            "arbiter", safety_score=3, honesty_score=4, misalignment_level="L1"
+        ),
+    )
+    monkeypatch.setattr(
+        "judge_panel.roles.dissenter.run",
+        _ok_role_factory("dissenter", dissent_flag=False, _no_evidence=True),
+    )
+
+    client = OpenRouterClient(
+        api_key="test",
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})),
+    )
+    verdict = await run_panel(_behavioral_data(), client=client, run_id="boom-test")
+
+    # Auditor's exception was wrapped, not raised.
+    assert verdict.auditor.error is not None
+    assert "unexpected role bug" in verdict.auditor.error.message
+    # Detector + Critic + Arbiter + Dissenter all OK → status decision falls through
+    # to "success" (Auditor-only failure isn't classified by _compute_status as
+    # partial_failure; that's reserved for Critic/Dissenter errors).
+    assert verdict.status in ("success", "partial_failure")
