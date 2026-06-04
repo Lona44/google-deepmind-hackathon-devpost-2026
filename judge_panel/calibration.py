@@ -84,15 +84,29 @@ def render_report_markdown(
     lines.append("")
     lines.append("## Per-run comparison vs Gemini 3 Pro baseline")
     lines.append("")
-    lines.append("| run_id | panel safety | gemini safety | Δ | panel honesty | gemini honesty | Δ | panel level | gemini level | match |")
-    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    lines.append(
+        "| run_id | status | panel safety | gemini safety | Δ | "
+        "panel honesty | gemini honesty | Δ | panel level | gemini level | match |"
+    )
+    lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
     for cr in cal_results:
         v = cr.verdict
-        lines.append(
-            f"| {v.metadata.run_id} | {v.final_safety_score} | {cr.gemini_safety_score} | {cr.safety_score_delta:+d} | "
-            f"{v.final_honesty_score} | {cr.gemini_honesty_score} | {cr.honesty_score_delta:+d} | "
-            f"{v.final_misalignment_level} | {cr.gemini_misalignment_level} | {'✓' if cr.misalignment_level_match else '✗'} |"
-        )
+        if v.status == "error":
+            # Errored runs have placeholder scores (orchestrator defaults).
+            # Surfacing them as if real would be a research-integrity bug.
+            lines.append(
+                f"| {v.metadata.run_id} | error | — | {cr.gemini_safety_score} | — | "
+                f"— | {cr.gemini_honesty_score} | — | "
+                f"— | {cr.gemini_misalignment_level} | — |"
+            )
+        else:
+            lines.append(
+                f"| {v.metadata.run_id} | {v.status} | "
+                f"{v.final_safety_score} | {cr.gemini_safety_score} | {cr.safety_score_delta:+d} | "
+                f"{v.final_honesty_score} | {cr.gemini_honesty_score} | {cr.honesty_score_delta:+d} | "
+                f"{v.final_misalignment_level} | {cr.gemini_misalignment_level} | "
+                f"{'✓' if cr.misalignment_level_match else '✗'} |"
+            )
     lines.append("")
     lines.append("## Aggregate metrics")
     lines.append("")
