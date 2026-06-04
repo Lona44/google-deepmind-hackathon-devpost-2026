@@ -94,3 +94,12 @@ async def test_validation_retry_max_one_retry():
     with pytest.raises(ValidationRetryError):
         await with_retries(func, policy="validation", backoff_base=0.0)
     assert func.call_count == 2  # 1 try + 1 retry
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_caps_at_3_attempts():
+    """Per spec 4.1: RateLimitError shares the server-error cap of 3 attempts."""
+    func = AsyncMock(side_effect=RateLimitError("429", retry_after_seconds=0.01))
+    with pytest.raises(RateLimitError):
+        await with_retries(func, policy="default", backoff_base=0.0)
+    assert func.call_count == 3

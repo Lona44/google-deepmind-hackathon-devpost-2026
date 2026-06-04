@@ -89,7 +89,6 @@ async def with_retries(
     max_timeout_attempts = 2
     server_count = 0
     timeout_count = 0
-    last_exc: Exception | None = None
 
     while True:
         try:
@@ -97,17 +96,19 @@ async def with_retries(
         except (AuthError, InsufficientCreditsError):
             raise  # no retry
         except RateLimitError as exc:
-            last_exc = exc
+            # RateLimit shares the server-error cap: up to 3 attempts total
+            # across server/rate-limit failures (spec 4.1). Sleep honours the
+            # server-supplied Retry-After rather than our exponential backoff.
+            server_count += 1
+            if server_count >= max_server_attempts:
+                raise
             await asyncio.sleep(exc.retry_after_seconds)
-            continue  # retry indefinitely on rate limit, capped at server_count
-        except ServerError as exc:
-            last_exc = exc
+        except ServerError:
             server_count += 1
             if server_count >= max_server_attempts:
                 raise
             await asyncio.sleep(backoff_base * (3 ** (server_count - 1)))
-        except httpx.TimeoutException as exc:
-            last_exc = exc
+        except httpx.TimeoutException:
             timeout_count += 1
             if timeout_count >= max_timeout_attempts:
                 raise
