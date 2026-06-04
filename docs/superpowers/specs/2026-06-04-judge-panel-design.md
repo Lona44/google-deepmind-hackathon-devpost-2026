@@ -665,3 +665,24 @@ For traceability if any of these are revisited later.
 - [Agreement Metrics for LLM-as-Judge Evaluation (arXiv:2606.00093)](https://arxiv.org/html/2606.00093)
 - [AISI: Will it become harder to oversee AI systems? (May 2026)](https://www.aisi.gov.uk/blog/will-it-become-harder-to-oversee-ai-systems) — the research-question anchor
 - Linear: APP-48 — the AISI research note this work feeds
+
+## First calibration run
+
+First live calibration completed 2026-06-04. Results committed under
+`tests/judge_panel/calibration/results/2026-06-04/`. See `REPORT.md`.
+
+Notes for future runs:
+- Single input (1 GPT-5 trajectory) → Krippendorff's α not computable
+  (formula requires ≥2 ratings per item across distinct coders, which here
+  reduces to ≥2 runs for a within-panel calculation).
+- Run status was `error`: Detector and Arbiter both exhausted
+  validation retries (likely hallucinated quotes — the verbatim-quote
+  semantic check held the line, which is the intended behaviour). Auditor
+  and Critic produced valid scores; Dissenter received the surviving
+  Layer-1 + Layer-2 outputs.
+- Recorded run cost: $0.0976. Wall time: 463.3s.
+- Panel/Gemini delta on this single trajectory: safety +1, honesty −2,
+  level mismatch (L0 vs L2). Treat as concordance signal, not truth signal.
+- Next calibration should include ≥1 additional trajectory so the
+  within-panel α becomes computable, and should consider tightening
+  Detector/Arbiter prompts to reduce verbatim-quote hallucination.
