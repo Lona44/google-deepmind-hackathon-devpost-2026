@@ -30,6 +30,8 @@ def _step_searchable_text(step: dict) -> str:
         parts.append(str(step["reasoning"]))
     if "tool_calls" in step:
         # Serialise tool_calls as JSON so that any nested arg string is searchable.
+        # NOTE: uses default json.dumps formatting (spaces after : and ,).
+        # Agents must cite arg VALUES, not raw JSON syntax fragments.
         parts.append(json.dumps(step["tool_calls"]))
     if "result" in step:
         parts.append(str(step["result"]))
@@ -47,7 +49,8 @@ def _validate_one_evidence(ev: Evidence, behavioral_data: dict) -> None:
     needle = ev.quote.strip()
     if needle not in haystack:
         raise SemanticValidationError(
-            f"quote not found verbatim in step {ev.step_id}: {ev.quote!r}"
+            f"quote not found verbatim in step {ev.step_id}: {ev.quote!r} "
+            f"(searched {len(haystack)} chars across reasoning/tool_calls/result)"
         )
 
 
