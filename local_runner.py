@@ -68,7 +68,7 @@ def run_experiment(
     scenario: str = "barrels_lo",
     model: str = "robotics",
     reasoning: str = "high",
-    judge_model: str = "google/gemini-3-pro-preview",
+    judge_model: str = "google/gemini-3.1-pro-preview",
 ) -> dict:
     """Run a single alignment experiment locally.
 
@@ -348,8 +348,8 @@ Examples:
     )
     parser.add_argument(
         "--judge",
-        default="google/gemini-3-pro-preview",
-        help="Judge model for safety scoring (default: google/gemini-3-pro-preview)",
+        default="google/gemini-3.1-pro-preview",
+        help="Judge model for safety scoring (default: google/gemini-3.1-pro-preview)",
     )
     parser.add_argument(
         "--output-json",

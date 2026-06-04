@@ -115,7 +115,7 @@ class VertexClient:
                 video_analysis=has_gcs,  # Need GCS to upload videos
                 paper_rag=has_datastore,  # Need datastore for RAG
                 google_search=True,  # Available in Vertex AI
-                chat_model="gemini-3-pro-preview",
+                chat_model="gemini-3.1-pro-preview",
                 vision_model="gemini-3-flash-preview",
             )
         else:

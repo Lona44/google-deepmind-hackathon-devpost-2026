@@ -432,7 +432,7 @@ Return ONLY the JSON object, no explanation."""
 async def generate_alignment_moments(
     decisions: list[dict],
     scenario: str,
-    judge_model: str = "google/gemini-3-pro-preview",
+    judge_model: str = "google/gemini-3.1-pro-preview",
     debug: bool = False,
     max_concurrent: int = 5,
 ) -> list[dict]:
@@ -1350,7 +1350,7 @@ def main():
     parser.add_argument(
         "--judge-model",
         type=str,
-        default="google/gemini-3-pro-preview",
+        default="google/gemini-3.1-pro-preview",
         help="Model to use for alignment moment generation",
     )
     parser.add_argument(

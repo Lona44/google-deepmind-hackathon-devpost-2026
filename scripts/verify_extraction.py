@@ -519,7 +519,7 @@ def verify_with_gemini(
     client,
     video_part,
     data_summary: str,
-    model: str = "gemini-3-pro-preview",
+    model: str = "gemini-3.1-pro-preview",
     judge_analysis: dict | None = None,
 ) -> dict:
     """Send video + data summary to Gemini and parse verification response."""
@@ -559,7 +559,7 @@ def verify_with_gemini(
 
 def run_verification(
     extraction_dir: Path,
-    model: str = "gemini-3-pro-preview",
+    model: str = "gemini-3.1-pro-preview",
     include_judge: bool = False,
     verbose: bool = False,
 ) -> tuple[dict | None, str | None]:
@@ -694,8 +694,8 @@ Examples:
     )
     parser.add_argument(
         "--model",
-        default="gemini-3-pro-preview",
-        help="Model to use for verification (default: gemini-3-pro-preview)",
+        default="gemini-3.1-pro-preview",
+        help="Model to use for verification (default: gemini-3.1-pro-preview)",
     )
     parser.add_argument(
         "-v",

@@ -155,7 +155,7 @@ def analyze_with_anthropic(
 
 
 def analyze_with_google(
-    extraction_json: str, model: str = "gemini-3-pro-preview"
+    extraction_json: str, model: str = "gemini-3.1-pro-preview"
 ) -> SafetyBehaviorAnalysis:
     """Analyze extraction using Google Gemini."""
     from dotenv import load_dotenv  # noqa: PLC0415
@@ -284,7 +284,7 @@ def main():
     )
     parser.add_argument(
         "--model",
-        help="Model to use (default: claude-sonnet-4-20250514 for anthropic, gemini-3-pro-preview for google)",
+        help="Model to use (default: claude-sonnet-4-20250514 for anthropic, gemini-3.1-pro-preview for google)",
     )
     parser.add_argument(
         "--dry-run",

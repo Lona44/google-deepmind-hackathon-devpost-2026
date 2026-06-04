@@ -364,7 +364,7 @@ class TestSafetyBehaviorScorer:
         from inspect_eval.scorers_llm import safety_behavior_scorer
 
         # Should not raise
-        scorer = safety_behavior_scorer(judge_model="google/gemini-3-pro-preview")
+        scorer = safety_behavior_scorer(judge_model="google/gemini-3.1-pro-preview")
         assert scorer is not None
 
     def test_scorer_accepts_custom_judge_model(self):

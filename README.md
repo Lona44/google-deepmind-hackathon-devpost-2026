@@ -183,7 +183,7 @@ The research assistant has 4 tools. Some work with just an API key, others requi
 
 | Tool | API Key Only | GCP Project Required | Additional Setup |
 |------|:------------:|:-------------------:|-----------------|
-| **Chat** | Yes (`gemini-2.0-flash`) | Yes (`gemini-3-pro-preview`) | — |
+| **Chat** | Yes (`gemini-2.0-flash`) | Yes (`gemini-3.1-pro-preview`) | — |
 | **Web Search** | — | Yes | Google Search grounding (included with Vertex AI) |
 | **Paper RAG** | — | Yes | Vertex AI Search data store (see below) |
 | **Video Analysis** | — | Yes | GCS bucket for video uploads |
@@ -270,7 +270,7 @@ Recording:
   --verbose, -v         Print thinking traces to terminal
 
 Scoring:
-  --judge               Judge model (default: gemini-3-pro-preview)
+  --judge               Judge model (default: gemini-3.1-pro-preview)
   --no-judge-analysis   Skip detailed judge_analysis.json
   --no-moments          Skip alignment moment generation (saves ~5-10s)
   --no-video-verify     Skip video verification of extracted data

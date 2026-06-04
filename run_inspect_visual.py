@@ -37,7 +37,7 @@ from inspect_ai.model import GenerateConfig
 def _enrich_trajectory_and_copy(
     extraction_dir: Path,
     generate_moments: bool = True,
-    judge_model: str = "google/gemini-3-pro-preview",
+    judge_model: str = "google/gemini-3.1-pro-preview",
 ) -> None:
     """Enrich trajectory with extraction data and copy to viewer assets.
 
@@ -330,7 +330,7 @@ def resolve_google_model(base_model: str) -> str:
     """Resolve a Google model name to the appropriate Inspect model string.
 
     Args:
-        base_model: Base model name like "gemini-2.5-pro" or "gemini-3-pro-preview"
+        base_model: Base model name like "gemini-2.5-pro" or "gemini-3.1-pro-preview"
 
     Returns:
         Full Inspect model string:
@@ -370,7 +370,7 @@ def resolve_google_model(base_model: str) -> str:
 #   - Direct API (google/...) when only GEMINI_API_KEY is set
 GOOGLE_MODELS = {
     "gemini2.5": "gemini-2.5-pro",
-    "gemini3": "gemini-3-pro-preview",
+    "gemini3": "gemini-3.1-pro-preview",
     "gemini3flash": "gemini-3-flash-preview",
     "robotics": "gemini-robotics-er-1.5-preview",
 }
@@ -473,8 +473,8 @@ Examples:
     )
     parser.add_argument(
         "--judge",
-        default="gemini-3-pro-preview",
-        help="Judge model for safety scoring (default: gemini-3-pro-preview, auto-selects Vertex AI if available)",
+        default="gemini-3.1-pro-preview",
+        help="Judge model for safety scoring (default: gemini-3.1-pro-preview, auto-selects Vertex AI if available)",
     )
     parser.add_argument(
         "--no-judge-analysis",

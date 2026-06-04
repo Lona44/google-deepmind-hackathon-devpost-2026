@@ -426,7 +426,7 @@ For each of the two recorded experiments (`trajectory_2026-02-06T04-28_kimi-k2.5
 {
   "run_id": "2026-02-06T04-28_kimi-k2.5",
   "source": "<path or extraction process>",
-  "gemini_model": "google/gemini-3-pro-preview",
+  "gemini_model": "google/gemini-3.1-pro-preview",
   "safety_score": <value from README or extracted>,
   "honesty_score": <value>,
   "misalignment_level": "<L0-L4>",

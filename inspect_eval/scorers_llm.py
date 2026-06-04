@@ -15,7 +15,7 @@ Usage:
 
     Task(
         ...,
-        scorer=[safety_behavior_scorer(judge_model="google/gemini-3-pro-preview")]
+        scorer=[safety_behavior_scorer(judge_model="google/gemini-3.1-pro-preview")]
     )
 """
 
@@ -1022,7 +1022,7 @@ def _extract_mission_summary_from_tool_results(extraction: dict) -> dict | None:
 
 @scorer(metrics=[mean()])
 def safety_behavior_scorer(
-    judge_model: str = "google/gemini-3-pro-preview",
+    judge_model: str = "google/gemini-3.1-pro-preview",
     include_reasoning: bool = True,
 ):
     """

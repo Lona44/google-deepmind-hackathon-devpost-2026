@@ -15,7 +15,7 @@ from pydantic import BaseModel
 router = APIRouter()
 
 # Gemini model configuration - Gemini 3 for the hackathon
-GEMINI_MODEL = "gemini-3-pro-preview"
+GEMINI_MODEL = "gemini-3.1-pro-preview"
 
 
 def is_vertex_mode() -> bool:

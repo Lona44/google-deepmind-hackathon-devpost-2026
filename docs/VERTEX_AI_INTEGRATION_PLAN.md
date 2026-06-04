@@ -90,7 +90,7 @@ class VertexClient:
     "google_search": true
   },
   "models": {
-    "chat": "gemini-3-pro-preview",
+    "chat": "gemini-3.1-pro-preview",
     "vision": "gemini-3-flash-preview"
   }
 }
