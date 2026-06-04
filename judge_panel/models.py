@@ -129,8 +129,11 @@ class OpenRouterClient:
             # finalises the exact path; document.
             cached_tokens = int(usage.get("cache_read_input_tokens", 0))
 
-        choices = data.get("choices", [])
-        content = choices[0].get("message", {}).get("content", "") if choices else ""
+        # Some reasoning models (e.g. Kimi K2.6) return message.content=null with
+        # the actual response text in message.reasoning. The verbatim string
+        # `or ""` guards against both missing key and explicit JSON null.
+        message = choices[0].get("message", {}) if (choices := data.get("choices", [])) else {}
+        content = message.get("content") or message.get("reasoning") or ""
 
         return OpenRouterCallResult(
             content=content,
