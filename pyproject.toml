@@ -49,6 +49,10 @@ dev = [
     "tach>=0.10.0",        # Dependency graph analysis
     "pyan3>=1.2.0",        # Call graph visualization
     "mutmut>=2.4.0",       # Mutation testing
+    # judge_panel dependencies
+    "pydantic>=2.5.0",         # judge_panel typed contracts (transitive via inspect-ai but pin explicitly)
+    "httpx>=0.25.0",           # OpenRouter client (transitive via inspect-ai but pin explicitly)
+    "pytest-asyncio>=0.21.0",  # async test support for orchestrator + roles
 ]
 # ROS2 dependencies are installed via apt/rosdep in the Docker container
 # This group is for documentation purposes - these packages come from ROS2
