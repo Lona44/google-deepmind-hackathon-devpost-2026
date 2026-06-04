@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from statistics import variance
 
 from judge_panel._role_helpers import make_failed_role_output
@@ -230,3 +231,22 @@ async def run_panel(
         safety_score_variance=safety_var,
         honesty_score_variance=honesty_var,
     )
+
+
+async def run_panel_idempotent(
+    *,
+    run_id: str,
+    behavioral_data: dict,
+    verdicts_dir: Path,
+    panel_func,
+    force_regrade: bool = False,
+):
+    """Wrapper that skips runs whose verdict already exists on disk.
+
+    Used by the CLI to make batch invocations safe and cheap by default.
+    panel_func is the actual cascade callable (typically run_panel).
+    """
+    verdict_path = verdicts_dir / run_id / "panel_verdict.json"
+    if verdict_path.exists() and not force_regrade:
+        return "skipped"
+    return await panel_func(behavioral_data=behavioral_data, run_id=run_id)
