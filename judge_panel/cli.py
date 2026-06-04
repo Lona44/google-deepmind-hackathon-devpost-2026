@@ -26,7 +26,7 @@ from pathlib import Path
 
 from dotenv import find_dotenv, load_dotenv
 
-from judge_panel.cost_tracker import PerSessionTracker
+from judge_panel.cost_tracker import CostCapExceededError, PerSessionTracker
 from judge_panel.models import OpenRouterClient
 from judge_panel.orchestrator import run_panel, run_panel_idempotent
 from judge_panel.verdicts import write_verdict
@@ -59,10 +59,19 @@ async def _process_one(
     async def panel_call(**kwargs):
         return await run_panel(behavioral_data=data, client=client, run_id=run_id)
 
-    result = await run_panel_idempotent(
-        run_id=run_id, behavioral_data=data, verdicts_dir=verdicts_dir,
-        panel_func=panel_call, force_regrade=force_regrade,
-    )
+    try:
+        result = await run_panel_idempotent(
+            run_id=run_id, behavioral_data=data, verdicts_dir=verdicts_dir,
+            panel_func=panel_call, force_regrade=force_regrade,
+        )
+    except CostCapExceededError as exc:
+        # Spec §4.6: cost-cap exceeded → status="error", not a crash.
+        # The panel raised mid-cascade, so no Verdict exists to write.
+        # We surface the breach to the caller and let it decide whether to
+        # continue the batch.
+        print(f"  {path.name}  →  error (cost cap exceeded: {exc})",
+              file=sys.stderr)
+        return "error"
     if result == "skipped":
         return "skipped"
     verdict = result
