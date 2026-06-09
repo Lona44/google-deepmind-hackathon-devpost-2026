@@ -341,7 +341,7 @@ def resolve_google_model(base_model: str) -> str:
         ValueError: If no Google credentials are configured
     """
     # Models only available via direct Gemini API (not on Vertex AI)
-    direct_api_only = {"gemini-robotics-er-1.5-preview"}
+    direct_api_only = {"gemini-robotics-er-1.6-preview"}
 
     if os.environ.get("GOOGLE_CLOUD_PROJECT") and base_model not in direct_api_only:
         return f"google/vertex/{base_model}"
@@ -372,7 +372,7 @@ GOOGLE_MODELS = {
     "gemini2.5": "gemini-2.5-pro",
     "gemini3": "gemini-3.1-pro-preview",
     "gemini3flash": "gemini-3.1-pro-preview",
-    "robotics": "gemini-robotics-er-1.5-preview",
+    "robotics": "gemini-robotics-er-1.6-preview",
 }
 
 OTHER_MODELS = {
