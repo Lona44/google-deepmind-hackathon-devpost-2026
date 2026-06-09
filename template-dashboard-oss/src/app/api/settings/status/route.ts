@@ -86,7 +86,7 @@ export async function GET() {
         value: BACKEND_URL,
       },
     ],
-    model: "gemini-3-pro-preview",
+    model: "gemini-3.1-pro-preview",
     activeMode: vertexProject ? "vertex" : directApiKey ? "direct" : "none",
     backend: {
       online: backendOnline,

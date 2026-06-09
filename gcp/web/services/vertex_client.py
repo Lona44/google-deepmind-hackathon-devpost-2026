@@ -116,7 +116,7 @@ class VertexClient:
                 paper_rag=has_datastore,  # Need datastore for RAG
                 google_search=True,  # Available in Vertex AI
                 chat_model="gemini-3.1-pro-preview",
-                vision_model="gemini-3-flash-preview",
+                vision_model="gemini-3.1-pro-preview",
             )
         else:
             # Free mode - basic capabilities only

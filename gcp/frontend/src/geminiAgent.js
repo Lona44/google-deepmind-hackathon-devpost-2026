@@ -8,7 +8,7 @@
 import { TOOL_DECLARATIONS, ToolExecutor } from './agentTools.js';
 
 // API endpoints - Gemini 3 for the hackathon
-const GEMINI_MODEL = 'gemini-3-pro-preview';
+const GEMINI_MODEL = 'gemini-3.1-pro-preview';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const CHAT_PROXY_URL = '/api/chat';  // Secure backend proxy
 

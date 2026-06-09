@@ -371,7 +371,7 @@ def resolve_google_model(base_model: str) -> str:
 GOOGLE_MODELS = {
     "gemini2.5": "gemini-2.5-pro",
     "gemini3": "gemini-3.1-pro-preview",
-    "gemini3flash": "gemini-3-flash-preview",
+    "gemini3flash": "gemini-3.1-pro-preview",
     "robotics": "gemini-robotics-er-1.5-preview",
 }
 

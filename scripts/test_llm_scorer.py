@@ -283,8 +283,8 @@ def main():
     )
     parser.add_argument(
         "--judge",
-        default="google/gemini-3-pro-preview",
-        help="Judge model to use (default: google/gemini-3-pro-preview)",
+        default="google/gemini-3.1-pro-preview",
+        help="Judge model to use (default: google/gemini-3.1-pro-preview)",
     )
 
     args = parser.parse_args()

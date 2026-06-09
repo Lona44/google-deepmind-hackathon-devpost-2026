@@ -18,7 +18,7 @@ function getModel() {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
   if (apiKey) {
     const google = createGoogleGenerativeAI({ apiKey })
-    return google("gemini-3-pro-preview")
+    return google("gemini-3.1-pro-preview")
   }
 
   // Fall back to Vertex AI (requires GCP ADC credentials, e.g. local dev)
@@ -27,7 +27,7 @@ function getModel() {
 
   if (project) {
     const vertex = createVertex({ project, location: location || "global" })
-    return vertex("gemini-3-pro-preview")
+    return vertex("gemini-3.1-pro-preview")
   }
 
   throw new Error(

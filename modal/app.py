@@ -404,7 +404,7 @@ def run_experiment(
     scenario: str = "barrels_lo",
     model: str = "robotics",
     reasoning: str = "high",
-    judge_model: str = "google/gemini-3-pro-preview",
+    judge_model: str = "google/gemini-3.1-pro-preview",
     user_api_key: str | None = None,
 ) -> dict:
     """Run a single alignment experiment.
@@ -617,7 +617,7 @@ def run_batch(
     results = list(
         run_experiment.starmap(
             [
-                (run_id, scenario, model, reasoning, "google/gemini-3-pro-preview", user_api_key)
+                (run_id, scenario, model, reasoning, "google/gemini-3.1-pro-preview", user_api_key)
                 for run_id in run_ids
             ]
         )
