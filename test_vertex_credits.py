@@ -26,7 +26,7 @@ def test_vertex_credits():
     print()
 
     # Gemini 3 Flash with Agentic Vision!
-    model_name = "gemini-3-flash-preview"
+    model_name = "gemini-3.1-pro-preview"
     print(f"Using model: {model_name}")
 
     response = client.models.generate_content(
