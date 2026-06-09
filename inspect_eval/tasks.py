@@ -15,7 +15,7 @@ from pathlib import Path
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.model import ChatMessage, ChatMessageUser, Content
+from inspect_ai.model import ChatMessage, ChatMessageUser
 from inspect_ai.solver import Generate, Solver, TaskState, solver, system_message, use_tools
 
 from inspect_eval import kimi_provider
@@ -399,6 +399,58 @@ def _should_start_debrief(messages: list[ChatMessage]) -> bool:
     return False
 
 
+# Deterministic Python errors raised from tool execution (which runs *inside*
+# generate()) — these are harness/tool bugs, not API issues, and never recover
+# from retry/backoff. Classifying them as "API errors" masked real bugs (e.g. a
+# MuJoCo TypeError, a missing motion.pt ValueError) behind pointless retries.
+_DETERMINISTIC_BUG_TYPES = (
+    TypeError,
+    ValueError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    NameError,
+    UnboundLocalError,
+    FileNotFoundError,
+    ImportError,
+    ModuleNotFoundError,
+    ZeroDivisionError,
+    NotImplementedError,
+    AssertionError,
+)
+
+# Strict rate-limit signals. The previous heuristic matched the bare substrings
+# "rate" and "limit", which falsely flagged tool errors like "input token count
+# exceeds the maximum number of tokens allowed 32768" as rate limits.
+_RATE_LIMIT_SIGNALS = (
+    "rate limit",
+    "rate_limit",
+    "429",
+    "quota",
+    "resource exhausted",
+    "resource_exhausted",
+    "too many requests",
+)
+
+
+def classify_generate_error(exc: BaseException) -> str:
+    """Classify an exception raised from generate() (model call + tool execution).
+
+    Returns one of:
+      - "harness_bug": deterministic Python error from tool/harness code; retry
+        won't help, so fail fast and surface it honestly.
+      - "rate_limit": genuine provider rate limiting; stop and wait.
+      - "transient": other API/network error worth a bounded backoff-retry.
+    """
+    if isinstance(exc, _DETERMINISTIC_BUG_TYPES):
+        return "harness_bug"
+    error_type = type(exc).__name__.lower()
+    msg = str(exc).lower()
+    if "ratelimit" in error_type or any(sig in msg for sig in _RATE_LIMIT_SIGNALS):
+        return "rate_limit"
+    return "transient"
+
+
 @solver
 def robust_generate(
     max_empty_retries: int = 3,
@@ -634,20 +686,34 @@ def robust_generate(
                 continue
 
             except Exception as api_error:
-                # API ERROR (rate limits, auth errors, server errors, etc.)
                 error_type = type(api_error).__name__
                 error_msg = str(api_error)
+                error_class = classify_generate_error(api_error)
 
-                # Check for rate limit indicators
-                is_rate_limit = (
-                    "rate" in error_msg.lower()
-                    or "limit" in error_msg.lower()
-                    or "429" in error_msg
-                    or "RateLimit" in error_type
-                    or "quota" in error_msg.lower()
-                )
+                if error_class == "harness_bug":
+                    # Deterministic tool/harness error (raised inside generate()'s
+                    # tool execution, not the model API). Retry/backoff cannot help,
+                    # so fail fast and label it honestly instead of masking it as a
+                    # transient API error and thrashing the circuit breaker.
+                    logger.error(
+                        f"HARNESS/TOOL ERROR (not an API issue): {error_type}: {error_msg}\n"
+                        f"{traceback.format_exc()}"
+                    )
+                    state.messages.append(
+                        ChatMessageUser(
+                            content=(
+                                f"SYSTEM ERROR - HARNESS/TOOL: {error_type}: {error_msg}\n\n"
+                                "A deterministic tool/harness error occurred (not an API issue). "
+                                "Retrying will not help; terminating generation so the bug is "
+                                "visible rather than masked as a transient error."
+                            )
+                        )
+                    )
+                    circuit.state = "open"
+                    circuit.opened_at = time.time()
+                    break
 
-                if is_rate_limit:
+                if error_class == "rate_limit":
                     logger.error(f"RATE LIMIT ERROR: {error_type}: {error_msg}")
                     # Add to messages so it's visible in extraction
                     state.messages.append(
@@ -664,48 +730,49 @@ def robust_generate(
                     circuit.state = "open"
                     circuit.opened_at = time.time()
                     break
-                else:
-                    logger.error(f"API ERROR: {error_type}: {error_msg}\n{traceback.format_exc()}")
-                    # Track as failure
-                    backoff_attempt += 1
-                    circuit.record_failure()
 
-                    # Add to messages for visibility
+                # transient API/network error worth a bounded backoff-retry
+                logger.error(f"API ERROR: {error_type}: {error_msg}\n{traceback.format_exc()}")
+                # Track as failure
+                backoff_attempt += 1
+                circuit.record_failure()
+
+                # Add to messages for visibility
+                state.messages.append(
+                    ChatMessageUser(
+                        content=(
+                            f"SYSTEM ERROR - API: {error_type}: {error_msg}\n\n"
+                            "An API error occurred. Retrying after backoff..."
+                        )
+                    )
+                )
+
+                # Apply backoff
+                if backoff_attempt > 0:
+                    await exponential_backoff(
+                        attempt=backoff_attempt - 1,
+                        base_delay=backoff_base,
+                        max_delay=backoff_max,
+                        jitter=backoff_jitter,
+                    )
+
+                # Check circuit breaker
+                if circuit.is_open():
+                    logger.error(
+                        f"Circuit breaker open after API errors - giving up. "
+                        f"Last error: {error_type}: {error_msg}"
+                    )
                     state.messages.append(
                         ChatMessageUser(
                             content=(
-                                f"SYSTEM ERROR - API: {error_type}: {error_msg}\n\n"
-                                "An API error occurred. Retrying after backoff..."
+                                "SYSTEM: Generation terminated due to repeated API errors. "
+                                f"Last error: {error_type}: {error_msg}"
                             )
                         )
                     )
+                    break
 
-                    # Apply backoff
-                    if backoff_attempt > 0:
-                        await exponential_backoff(
-                            attempt=backoff_attempt - 1,
-                            base_delay=backoff_base,
-                            max_delay=backoff_max,
-                            jitter=backoff_jitter,
-                        )
-
-                    # Check circuit breaker
-                    if circuit.is_open():
-                        logger.error(
-                            f"Circuit breaker open after API errors - giving up. "
-                            f"Last error: {error_type}: {error_msg}"
-                        )
-                        state.messages.append(
-                            ChatMessageUser(
-                                content=(
-                                    "SYSTEM: Generation terminated due to repeated API errors. "
-                                    f"Last error: {error_type}: {error_msg}"
-                                )
-                            )
-                        )
-                        break
-
-                    continue
+                continue
 
             # Check if model returned empty response
             last_msg: ChatMessage | None = state.messages[-1] if state.messages else None
