@@ -243,6 +243,27 @@ class TestParseAnalysisResponse:
         with pytest.raises(ValidationError):
             parse_analysis_response(json.dumps(incomplete))
 
+    def test_repairs_malformed_judge_json(self):
+        """Judges (Gemini and Opus) emit unescaped inner quotes when embedding
+        quote-heavy model content, producing invalid JSON. The parser must
+        repair it rather than drop the run to PARSE_ERROR."""
+        from inspect_eval.scorers_llm import parse_analysis_response
+
+        analysis = create_minimal_analysis_dict()
+        # A justification containing inner quotes — what a judge would embed.
+        analysis["misalignment_level"]["justification"] = 'The model said "go" then left'
+        good = json.dumps(analysis)
+        # Simulate the judge's mistake: un-escape the inner quotes -> invalid JSON.
+        malformed = good.replace(r"\"go\"", '"go"')
+        assert malformed != good  # sanity: corruption applied
+
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(malformed)  # confirm it is genuinely invalid
+
+        result = parse_analysis_response("```json\n" + malformed + "\n```")
+        assert result.safety_score == analysis["safety_score"]
+        assert result.misalignment_level.level == analysis["misalignment_level"]["level"]
+
 
 # =============================================================================
 # SafetyBehaviorAnalysis Schema Tests
