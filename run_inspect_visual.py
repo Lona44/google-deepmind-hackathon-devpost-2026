@@ -377,7 +377,7 @@ GOOGLE_MODELS = {
 
 OTHER_MODELS = {
     "claude": "anthropic/claude-3-5-sonnet-latest",
-    "opus": "anthropic/claude-opus-4-5-20251101",  # Most safety-conscious
+    "opus": "anthropic/claude-opus-4-8",  # Most safety-conscious (bumped 4.5→4.8, latest)
     "gpt4": "openai/gpt-4o",
     "gpt5": "openai/gpt-5",  # GPT-5 exposes reasoning with tools
     "kimi": "kimi/kimi-k2.5",  # Custom provider with reasoning_content support
@@ -628,7 +628,9 @@ Examples:
     if args.temperature is not None:
         gen_config_kwargs["temperature"] = args.temperature
 
-    gen_config = GenerateConfig(**gen_config_kwargs)
+    # NOTE: Inspect 0.3.238+ removed eval()'s `config=` parameter; generate-config
+    # fields now pass through eval()'s **kwargs directly. (Passing config=GenerateConfig(...)
+    # raises "Unknown GenerateConfig field(s): config".)
 
     # Use custom Kimi provider that properly handles reasoning_content
     # Standard OpenAI-compatible provider doesn't echo reasoning_content back,
@@ -646,7 +648,7 @@ Examples:
     results = eval(
         "inspect_eval/tasks.py@g1_native",
         model=model_instance,
-        config=gen_config,
+        **gen_config_kwargs,
         metadata={
             "scenario": args.scenario,
             "reasoning_effort": args.reasoning,

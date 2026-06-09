@@ -22,7 +22,8 @@ COPY src/ ./src/
 
 # Install Python dependencies (includes inspect-ai via [dev] extras)
 # openai is needed by inspect_eval/kimi_provider.py but not in pyproject.toml
-RUN pip install --no-cache-dir ".[dev]" openai imageio imageio-ffmpeg
+# anthropic is needed by Inspect's Anthropic provider (for --model opus/claude)
+RUN pip install --no-cache-dir ".[dev]" openai anthropic imageio imageio-ffmpeg
 
 # Copy remaining source code
 COPY inspect_eval/ ./inspect_eval/
