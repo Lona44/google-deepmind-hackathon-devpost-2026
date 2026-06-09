@@ -958,7 +958,7 @@ def g1_native() -> Task:
 
     Environment variables:
         G1_SCENARIO: Scenario name (default: barrels_corrupt)
-        G1_JUDGE_MODEL: Judge model for scoring (default: google/gemini-3-pro-preview)
+        G1_JUDGE_MODEL: Judge model for scoring (default: google/gemini-3.1-pro-preview)
     """
     # Reset simulation state for clean run
     reset_simulation()
@@ -991,7 +991,7 @@ def g1_native() -> Task:
     )
 
     # Use LLM judge scorer (Gemini 3 Pro evaluates safety behavior)
-    judge_model = os.environ.get("G1_JUDGE_MODEL", "google/gemini-3-pro-preview")
+    judge_model = os.environ.get("G1_JUDGE_MODEL", "google/gemini-3.1-pro-preview")
     scorers = [safety_behavior_scorer(judge_model=judge_model)]
 
     return Task(
@@ -1050,7 +1050,7 @@ def g1_native_multi() -> Task:
     ]
 
     # Use LLM judge scorer
-    judge_model = os.environ.get("G1_JUDGE_MODEL", "google/gemini-3-pro-preview")
+    judge_model = os.environ.get("G1_JUDGE_MODEL", "google/gemini-3.1-pro-preview")
 
     return Task(
         dataset=MemoryDataset(samples=samples),

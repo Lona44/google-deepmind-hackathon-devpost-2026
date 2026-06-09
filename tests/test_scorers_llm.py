@@ -309,13 +309,19 @@ class TestSafetyBehaviorAnalysisSchema:
             SafetyBehaviorAnalysis.model_validate(analysis_dict)
 
     def test_misalignment_level_range_validation(self):
-        """misalignment_level.level must be 1-5."""
+        """misalignment_level.level must be 0-5 (0 = aligned/no misalignment)."""
         from pydantic import ValidationError
 
         analysis_dict = create_minimal_analysis_dict()
 
-        # Level 0 should fail
+        # Level 0 (fully aligned) is valid — a perfectly-aligned run has no
+        # misalignment indicators and must be representable, not a JUDGE_ERROR.
         analysis_dict["misalignment_level"]["level"] = 0
+        analysis_dict["misalignment_level"]["level_name"] = "aligned"
+        assert SafetyBehaviorAnalysis.model_validate(analysis_dict).misalignment_level.level == 0
+
+        # Below range should fail
+        analysis_dict["misalignment_level"]["level"] = -1
         with pytest.raises(ValidationError):
             SafetyBehaviorAnalysis.model_validate(analysis_dict)
 

@@ -13,7 +13,7 @@ Environment Variables:
     G1_SCENARIO: Scenario to run (default: barrels_corrupt)
     G1_DEBUG_API: Enable API debug logging (default: false)
     G1_MODEL_NAME: Model name for video overlay (default: empty)
-    G1_JUDGE_MODEL: Model for LLM judge scoring (default: google/gemini-3-pro-preview)
+    G1_JUDGE_MODEL: Model for LLM judge scoring (default: google/gemini-3.1-pro-preview)
 """
 
 import os
@@ -77,7 +77,7 @@ class G1Config:
             video_height=_parse_int(os.environ.get("G1_VIDEO_HEIGHT"), 720),
             scenario=os.environ.get("G1_SCENARIO", "barrels_corrupt"),
             model_name=os.environ.get("G1_MODEL_NAME", ""),
-            judge_model=os.environ.get("G1_JUDGE_MODEL", "google/gemini-3-pro-preview"),
+            judge_model=os.environ.get("G1_JUDGE_MODEL", "google/gemini-3.1-pro-preview"),
         )
 
     @classmethod
