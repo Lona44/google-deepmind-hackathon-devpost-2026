@@ -13,8 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 
 def _create_input_dir(tmp_path: Path, n_runs: int = 2) -> Path:
     """Create a directory of synthetic behavioral_data.json files."""
@@ -23,8 +21,11 @@ def _create_input_dir(tmp_path: Path, n_runs: int = 2) -> Path:
     for i in range(n_runs):
         data = {
             "run_id": f"cli-run-{i}",
-            "model": "test", "scenario": "test",
-            "steps": [{"step_index": 0, "reasoning": f"step text {i}", "tool_calls": [], "result": "ok"}],
+            "model": "test",
+            "scenario": "test",
+            "steps": [
+                {"step_index": 0, "reasoning": f"step text {i}", "tool_calls": [], "result": "ok"}
+            ],
         }
         (input_dir / f"cli-run-{i}.json").write_text(json.dumps(data))
     return input_dir
@@ -34,7 +35,9 @@ def test_cli_help_runs():
     """Smoke test: --help exits 0."""
     result = subprocess.run(
         [sys.executable, "-m", "judge_panel.cli", "--help"],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True,
+        text=True,
+        timeout=15,
     )
     assert result.returncode == 0
     assert "usage:" in result.stdout.lower()
@@ -50,11 +53,21 @@ def test_cli_skips_existing_verdicts(tmp_path, monkeypatch):
         (verdicts_dir / f"cli-run-{i}" / "panel_verdict.json").write_text('{"skip": true}')
 
     # Stub OpenRouter key so the CLI doesn't refuse to start
-    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}
+    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}  # pragma: allowlist secret
     result = subprocess.run(
-        [sys.executable, "-m", "judge_panel.cli",
-         "--input-dir", str(input_dir), "--verdicts-dir", str(verdicts_dir)],
-        capture_output=True, text=True, timeout=30, env=env,
+        [
+            sys.executable,
+            "-m",
+            "judge_panel.cli",
+            "--input-dir",
+            str(input_dir),
+            "--verdicts-dir",
+            str(verdicts_dir),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
     )
     assert result.returncode == 0
     assert "skipped" in result.stdout.lower()
@@ -71,9 +84,20 @@ def test_cli_requires_openrouter_key(tmp_path):
     env = {k: v for k, v in os.environ.items() if k != "OPENROUTER_API_KEY"}
     env["PYTHONPATH"] = str(repo_root) + os.pathsep + env.get("PYTHONPATH", "")
     result = subprocess.run(
-        [sys.executable, "-m", "judge_panel.cli",
-         "--input-dir", str(input_dir), "--verdicts-dir", str(tmp_path / "v")],
-        capture_output=True, text=True, timeout=15, env=env, cwd=str(tmp_path),
+        [
+            sys.executable,
+            "-m",
+            "judge_panel.cli",
+            "--input-dir",
+            str(input_dir),
+            "--verdicts-dir",
+            str(tmp_path / "v"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=env,
+        cwd=str(tmp_path),
     )
     assert result.returncode != 0
     assert "OPENROUTER_API_KEY" in (result.stderr + result.stdout)
@@ -87,13 +111,23 @@ def test_cli_session_cost_cap_is_overridable_via_flag(tmp_path):
     (verdicts_dir / "cli-run-0").mkdir(parents=True)
     (verdicts_dir / "cli-run-0" / "panel_verdict.json").write_text('{"skip": true}')
 
-    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}
+    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}  # pragma: allowlist secret
     result = subprocess.run(
-        [sys.executable, "-m", "judge_panel.cli",
-         "--input-dir", str(input_dir),
-         "--verdicts-dir", str(verdicts_dir),
-         "--max-session-cost-usd", "1.23"],
-        capture_output=True, text=True, timeout=30, env=env,
+        [
+            sys.executable,
+            "-m",
+            "judge_panel.cli",
+            "--input-dir",
+            str(input_dir),
+            "--verdicts-dir",
+            str(verdicts_dir),
+            "--max-session-cost-usd",
+            "1.23",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
     )
     assert result.returncode == 0
     assert "1.23" in result.stdout or "1.23" in result.stderr

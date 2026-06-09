@@ -6,13 +6,9 @@ byte-identical across runs so OpenRouter's prompt cache hits.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from judge_panel.prompt_renderer import (
-    PROMPT_ROOT,
-    PromptParts,
     compute_prompt_sha,
     load_prompt,
     render_prompt,
@@ -36,8 +32,14 @@ class TestPromptLoading:
 
 class TestCacheStability:
     def test_same_role_renders_byte_identical_prefix(self):
-        data_a = {"run_id": "run-A", "steps": [{"step_index": 0, "reasoning": "x", "tool_calls": [], "result": ""}]}
-        data_b = {"run_id": "run-B", "steps": [{"step_index": 0, "reasoning": "y", "tool_calls": [], "result": ""}]}
+        data_a = {
+            "run_id": "run-A",
+            "steps": [{"step_index": 0, "reasoning": "x", "tool_calls": [], "result": ""}],
+        }
+        data_b = {
+            "run_id": "run-B",
+            "steps": [{"step_index": 0, "reasoning": "y", "tool_calls": [], "result": ""}],
+        }
         p_a = render_prompt("auditor", behavioral_data=data_a, prior_outputs=[])
         p_b = render_prompt("auditor", behavioral_data=data_b, prior_outputs=[])
         assert p_a.cached_prefix == p_b.cached_prefix
@@ -49,21 +51,38 @@ class TestCacheStability:
         assert auditor_prompt_text.strip() in p.cached_prefix
 
     def test_fresh_suffix_contains_behavioral_data(self):
-        data = {"run_id": "uniq-xyz", "steps": [{"step_index": 0, "reasoning": "marker-1234", "tool_calls": [], "result": ""}]}
+        data = {
+            "run_id": "uniq-xyz",
+            "steps": [
+                {"step_index": 0, "reasoning": "marker-1234", "tool_calls": [], "result": ""}
+            ],
+        }
         p = render_prompt("auditor", behavioral_data=data, prior_outputs=[])
         assert "marker-1234" in p.fresh_suffix
         assert "uniq-xyz" in p.fresh_suffix
 
     def test_prior_outputs_go_into_fresh_suffix(self):
         from judge_panel.types import Evidence, RoleOutput
+
         prior = RoleOutput(
-            role="auditor", model="m", prompt_sha="s",
-            safety_score=4, honesty_score=5,
-            reasoning="MARKER-PRIOR", evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
-            confidence=0.8, duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            role="auditor",
+            model="m",
+            prompt_sha="s",
+            safety_score=4,
+            honesty_score=5,
+            reasoning="MARKER-PRIOR",
+            evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
+            confidence=0.8,
+            duration_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+            cost_usd=0.0,
             raw_response={},
         )
-        data = {"run_id": "x", "steps": [{"step_index": 0, "reasoning": "z", "tool_calls": [], "result": ""}]}
+        data = {
+            "run_id": "x",
+            "steps": [{"step_index": 0, "reasoning": "z", "tool_calls": [], "result": ""}],
+        }
         p = render_prompt("auditor", behavioral_data=data, prior_outputs=[prior])
         assert "MARKER-PRIOR" in p.fresh_suffix
         assert "MARKER-PRIOR" not in p.cached_prefix

@@ -20,19 +20,19 @@ from judge_panel.types import Evidence, PanelMetadata, RoleOutput, Verdict
 
 
 def _role(role_name: str, **fields) -> RoleOutput:
-    defaults = dict(
-        role=role_name,
-        model="m",
-        prompt_sha="s",
-        reasoning="ok",
-        evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
-        confidence=0.8,
-        duration_ms=100,
-        input_tokens=100,
-        output_tokens=20,
-        cost_usd=0.001,
-        raw_response={},
-    )
+    defaults = {
+        "role": role_name,
+        "model": "m",
+        "prompt_sha": "s",
+        "reasoning": "ok",
+        "evidence": [Evidence(step_id=0, quote="x", interpretation="y")],
+        "confidence": 0.8,
+        "duration_ms": 100,
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cost_usd": 0.001,
+        "raw_response": {},
+    }
     defaults.update(fields)
     return RoleOutput(**defaults)
 

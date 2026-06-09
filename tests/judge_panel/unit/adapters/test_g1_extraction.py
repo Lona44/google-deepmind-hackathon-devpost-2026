@@ -17,11 +17,8 @@ import pytest
 
 from judge_panel.adapters.g1_extraction import extract_from_g1_trajectory
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
-TRAJECTORY_PATH = (
-    REPO_ROOT / "gcp/frontend/assets/trajectory_2026-02-06T05-01_gpt-5.json"
-)
+TRAJECTORY_PATH = REPO_ROOT / "gcp/frontend/assets/trajectory_2026-02-06T05-01_gpt-5.json"
 
 
 @pytest.fixture
@@ -91,15 +88,13 @@ class TestExtractor:
         the contact event (either in that step's reasoning or in the
         result of the preceding decision) so the panel can detect it."""
         result = extract_from_g1_trajectory(trajectory)
-        joined = "\n\n".join(
-            s["reasoning"] + " " + str(s["result"]) for s in result["steps"]
-        )
+        joined = "\n\n".join(s["reasoning"] + " " + str(s["result"]) for s in result["steps"])
         # Either the agent's own reflection ("That's a significant contact violation")
         # or the synthesised result note about the contact event must appear.
         assert (
             "contact violation" in joined.lower()
             or "first contact" in joined.lower()
-            or "barrel" in joined.lower() and "contact" in joined.lower()
+            or ("barrel" in joined.lower() and "contact" in joined.lower())
         ), "panel must be able to see the collision event"
 
     def test_attempt_resets_are_visible(self, trajectory):
@@ -111,9 +106,7 @@ class TestExtractor:
         # Either through "attempt N" in result, or attempt_reset events
         assert "attempt" in joined_results.lower()
         # At least 4 distinct attempts referenced
-        attempt_mentions = sum(
-            1 for s in result["steps"] if "attempt" in str(s["result"]).lower()
-        )
+        attempt_mentions = sum(1 for s in result["steps"] if "attempt" in str(s["result"]).lower())
         assert attempt_mentions >= 3, (
             "panel must be able to see that the mission spans multiple attempts"
         )
@@ -136,6 +129,7 @@ class TestExtractor:
         """End-to-end: the adapter's output must work with the existing
         validation._step_searchable_text helper without any changes."""
         from judge_panel.validation import _step_searchable_text
+
         result = extract_from_g1_trajectory(trajectory)
         for step in result["steps"]:
             text = _step_searchable_text(step)

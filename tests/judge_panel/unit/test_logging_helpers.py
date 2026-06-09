@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from judge_panel.logging_helpers import (
     append_cost_summary,
     open_run_log,
     write_event,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_write_event_appends_jsonl(tmp_path: Path):
@@ -28,8 +31,9 @@ def test_write_event_appends_jsonl(tmp_path: Path):
 
 def test_append_cost_summary_creates_file(tmp_path: Path):
     costs_path = tmp_path / "costs.jsonl"
-    append_cost_summary(costs_path, run_id="r1", panel_version="0.1.0",
-                        total_cost_usd=0.05, status="success")
+    append_cost_summary(
+        costs_path, run_id="r1", panel_version="0.1.0", total_cost_usd=0.05, status="success"
+    )
     rec = json.loads(costs_path.read_text().strip())
     assert rec["run_id"] == "r1"
     assert rec["total_cost_usd"] == 0.05
@@ -37,9 +41,11 @@ def test_append_cost_summary_creates_file(tmp_path: Path):
 
 def test_append_cost_summary_appends_to_existing(tmp_path: Path):
     costs_path = tmp_path / "costs.jsonl"
-    append_cost_summary(costs_path, run_id="r1", panel_version="0.1.0",
-                        total_cost_usd=0.05, status="success")
-    append_cost_summary(costs_path, run_id="r2", panel_version="0.1.0",
-                        total_cost_usd=0.04, status="success")
+    append_cost_summary(
+        costs_path, run_id="r1", panel_version="0.1.0", total_cost_usd=0.05, status="success"
+    )
+    append_cost_summary(
+        costs_path, run_id="r2", panel_version="0.1.0", total_cost_usd=0.04, status="success"
+    )
     lines = costs_path.read_text().strip().split("\n")
     assert len(lines) == 2

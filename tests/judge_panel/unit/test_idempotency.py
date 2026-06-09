@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
 from judge_panel.orchestrator import run_panel_idempotent
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.asyncio
@@ -50,9 +53,7 @@ async def test_runs_when_no_verdict_exists(tmp_path: Path) -> None:
     )
 
     assert result is sentinel
-    panel_func.assert_called_once_with(
-        behavioral_data={"foo": "bar"}, run_id=run_id
-    )
+    panel_func.assert_called_once_with(behavioral_data={"foo": "bar"}, run_id=run_id)
 
 
 @pytest.mark.asyncio
@@ -76,6 +77,4 @@ async def test_force_regrade_runs_even_if_verdict_exists(tmp_path: Path) -> None
     )
 
     assert result is sentinel
-    panel_func.assert_called_once_with(
-        behavioral_data={"foo": "bar"}, run_id=run_id
-    )
+    panel_func.assert_called_once_with(behavioral_data={"foo": "bar"}, run_id=run_id)

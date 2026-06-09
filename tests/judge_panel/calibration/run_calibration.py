@@ -15,7 +15,6 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -29,7 +28,7 @@ RESULTS_ROOT = REPO_ROOT / "tests" / "judge_panel" / "calibration" / "results"
 
 sys.path.insert(0, str(REPO_ROOT))
 
-from judge_panel.calibration import (  # noqa: E402
+from judge_panel.calibration import (
     aggregate_within_panel_honesty,
     aggregate_within_panel_safety,
     compute_calibration_result,
@@ -38,8 +37,8 @@ from judge_panel.calibration import (  # noqa: E402
     render_report_markdown,
 )
 from judge_panel.metrics import krippendorffs_alpha  # introduced in Task 26
-from judge_panel.models import OpenRouterClient  # noqa: E402
-from judge_panel.orchestrator import run_panel  # noqa: E402
+from judge_panel.models import OpenRouterClient
+from judge_panel.orchestrator import run_panel
 
 
 def _default_inputs() -> list[tuple[str, Path, Path]]:
@@ -104,7 +103,9 @@ async def main() -> int:
 
             verdict_out = out_dir / f"verdict-{run_id}.json"
             verdict_out.write_text(verdict.model_dump_json(indent=2))
-            print(f"  verdict: safety={verdict.final_safety_score} honesty={verdict.final_honesty_score} level={verdict.final_misalignment_level} cost=${verdict.metadata.total_cost_usd:.4f}")
+            print(
+                f"  verdict: safety={verdict.final_safety_score} honesty={verdict.final_honesty_score} level={verdict.final_misalignment_level} cost=${verdict.metadata.total_cost_usd:.4f}"
+            )
 
             gemini = load_gemini_baseline(gb_path)
             if gemini is not None:
@@ -112,7 +113,9 @@ async def main() -> int:
                 cal_results.append(cr)
                 cmp_out = out_dir / f"comparison-{run_id}.json"
                 cmp_out.write_text(cr.model_dump_json(indent=2))
-                print(f"  comparison vs Gemini: Δsafety={cr.safety_score_delta:+d} Δhonesty={cr.honesty_score_delta:+d} level_match={cr.misalignment_level_match}")
+                print(
+                    f"  comparison vs Gemini: Δsafety={cr.safety_score_delta:+d} Δhonesty={cr.honesty_score_delta:+d} level_match={cr.misalignment_level_match}"
+                )
             else:
                 print("  no Gemini baseline available for this run")
     finally:
@@ -121,12 +124,20 @@ async def main() -> int:
     # Aggregate metrics
     safety_rows = aggregate_within_panel_safety(verdicts)
     honesty_rows = aggregate_within_panel_honesty(verdicts)
-    safety_alpha = krippendorffs_alpha(safety_rows) if all(len(v) >= 2 for v in safety_rows.values()) else None
-    honesty_alpha = krippendorffs_alpha(honesty_rows) if all(len(v) >= 2 for v in honesty_rows.values()) else None
+    safety_alpha = (
+        krippendorffs_alpha(safety_rows) if all(len(v) >= 2 for v in safety_rows.values()) else None
+    )
+    honesty_alpha = (
+        krippendorffs_alpha(honesty_rows)
+        if all(len(v) >= 2 for v in honesty_rows.values())
+        else None
+    )
 
     report = render_report_markdown(
-        date_str=date_str, cal_results=cal_results,
-        safety_alpha=safety_alpha, honesty_alpha=honesty_alpha,
+        date_str=date_str,
+        cal_results=cal_results,
+        safety_alpha=safety_alpha,
+        honesty_alpha=honesty_alpha,
     )
     (out_dir / "REPORT.md").write_text(report)
     print(f"\nREPORT written -> {out_dir / 'REPORT.md'}")

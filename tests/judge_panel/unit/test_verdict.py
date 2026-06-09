@@ -17,21 +17,21 @@ from judge_panel.types import (
 
 
 def _role(role: str, **overrides) -> RoleOutput:
-    defaults = dict(
-        role=role,
-        model="m",
-        prompt_sha="s",
-        safety_score=3,
-        honesty_score=3,
-        reasoning="ok",
-        evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
-        confidence=0.7,
-        duration_ms=1000,
-        input_tokens=100,
-        output_tokens=50,
-        cost_usd=0.001,
-        raw_response={},
-    )
+    defaults = {
+        "role": role,
+        "model": "m",
+        "prompt_sha": "s",
+        "safety_score": 3,
+        "honesty_score": 3,
+        "reasoning": "ok",
+        "evidence": [Evidence(step_id=0, quote="x", interpretation="y")],
+        "confidence": 0.7,
+        "duration_ms": 1000,
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "cost_usd": 0.001,
+        "raw_response": {},
+    }
     defaults.update(overrides)
     return RoleOutput(**defaults)
 
@@ -57,10 +57,13 @@ class TestPanelMetadata:
     def test_total_cost_non_negative(self):
         with pytest.raises(ValidationError):
             PanelMetadata(
-                run_id="x", panel_version="0.1.0", panel_commit_sha="s",
+                run_id="x",
+                panel_version="0.1.0",
+                panel_commit_sha="s",
                 started_at=datetime.now(timezone.utc),
                 completed_at=datetime.now(timezone.utc),
-                total_cost_usd=-0.01, total_duration_ms=1,
+                total_cost_usd=-0.01,
+                total_duration_ms=1,
             )
 
 
@@ -74,12 +77,17 @@ class TestVerdict:
             final_confidence=0.85,
             status="success",
             auditor=_role("auditor"),
-            detector=_role("detector", safety_score=None, honesty_score=4,
-                           evidence=[Evidence(step_id=0, quote="x", interpretation="y")]),
+            detector=_role(
+                "detector",
+                safety_score=None,
+                honesty_score=4,
+                evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
+            ),
             critic=_role("critic", safety_score=2, honesty_score=3),
             arbiter=_role("arbiter", misalignment_level="L1"),
-            dissenter=_role("dissenter", safety_score=None, honesty_score=None,
-                            evidence=[], dissent_flag=False),
+            dissenter=_role(
+                "dissenter", safety_score=None, honesty_score=None, evidence=[], dissent_flag=False
+            ),
             safety_score_variance=0.5,
             honesty_score_variance=0.3,
         )
@@ -90,16 +98,23 @@ class TestVerdict:
         with pytest.raises(ValidationError):
             Verdict(
                 metadata=_metadata(),
-                final_safety_score=3, final_honesty_score=3,
-                final_misalignment_level="L0", final_confidence=0.5,
+                final_safety_score=3,
+                final_honesty_score=3,
+                final_misalignment_level="L0",
+                final_confidence=0.5,
                 status="banana",
                 auditor=_role("auditor"),
-                detector=_role("detector", safety_score=None, honesty_score=3,
-                               evidence=[Evidence(step_id=0, quote="x", interpretation="y")]),
-                critic=_role("critic"), arbiter=_role("arbiter"),
-                dissenter=_role("dissenter", safety_score=None, honesty_score=None,
-                                evidence=[]),
-                safety_score_variance=0, honesty_score_variance=0,
+                detector=_role(
+                    "detector",
+                    safety_score=None,
+                    honesty_score=3,
+                    evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
+                ),
+                critic=_role("critic"),
+                arbiter=_role("arbiter"),
+                dissenter=_role("dissenter", safety_score=None, honesty_score=None, evidence=[]),
+                safety_score_variance=0,
+                honesty_score_variance=0,
             )
 
 
@@ -107,16 +122,23 @@ class TestCalibrationResult:
     def test_constructs(self):
         v = Verdict(
             metadata=_metadata(),
-            final_safety_score=3, final_honesty_score=4,
-            final_misalignment_level="L1", final_confidence=0.7,
+            final_safety_score=3,
+            final_honesty_score=4,
+            final_misalignment_level="L1",
+            final_confidence=0.7,
             status="success",
             auditor=_role("auditor"),
-            detector=_role("detector", safety_score=None, honesty_score=4,
-                           evidence=[Evidence(step_id=0, quote="x", interpretation="y")]),
-            critic=_role("critic"), arbiter=_role("arbiter", misalignment_level="L1"),
-            dissenter=_role("dissenter", safety_score=None, honesty_score=None,
-                            evidence=[]),
-            safety_score_variance=0, honesty_score_variance=0,
+            detector=_role(
+                "detector",
+                safety_score=None,
+                honesty_score=4,
+                evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
+            ),
+            critic=_role("critic"),
+            arbiter=_role("arbiter", misalignment_level="L1"),
+            dissenter=_role("dissenter", safety_score=None, honesty_score=None, evidence=[]),
+            safety_score_variance=0,
+            honesty_score_variance=0,
         )
         cal = CalibrationResult(
             verdict=v,

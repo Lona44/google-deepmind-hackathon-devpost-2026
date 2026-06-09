@@ -5,14 +5,12 @@ Uses httpx.MockTransport for stubbed responses; no live API calls.
 
 from __future__ import annotations
 
-import json
-
 import httpx
 import pytest
 
 from judge_panel.models import (
-    OpenRouterClient,
     OpenRouterCallResult,
+    OpenRouterClient,
 )
 from judge_panel.retry import (
     AuthError,
@@ -24,8 +22,10 @@ from judge_panel.retry import (
 
 def _mock_transport(responses: list[httpx.Response]) -> httpx.AsyncBaseTransport:
     iterator = iter(responses)
+
     def handler(request: httpx.Request) -> httpx.Response:
         return next(iterator)
+
     return httpx.MockTransport(handler)
 
 
@@ -34,7 +34,9 @@ async def test_successful_call_returns_parsed_result():
     body = {
         "id": "test-1",
         "model": "xiaomi/mimo-v2.5-pro",
-        "choices": [{"message": {"role": "assistant", "content": "hello"}, "finish_reason": "stop"}],
+        "choices": [
+            {"message": {"role": "assistant", "content": "hello"}, "finish_reason": "stop"}
+        ],
         "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
     }
     transport = _mock_transport([httpx.Response(200, json=body)])
@@ -62,21 +64,21 @@ async def test_reasoning_model_content_null_falls_back_to_reasoning():
     body = {
         "id": "test-kimi-reasoning",
         "model": "moonshotai/kimi-k2.6",
-        "choices": [{
-            "message": {
-                "role": "assistant",
-                "content": None,
-                "reasoning": "The user asked 2+2. Answer: 4",
-            },
-            "finish_reason": "stop",
-        }],
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "reasoning": "The user asked 2+2. Answer: 4",
+                },
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {"prompt_tokens": 50, "completion_tokens": 30, "total_tokens": 80},
     }
     transport = _mock_transport([httpx.Response(200, json=body)])
     client = OpenRouterClient(api_key="test", transport=transport)
-    result = await client.call(
-        model="moonshotai/kimi-k2.6", cached_prefix="A", fresh_suffix="B"
-    )
+    result = await client.call(model="moonshotai/kimi-k2.6", cached_prefix="A", fresh_suffix="B")
     assert result.content is not None
     assert result.content != ""
     assert "4" in result.content
@@ -89,21 +91,21 @@ async def test_content_present_is_preferred_over_reasoning():
     body = {
         "id": "test-both",
         "model": "moonshotai/kimi-k2.6",
-        "choices": [{
-            "message": {
-                "role": "assistant",
-                "content": "FINAL_ANSWER",
-                "reasoning": "intermediate scratchpad text",
-            },
-            "finish_reason": "stop",
-        }],
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "FINAL_ANSWER",
+                    "reasoning": "intermediate scratchpad text",
+                },
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
     transport = _mock_transport([httpx.Response(200, json=body)])
     client = OpenRouterClient(api_key="test", transport=transport)
-    result = await client.call(
-        model="moonshotai/kimi-k2.6", cached_prefix="A", fresh_suffix="B"
-    )
+    result = await client.call(model="moonshotai/kimi-k2.6", cached_prefix="A", fresh_suffix="B")
     assert result.content == "FINAL_ANSWER"
 
 
@@ -116,10 +118,12 @@ async def test_both_content_and_reasoning_empty_returns_empty_string():
     body = {
         "id": "test-empty",
         "model": "x",
-        "choices": [{
-            "message": {"role": "assistant", "content": None, "reasoning": None},
-            "finish_reason": "stop",
-        }],
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": None, "reasoning": None},
+                "finish_reason": "stop",
+            }
+        ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 0, "total_tokens": 10},
     }
     transport = _mock_transport([httpx.Response(200, json=body)])
@@ -146,7 +150,9 @@ async def test_402_raises_credits_error():
 
 @pytest.mark.asyncio
 async def test_429_raises_rate_limit_with_retry_after():
-    transport = _mock_transport([httpx.Response(429, headers={"Retry-After": "5"}, json={"error": "slow"})])
+    transport = _mock_transport(
+        [httpx.Response(429, headers={"Retry-After": "5"}, json={"error": "slow"})]
+    )
     client = OpenRouterClient(api_key="test", transport=transport)
     with pytest.raises(RateLimitError) as exc:
         await client.call(model="x", cached_prefix="A", fresh_suffix="B")

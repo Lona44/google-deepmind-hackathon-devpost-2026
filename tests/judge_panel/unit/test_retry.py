@@ -6,7 +6,6 @@ auth/credits errors fail immediately; rate limits respect Retry-After.
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock
 
 import httpx

@@ -22,7 +22,6 @@ from judge_panel.cost_tracker import CostCapExceededError, PerExperimentTracker
 from judge_panel.models import OpenRouterClient
 from judge_panel.orchestrator import run_panel
 
-
 # Verbatim substring of canonical fixture step 0's `result` text:
 #   "Selected safe detour path at y=-1.6 to avoid barrel contact despite battery risk."
 _QUOTE = "safe detour path"
@@ -48,61 +47,73 @@ def _detect_role(content: str) -> str:
 def _hallucinated_auditor_payload() -> str:
     """Auditor response with a quote that does NOT appear in the fixture —
     semantic validation must reject this at parse time."""
-    return json.dumps({
-        "safety_score": 4,
-        "honesty_score": 5,
-        "reasoning": "auditor verdict",
-        "evidence": [
-            {"step_id": 0, "quote": "completely fabricated quote", "interpretation": "x"}
-        ],
-        "confidence": 0.8,
-    })
+    return json.dumps(
+        {
+            "safety_score": 4,
+            "honesty_score": 5,
+            "reasoning": "auditor verdict",
+            "evidence": [
+                {"step_id": 0, "quote": "completely fabricated quote", "interpretation": "x"}
+            ],
+            "confidence": 0.8,
+        }
+    )
 
 
 def _clean_payload(role: str) -> str:
     """Valid per-role payload citing a verbatim substring of fixture step 0."""
     common_evidence = [{"step_id": 0, "quote": _QUOTE, "interpretation": role}]
     if role == "auditor":
-        return json.dumps({
-            "safety_score": 4,
-            "honesty_score": 5,
-            "reasoning": "auditor verdict",
-            "evidence": common_evidence,
-            "confidence": 0.85,
-        })
+        return json.dumps(
+            {
+                "safety_score": 4,
+                "honesty_score": 5,
+                "reasoning": "auditor verdict",
+                "evidence": common_evidence,
+                "confidence": 0.85,
+            }
+        )
     if role == "detector":
-        return json.dumps({
-            "honesty_score": 4,
-            "detector_risk_flag": "low",
-            "reasoning": "detector verdict",
-            "evidence": common_evidence,
-            "confidence": 0.8,
-        })
+        return json.dumps(
+            {
+                "honesty_score": 4,
+                "detector_risk_flag": "low",
+                "reasoning": "detector verdict",
+                "evidence": common_evidence,
+                "confidence": 0.8,
+            }
+        )
     if role == "critic":
-        return json.dumps({
-            "safety_score": 3,
-            "honesty_score": 4,
-            "critic_argument": "could be tighter",
-            "reasoning": "critic verdict",
-            "evidence": common_evidence,
-            "confidence": 0.7,
-        })
+        return json.dumps(
+            {
+                "safety_score": 3,
+                "honesty_score": 4,
+                "critic_argument": "could be tighter",
+                "reasoning": "critic verdict",
+                "evidence": common_evidence,
+                "confidence": 0.7,
+            }
+        )
     if role == "arbiter":
-        return json.dumps({
-            "safety_score": 4,
-            "honesty_score": 5,
-            "misalignment_level": "L0",
-            "reasoning": "arbiter verdict",
-            "evidence": common_evidence,
-            "confidence": 0.85,
-        })
+        return json.dumps(
+            {
+                "safety_score": 4,
+                "honesty_score": 5,
+                "misalignment_level": "L0",
+                "reasoning": "arbiter verdict",
+                "evidence": common_evidence,
+                "confidence": 0.85,
+            }
+        )
     if role == "dissenter":
-        return json.dumps({
-            "dissent_flag": False,
-            "dissent_reason": "",
-            "reasoning": "dissenter verdict",
-            "confidence": 0.9,
-        })
+        return json.dumps(
+            {
+                "dissent_flag": False,
+                "dissent_reason": "",
+                "reasoning": "dissenter verdict",
+                "confidence": 0.9,
+            }
+        )
     raise ValueError(role)
 
 
@@ -123,11 +134,7 @@ async def test_hallucinated_quote_failure_in_auditor_marks_role_failed(
         body = json.loads(request.content)
         content = body["messages"][0]["content"]
         role = _detect_role(content)
-        payload = (
-            _hallucinated_auditor_payload()
-            if role == "auditor"
-            else _clean_payload(role)
-        )
+        payload = _hallucinated_auditor_payload() if role == "auditor" else _clean_payload(role)
         return httpx.Response(
             200,
             json={
@@ -150,9 +157,7 @@ async def test_hallucinated_quote_failure_in_auditor_marks_role_failed(
 
     client = OpenRouterClient(api_key="test", transport=httpx.MockTransport(handler))
     try:
-        verdict = await run_panel(
-            canonical_behavioral_data, client=client, run_id="bad-quote"
-        )
+        verdict = await run_panel(canonical_behavioral_data, client=client, run_id="bad-quote")
         # Auditor was marked failed because the quote could not be verified
         # against the canonical fixture text.
         assert verdict.auditor.error is not None
