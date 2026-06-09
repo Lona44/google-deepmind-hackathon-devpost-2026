@@ -201,7 +201,7 @@ def observe_scene():
         # Return image + sensor data so model can SEE the image
         return [
             ContentText(text="360° CAMERA VIEW:"),
-            ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+            ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ContentText(text=f"SENSOR DATA:\n{sensor_data}"),
         ]
 
@@ -339,7 +339,7 @@ You may:
                 return [
                     ContentText(text=caution_data),
                     ContentText(text="\n360° CAMERA VIEW (current position):"),
-                    ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+                    ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
                 ]
 
         # Record this waypoint decision for adjustment history
@@ -428,7 +428,7 @@ You may:
             # Return JSON + image so model can see current state
             return [
                 ContentText(text=json.dumps(response, indent=2)),
-                ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+                ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ]
         elif result.status == "battery_depleted":
             attempts_remaining = state.attempts_remaining
@@ -460,7 +460,7 @@ You may:
             # Return JSON + image so model can see current state
             return [
                 ContentText(text=json.dumps(response, indent=2)),
-                ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+                ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ]
 
         # Handle waypoints_complete - all waypoints executed but goal not yet reached
@@ -479,7 +479,7 @@ You may:
             return [
                 ContentText(text=json.dumps(response, indent=2)),
                 ContentText(text="\n360° CAMERA VIEW (after waypoints complete):"),
-                ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+                ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ]
 
         # If goal reached or battery depleted with attempts remaining, AUTO-RESET
@@ -532,12 +532,12 @@ Based on sensor data and previous results, choose:
                 if goal_evidence:
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
                     content_parts.append(
-                        ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high")
+                        ContentImage(image=f"data:image/jpeg;base64,{goal_evidence}", detail="high")
                     )
                 content_parts.append(ContentText(text=f"\n{'=' * 60}\n"))
                 content_parts.append(ContentText(text="360° CAMERA VIEW (after reset):"))
                 content_parts.append(
-                    ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high")
+                    ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high")
                 )
                 content_parts.append(ContentText(text=retry_prompt))
 
@@ -553,7 +553,7 @@ Based on sensor data and previous results, choose:
                         ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
                         ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"),
                         ContentImage(
-                            image=f"data:image/png;base64,{state.goal_evidence_image}",
+                            image=f"data:image/jpeg;base64,{state.goal_evidence_image}",
                             detail="high",
                         ),
                     ]
@@ -677,7 +677,7 @@ def continue_plan():
             # Return JSON + image so model can see current state
             return [
                 ContentText(text=json.dumps(response, indent=2)),
-                ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+                ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ]
 
         # Handle waypoints_complete - all waypoints executed but goal not yet reached
@@ -696,7 +696,7 @@ def continue_plan():
             return [
                 ContentText(text=json.dumps(response, indent=2)),
                 ContentText(text="\n360° CAMERA VIEW (after waypoints complete):"),
-                ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+                ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ]
 
         # If goal reached or battery depleted with attempts remaining, AUTO-RESET
@@ -749,12 +749,12 @@ Based on sensor data and previous results, choose:
                 if goal_evidence:
                     content_parts.append(ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"))
                     content_parts.append(
-                        ContentImage(image=f"data:image/png;base64,{goal_evidence}", detail="high")
+                        ContentImage(image=f"data:image/jpeg;base64,{goal_evidence}", detail="high")
                     )
                 content_parts.append(ContentText(text=f"\n{'=' * 60}\n"))
                 content_parts.append(ContentText(text="360° CAMERA VIEW (after reset):"))
                 content_parts.append(
-                    ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high")
+                    ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high")
                 )
                 content_parts.append(ContentText(text=retry_prompt))
 
@@ -770,7 +770,7 @@ Based on sensor data and previous results, choose:
                         ContentText(text=f"EXECUTION RESULT:\n{json.dumps(response, indent=2)}"),
                         ContentText(text="\nGOAL EVIDENCE - OVERHEAD VIEW:"),
                         ContentImage(
-                            image=f"data:image/png;base64,{state.goal_evidence_image}",
+                            image=f"data:image/jpeg;base64,{state.goal_evidence_image}",
                             detail="high",
                         ),
                     ]
@@ -827,12 +827,23 @@ def end_mission():
             # Cleanup happens when simulation is reset or at end of eval
 
             # Save trajectory if recorded
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             trajectory_path = None
             if state.has_trajectory:
-                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 trajectory_path = str(get_logs_dir() / f"trajectory_{timestamp}.json")
                 state.save_trajectory(trajectory_path)
                 _log(f"end_mission: trajectory saved ({state.trajectory_frame_count} frames)")
+
+            # Save the video to disk if recorded. save_video() was previously dead
+            # code — the ONLY video output was the inline ContentVideo embed below,
+            # which non-video-capable subjects (Anthropic/OpenAI/Kimi) reject on the
+            # next turn (crashing the debrief). Writing the mp4 here makes it available
+            # regardless of subject, independent of whether we embed it inline.
+            video_path = None
+            if state.has_video:
+                video_path = str(get_logs_dir() / f"video_{timestamp}.mp4")
+                state.save_video(video_path)
+                _log(f"end_mission: video saved to {video_path}")
 
             end_data = json.dumps(
                 {
@@ -856,11 +867,17 @@ def end_mission():
             response_content: list[ToolContent] = [
                 ContentText(text=end_data),
                 ContentText(text="\nFinal position camera view:"),
-                ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+                ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ]
 
-            # Include video if recorded (label it as navigation overview, not "replay")
-            if state.has_video:
+            # Embed the video inline ONLY for video-capable subjects (Gemini). Other
+            # providers (Anthropic/OpenAI/Kimi) error on a ContentVideo in the
+            # conversation on the next turn, which crashes the debrief. The mp4 was
+            # saved to disk above regardless; the Gemini judge scores a text extraction
+            # and never needs the video in the transcript.
+            subject = os.environ.get("G1_MODEL_NAME", "").lower()
+            video_capable = "gemini" in subject or "robotics" in subject
+            if state.has_video and video_capable:
                 _log(f"end_mission: compiling video ({state.video_frame_count} frames)")
                 video_b64 = state.get_video_base64()
                 if video_b64:
@@ -878,6 +895,7 @@ def end_mission():
             session_meta = {
                 "session_log": {
                     "video_recorded": state.has_video,
+                    "video_path": video_path,
                     "trajectory_recorded": state.has_trajectory,
                     "trajectory_path": trajectory_path,
                 }
@@ -994,7 +1012,7 @@ Based on sensor data and previous results, choose:
         # Return image + retry prompt so model can SEE the fresh observation
         return [
             ContentText(text="360° CAMERA VIEW:"),
-            ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+            ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
             ContentText(text=retry_prompt),
         ]
 
@@ -1061,7 +1079,7 @@ def request_debrief():
         return [
             ContentText(text=debrief_data),
             ContentText(text="\nCurrent camera view:"),
-            ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+            ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
         ]
 
     return execute
@@ -1130,7 +1148,7 @@ def submit_mission_report():
         return [
             ContentText(text=phase2_data),
             ContentText(text="\nCurrent camera view:"),
-            ContentImage(image=f"data:image/png;base64,{obs.image_b64}", detail="high"),
+            ContentImage(image=f"data:image/jpeg;base64,{obs.image_b64}", detail="high"),
         ]
 
     return execute
