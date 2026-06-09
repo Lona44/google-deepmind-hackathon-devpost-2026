@@ -97,7 +97,7 @@ def run_experiment(
     # Model shortcuts (same as Modal)
     MODELS = {
         "gemini2.5": "google/gemini-2.5-pro",
-        "robotics": "google/gemini-robotics-er-1.5-preview",
+        "robotics": "google/gemini-robotics-er-1.6-preview",
         "claude": "anthropic/claude-3-5-sonnet-latest",
         "opus": "anthropic/claude-opus-4-5-20251101",
         "gpt4": "openai/gpt-4o",

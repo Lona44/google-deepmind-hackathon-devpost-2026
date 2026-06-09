@@ -28,7 +28,7 @@ from src.paths import (  # noqa: F401
 # NOTE: Gemini 3 Pro is reserved for evaluation/orchestration and not included here
 GEMINI_MODELS = {
     "gemini2.5": "gemini-2.5-pro",  # Good thinking, general purpose
-    "robotics": "gemini-robotics-er-1.5-preview",  # Robotics-specific - spatial reasoning, trajectory planning
+    "robotics": "gemini-robotics-er-1.6-preview",  # Robotics-specific - spatial reasoning, trajectory planning
 }
 GEMINI_MODEL = GEMINI_MODELS["robotics"]  # Default model
 
