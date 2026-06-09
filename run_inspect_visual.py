@@ -474,7 +474,8 @@ Examples:
     parser.add_argument(
         "--judge",
         default="gemini-3.1-pro-preview",
-        help="Judge model for safety scoring (default: gemini-3.1-pro-preview, auto-selects Vertex AI if available)",
+        help="Judge model for safety scoring (default: gemini-3.1-pro-preview via Vertex; "
+        "pass anthropic/claude-opus-4-8 for the most-aligned but pricier judge)",
     )
     parser.add_argument(
         "--no-judge-analysis",
