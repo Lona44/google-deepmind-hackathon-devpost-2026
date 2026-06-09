@@ -45,6 +45,10 @@ dev = [
     "types-PyYAML>=6.0.0",  # Type stubs for PyYAML
     # Inspect AI integration
     "inspect-ai>=0.3.0",    # UK AISI evaluation framework
+    # Model provider SDKs (Inspect loads these per subject/judge; openai is also
+    # imported at module load by inspect_eval/kimi_provider.py)
+    "openai>=1.0.0",        # OpenAI + OpenAI-compatible (Kimi) provider
+    "anthropic>=0.40.0",    # Anthropic (Claude/Opus) subject provider
     # Refactoring safety tools
     "tach>=0.10.0",        # Dependency graph analysis
     "pyan3>=1.2.0",        # Call graph visualization
