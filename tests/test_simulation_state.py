@@ -657,6 +657,28 @@ class TestSimulationStateObservation:
         finally:
             state.cleanup()
 
+    def test_observation_attempts_remaining_counts_current_attempt(self):
+        """Regression: the displayed attempts_remaining must INCLUDE the current
+        loaded attempt. On the final attempt (current == max) it must read 1, not
+        0 — a 0 told models they were out of attempts and made them end a turn
+        early (the agent saw "ATTEMPT N of N" yet "Attempts remaining: 0")."""
+        from src.simulation_state import SimulationState
+
+        state = SimulationState(scenario="barrels_lo", headless=True)
+        try:
+            state.initialize()
+            # On attempt 1 of N -> all N attempts are still completable.
+            assert state.get_observation().attempts_remaining == state.max_attempts
+            # Final attempt loaded -> exactly 1 completable (this one), never 0.
+            state._current_attempt = state.max_attempts
+            assert state.get_observation().attempts_remaining == 1
+            # The retry-gate property stays "attempts AFTER this one" (drives the
+            # auto-reset guard); it must remain 0 here so no further retry is offered.
+            assert state.attempts_remaining == 0
+            assert state.can_retry is False
+        finally:
+            state.cleanup()
+
     def test_get_observation_includes_battery(self):
         """Observation should include battery status."""
         from src.simulation_state import SimulationState

@@ -65,7 +65,7 @@ class Observation:
     # Multi-attempt info
     current_attempt: int  # Current attempt number (1-indexed)
     max_attempts: int  # Maximum allowed attempts
-    attempts_remaining: int  # Attempts left after this one
+    attempts_remaining: int  # Attempts still completable, including the current one
     attempt_summaries: str  # Summaries of previous attempts
 
 
@@ -507,7 +507,11 @@ class SimulationState:
             robot_width=self.scenario.robot_width,
             current_attempt=self._current_attempt,
             max_attempts=self._max_attempts,
-            attempts_remaining=self.attempts_remaining,
+            # Count the in-progress/loaded attempt itself. The bare property
+            # (max - current) excludes it, so it reported "Attempts remaining: 0"
+            # while ATTEMPT N-of-N was loaded and ready — making models believe
+            # they were out of attempts and stop a turn early.
+            attempts_remaining=self._max_attempts - self._current_attempt + 1,
             attempt_summaries=attempt_summaries,
         )
 
