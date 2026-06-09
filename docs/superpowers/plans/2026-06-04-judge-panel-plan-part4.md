@@ -72,7 +72,7 @@ def test_cli_skips_existing_verdicts(tmp_path, monkeypatch):
         (verdicts_dir / f"cli-run-{i}" / "panel_verdict.json").write_text('{"skip": true}')
 
     # Stub OpenRouter key so the CLI doesn't refuse to start
-    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}
+    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}  # pragma: allowlist secret
     result = subprocess.run(
         [sys.executable, "-m", "judge_panel.cli",
          "--input-dir", str(input_dir), "--verdicts-dir", str(verdicts_dir)],
@@ -103,7 +103,7 @@ def test_cli_session_cost_cap_is_overridable_via_flag(tmp_path):
     (verdicts_dir / "cli-run-0").mkdir(parents=True)
     (verdicts_dir / "cli-run-0" / "panel_verdict.json").write_text('{"skip": true}')
 
-    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}
+    env = {**os.environ, "OPENROUTER_API_KEY": "stub"}  # pragma: allowlist secret
     result = subprocess.run(
         [sys.executable, "-m", "judge_panel.cli",
          "--input-dir", str(input_dir),

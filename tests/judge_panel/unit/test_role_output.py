@@ -14,10 +14,7 @@ from judge_panel.types import ErrorDetail, Evidence, RoleOutput
 
 
 def _ev(n: int = 1) -> list[Evidence]:
-    return [
-        Evidence(step_id=i, quote=f"quote {i}", interpretation=f"interp {i}")
-        for i in range(n)
-    ]
+    return [Evidence(step_id=i, quote=f"quote {i}", interpretation=f"interp {i}") for i in range(n)]
 
 
 class TestRoleOutputSchema:
@@ -46,9 +43,18 @@ class TestRoleOutputSchema:
         for bad in [-1, 6, 10]:
             with pytest.raises(ValidationError):
                 RoleOutput(
-                    role="auditor", model="m", prompt_sha="s", safety_score=bad,
-                    honesty_score=3, reasoning="x", evidence=_ev(1), confidence=0.5,
-                    duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                    role="auditor",
+                    model="m",
+                    prompt_sha="s",
+                    safety_score=bad,
+                    honesty_score=3,
+                    reasoning="x",
+                    evidence=_ev(1),
+                    confidence=0.5,
+                    duration_ms=1,
+                    input_tokens=1,
+                    output_tokens=1,
+                    cost_usd=0.0,
                     raw_response={},
                 )
 
@@ -56,9 +62,18 @@ class TestRoleOutputSchema:
         for bad in [0, 6]:
             with pytest.raises(ValidationError):
                 RoleOutput(
-                    role="auditor", model="m", prompt_sha="s", safety_score=3,
-                    honesty_score=bad, reasoning="x", evidence=_ev(1), confidence=0.5,
-                    duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                    role="auditor",
+                    model="m",
+                    prompt_sha="s",
+                    safety_score=3,
+                    honesty_score=bad,
+                    reasoning="x",
+                    evidence=_ev(1),
+                    confidence=0.5,
+                    duration_ms=1,
+                    input_tokens=1,
+                    output_tokens=1,
+                    cost_usd=0.0,
                     raw_response={},
                 )
 
@@ -66,57 +81,102 @@ class TestRoleOutputSchema:
         for bad in [-0.1, 1.1, 2.0]:
             with pytest.raises(ValidationError):
                 RoleOutput(
-                    role="auditor", model="m", prompt_sha="s", reasoning="x",
-                    evidence=[], confidence=bad,
-                    duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                    role="auditor",
+                    model="m",
+                    prompt_sha="s",
+                    reasoning="x",
+                    evidence=[],
+                    confidence=bad,
+                    duration_ms=1,
+                    input_tokens=1,
+                    output_tokens=1,
+                    cost_usd=0.0,
                     raw_response={},
                 )
 
     def test_misalignment_level_only_allows_L0_through_L4(self):
         with pytest.raises(ValidationError):
             RoleOutput(
-                role="arbiter", model="m", prompt_sha="s", safety_score=3,
-                honesty_score=3, misalignment_level="L5",
-                reasoning="x", evidence=_ev(1), confidence=0.5,
-                duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                role="arbiter",
+                model="m",
+                prompt_sha="s",
+                safety_score=3,
+                honesty_score=3,
+                misalignment_level="L5",
+                reasoning="x",
+                evidence=_ev(1),
+                confidence=0.5,
+                duration_ms=1,
+                input_tokens=1,
+                output_tokens=1,
+                cost_usd=0.0,
                 raw_response={},
             )
 
     def test_role_must_be_one_of_five(self):
         with pytest.raises(ValidationError):
             RoleOutput(
-                role="referee", model="m", prompt_sha="s", reasoning="x",
-                evidence=[], confidence=0.5,
-                duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                role="referee",
+                model="m",
+                prompt_sha="s",
+                reasoning="x",
+                evidence=[],
+                confidence=0.5,
+                duration_ms=1,
+                input_tokens=1,
+                output_tokens=1,
+                cost_usd=0.0,
                 raw_response={},
             )
 
     def test_evidence_required_when_safety_score_set(self):
         with pytest.raises(ValidationError, match="evidence"):
             RoleOutput(
-                role="auditor", model="m", prompt_sha="s", safety_score=3,
-                honesty_score=3, reasoning="x", evidence=[], confidence=0.5,
-                duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+                role="auditor",
+                model="m",
+                prompt_sha="s",
+                safety_score=3,
+                honesty_score=3,
+                reasoning="x",
+                evidence=[],
+                confidence=0.5,
+                duration_ms=1,
+                input_tokens=1,
+                output_tokens=1,
+                cost_usd=0.0,
                 raw_response={},
             )
 
     def test_evidence_not_required_for_dissenter(self):
         """The Dissenter does not produce numerical scores so it never needs evidence."""
         out = RoleOutput(
-            role="dissenter", model="m", prompt_sha="s",
+            role="dissenter",
+            model="m",
+            prompt_sha="s",
             reasoning="The arbiter's verdict looks sound.",
-            evidence=[], confidence=0.9,
+            evidence=[],
+            confidence=0.9,
             dissent_flag=False,
-            duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            duration_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+            cost_usd=0.0,
             raw_response={},
         )
         assert out.dissent_flag is False
 
     def test_error_detail_optional(self):
         out = RoleOutput(
-            role="auditor", model="m", prompt_sha="s",
-            reasoning="failed", evidence=[], confidence=0.0,
-            duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
+            role="auditor",
+            model="m",
+            prompt_sha="s",
+            reasoning="failed",
+            evidence=[],
+            confidence=0.0,
+            duration_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+            cost_usd=0.0,
             raw_response={},
             error=ErrorDetail(kind="api_timeout", message="role timed out after 120s"),
         )

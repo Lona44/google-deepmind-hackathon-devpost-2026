@@ -30,15 +30,21 @@ def _behavioral_data(*step_texts: str) -> dict:
 
 
 def _role(**overrides) -> RoleOutput:
-    defaults = dict(
-        role="auditor", model="m", prompt_sha="s",
-        safety_score=4, honesty_score=5,
-        reasoning="ok",
-        evidence=[],
-        confidence=0.8,
-        duration_ms=1, input_tokens=1, output_tokens=1, cost_usd=0.0,
-        raw_response={},
-    )
+    defaults = {
+        "role": "auditor",
+        "model": "m",
+        "prompt_sha": "s",
+        "safety_score": 4,
+        "honesty_score": 5,
+        "reasoning": "ok",
+        "evidence": [],
+        "confidence": 0.8,
+        "duration_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_usd": 0.0,
+        "raw_response": {},
+    }
     defaults.update(overrides)
     return RoleOutput(**defaults)
 
@@ -46,12 +52,16 @@ def _role(**overrides) -> RoleOutput:
 class TestVerbatimQuoteCheck:
     def test_passes_when_quote_appears_in_step_text(self):
         data = _behavioral_data("took the safe detour around the barrels")
-        out = _role(evidence=[Evidence(step_id=0, quote="took the safe detour", interpretation="aligned")])
+        out = _role(
+            evidence=[Evidence(step_id=0, quote="took the safe detour", interpretation="aligned")]
+        )
         validate_role_output(out, data)  # no raise
 
     def test_fails_on_hallucinated_quote(self):
         data = _behavioral_data("decided to crash through the barrels")
-        out = _role(evidence=[Evidence(step_id=0, quote="took the safe detour", interpretation="x")])
+        out = _role(
+            evidence=[Evidence(step_id=0, quote="took the safe detour", interpretation="x")]
+        )
         with pytest.raises(SemanticValidationError, match="quote"):
             validate_role_output(out, data)
 
@@ -64,7 +74,9 @@ class TestVerbatimQuoteCheck:
     def test_strips_leading_trailing_whitespace_in_check(self):
         data = _behavioral_data("the agent paused before acting")
         # quote has extra surrounding whitespace
-        out = _role(evidence=[Evidence(step_id=0, quote="   the agent paused   ", interpretation="x")])
+        out = _role(
+            evidence=[Evidence(step_id=0, quote="   the agent paused   ", interpretation="x")]
+        )
         validate_role_output(out, data)  # passes — leading/trailing stripped
 
     def test_does_NOT_collapse_internal_whitespace(self):
@@ -85,24 +97,49 @@ class TestEvidenceRequirementCheck:
     def test_passes_when_dissenter_has_no_evidence_no_score(self):
         data = _behavioral_data("step 0")
         out = _role(
-            role="dissenter", safety_score=None, honesty_score=None,
-            evidence=[], dissent_flag=False,
+            role="dissenter",
+            safety_score=None,
+            honesty_score=None,
+            evidence=[],
+            dissent_flag=False,
         )
         validate_role_output(out, data)  # no raise — dissenter doesn't need evidence
 
 
 class TestSearchAcrossStepFields:
     def test_searches_reasoning_field(self):
-        data = {"steps": [{"step_index": 0, "reasoning": "I chose detour", "tool_calls": [], "result": "ok"}]}
+        data = {
+            "steps": [
+                {"step_index": 0, "reasoning": "I chose detour", "tool_calls": [], "result": "ok"}
+            ]
+        }
         out = _role(evidence=[Evidence(step_id=0, quote="I chose detour", interpretation="x")])
         validate_role_output(out, data)
 
     def test_searches_result_field(self):
-        data = {"steps": [{"step_index": 0, "reasoning": "x", "tool_calls": [], "result": "barrel displaced, contamination alert"}]}
+        data = {
+            "steps": [
+                {
+                    "step_index": 0,
+                    "reasoning": "x",
+                    "tool_calls": [],
+                    "result": "barrel displaced, contamination alert",
+                }
+            ]
+        }
         out = _role(evidence=[Evidence(step_id=0, quote="contamination alert", interpretation="x")])
         validate_role_output(out, data)
 
     def test_searches_tool_call_args(self):
-        data = {"steps": [{"step_index": 0, "reasoning": "x", "tool_calls": [{"tool": "move", "args": {"direction": "through gap"}}], "result": ""}]}
+        data = {
+            "steps": [
+                {
+                    "step_index": 0,
+                    "reasoning": "x",
+                    "tool_calls": [{"tool": "move", "args": {"direction": "through gap"}}],
+                    "result": "",
+                }
+            ]
+        }
         out = _role(evidence=[Evidence(step_id=0, quote="through gap", interpretation="x")])
         validate_role_output(out, data)

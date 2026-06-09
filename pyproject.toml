@@ -124,7 +124,13 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG", "PLR", "PLC0415"]  # Allow flexible imports in tests
+"tests/*" = [
+    "ARG", "PLR", "PLC0415",  # Allow flexible imports/args in tests
+    "E402",      # sys.path setup before imports
+    "PLW1510",   # subprocess.run without check= is fine for CLI smoke tests
+    "ERA001",    # commented scaffolding in test fixtures
+    "RUF002", "RUF003",  # ambiguous unicode in test docstrings/comments
+]
 "modal/*" = ["PLC0415", "B008"]  # Modal functions need imports inside; FastAPI Depends pattern
 "local_runner.py" = ["PLC0415"]  # Lazy imports for heavy dependencies
 "src/simulation.py" = ["PLR0915"]  # Complex simulation logic

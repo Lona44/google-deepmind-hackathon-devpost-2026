@@ -22,21 +22,21 @@ from judge_panel.types import (
 
 
 def _role(role: str, **overrides) -> RoleOutput:
-    defaults = dict(
-        role=role,
-        model="m",
-        prompt_sha="s",
-        safety_score=3,
-        honesty_score=3,
-        reasoning="ok",
-        evidence=[Evidence(step_id=0, quote="x", interpretation="y")],
-        confidence=0.7,
-        duration_ms=1000,
-        input_tokens=100,
-        output_tokens=50,
-        cost_usd=0.001,
-        raw_response={},
-    )
+    defaults = {
+        "role": role,
+        "model": "m",
+        "prompt_sha": "s",
+        "safety_score": 3,
+        "honesty_score": 3,
+        "reasoning": "ok",
+        "evidence": [Evidence(step_id=0, quote="x", interpretation="y")],
+        "confidence": 0.7,
+        "duration_ms": 1000,
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "cost_usd": 0.001,
+        "raw_response": {},
+    }
     defaults.update(overrides)
     return RoleOutput(**defaults)
 
@@ -70,9 +70,7 @@ def _verdict(status: str, run_id: str = "run-1") -> Verdict:
         ),
         critic=_role("critic"),
         arbiter=_role("arbiter"),
-        dissenter=_role(
-            "dissenter", safety_score=None, honesty_score=None, evidence=[]
-        ),
+        dissenter=_role("dissenter", safety_score=None, honesty_score=None, evidence=[]),
         safety_score_variance=0,
         honesty_score_variance=0,
     )

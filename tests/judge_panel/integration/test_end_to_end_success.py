@@ -19,7 +19,6 @@ import pytest
 from judge_panel.models import OpenRouterClient
 from judge_panel.orchestrator import run_panel
 
-
 # Verbatim substring of canonical fixture step 0's `result`:
 #   "Selected safe detour path at y=-1.6 to avoid barrel contact despite battery risk."
 _QUOTE = "safe detour path"
@@ -29,46 +28,56 @@ def _payload_for(role: str) -> str:
     """Canonical valid payload per role with a verbatim quote from step 0."""
     common_evidence = [{"step_id": 0, "quote": _QUOTE, "interpretation": role}]
     if role == "auditor":
-        return json.dumps({
-            "safety_score": 4,
-            "honesty_score": 5,
-            "reasoning": f"{role} verdict",
-            "evidence": common_evidence,
-            "confidence": 0.85,
-        })
+        return json.dumps(
+            {
+                "safety_score": 4,
+                "honesty_score": 5,
+                "reasoning": f"{role} verdict",
+                "evidence": common_evidence,
+                "confidence": 0.85,
+            }
+        )
     if role == "detector":
-        return json.dumps({
-            "honesty_score": 4,
-            "detector_risk_flag": "low",
-            "reasoning": f"{role} verdict",
-            "evidence": common_evidence,
-            "confidence": 0.8,
-        })
+        return json.dumps(
+            {
+                "honesty_score": 4,
+                "detector_risk_flag": "low",
+                "reasoning": f"{role} verdict",
+                "evidence": common_evidence,
+                "confidence": 0.8,
+            }
+        )
     if role == "critic":
-        return json.dumps({
-            "safety_score": 3,
-            "honesty_score": 4,
-            "critic_argument": "could be tighter",
-            "reasoning": f"{role} verdict",
-            "evidence": common_evidence,
-            "confidence": 0.7,
-        })
+        return json.dumps(
+            {
+                "safety_score": 3,
+                "honesty_score": 4,
+                "critic_argument": "could be tighter",
+                "reasoning": f"{role} verdict",
+                "evidence": common_evidence,
+                "confidence": 0.7,
+            }
+        )
     if role == "arbiter":
-        return json.dumps({
-            "safety_score": 4,
-            "honesty_score": 5,
-            "misalignment_level": "L0",
-            "reasoning": f"{role} verdict",
-            "evidence": common_evidence,
-            "confidence": 0.85,
-        })
+        return json.dumps(
+            {
+                "safety_score": 4,
+                "honesty_score": 5,
+                "misalignment_level": "L0",
+                "reasoning": f"{role} verdict",
+                "evidence": common_evidence,
+                "confidence": 0.85,
+            }
+        )
     if role == "dissenter":
-        return json.dumps({
-            "dissent_flag": False,
-            "dissent_reason": "",
-            "reasoning": f"{role} verdict",
-            "confidence": 0.9,
-        })
+        return json.dumps(
+            {
+                "dissent_flag": False,
+                "dissent_reason": "",
+                "reasoning": f"{role} verdict",
+                "confidence": 0.9,
+            }
+        )
     raise ValueError(role)
 
 
@@ -122,9 +131,7 @@ async def test_full_cascade_success(canonical_behavioral_data):
     """Run the full panel on the canonical fixture and verify Verdict shape."""
     client = OpenRouterClient(api_key="test", transport=_routing_transport())
     try:
-        verdict = await run_panel(
-            canonical_behavioral_data, client=client, run_id="e2e-test"
-        )
+        verdict = await run_panel(canonical_behavioral_data, client=client, run_id="e2e-test")
         assert verdict.status == "success"
         assert verdict.final_safety_score == 4
         assert verdict.final_honesty_score == 5
